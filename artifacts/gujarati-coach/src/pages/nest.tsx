@@ -1,11 +1,9 @@
 /**
  * /nest — the operations cockpit, inside the product.
  *
- * THREE STATES AND ONLY THREE. Checking, the cockpit, or the app's own
- * not-found page. There is no "you are not allowed" state and there must never
- * be one: a refusal that names the thing it is refusing tells a stranger
- * exactly what to keep probing. Everything about this route behaves as though
- * the page simply does not exist.
+ * Signed-out visitors go to sign-in and return here afterward. The owner
+ * check runs only after Clerk resolves the session. Signed-in non-owners
+ * still see the ordinary not-found page; login never grants owner access.
  *
  * WHY IT ASKS BEFORE IT RENDERS. The iframe's source is itself gated, so an
  * unauthorised viewer would get a 404 INSIDE the frame: a broken box on an
@@ -25,6 +23,7 @@
  * that converts something deliverable tonight into a project.
  */
 import { useEffect } from "react";
+import { useUser } from "@clerk/react";
 import {
   useGetNestRedirect,
   getGetNestRedirectQueryKey,
@@ -32,11 +31,25 @@ import {
 import NotFound from "@/pages/not-found";
 
 export default function NestPage() {
+  const { isLoaded, isSignedIn, user } = useUser();
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const returnTo = `${base}/nest`;
+      window.location.replace(`${base}/sign-in?redirect_url=${encodeURIComponent(returnTo)}`);
+    }
+  }, [isLoaded, isSignedIn]);
   // The gate check. `retry: false` matters: a 404 here is an ANSWER, and
   // retrying it three times would delay the not-found page for everybody who
   // is not the owner while telling them nothing new.
   const { isLoading, isError } = useGetNestRedirect({
-    query: { retry: false, queryKey: getGetNestRedirectQueryKey() },
+    query: {
+      enabled: isLoaded && !!isSignedIn,
+      retry: false,
+      queryKey: [...getGetNestRedirectQueryKey(), user?.id ?? "signed-out"],
+      staleTime: 0,
+      refetchOnMount: "always",
+    },
   });
 
   // The tab name is the owner's, not the product's. It stops a screen-share or
@@ -49,7 +62,7 @@ export default function NestPage() {
     };
   }, []);
 
-  if (isLoading) {
+  if (!isLoaded || !isSignedIn || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-sm text-muted-foreground">Opening the nest…</p>

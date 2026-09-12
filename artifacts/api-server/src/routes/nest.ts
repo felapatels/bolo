@@ -1,3 +1,5 @@
+import { nestExcludedIds, nestExclusionKey } from "../lib/nestExclusions";
+import { canReadNest } from "../lib/nestFleet";
 /**
  * THE NEST: internal operations tooling, on a customer-facing app.
  *
@@ -52,6 +54,12 @@ import { isOwner, nonLearnerUserIds, NEST_ARTIFACT_URL } from "../lib/ownerGate"
 import { usableNote } from "../lib/reportNote";
 
 const router: IRouter = Router();
+router.use((req, res, next) => {
+  if (canReadNest(req)) {
+    try { nestExcludedIds(req); } catch { res.status(400).json({ error: "Invalid account exclusions (maximum 100 per app)" }); return; }
+  }
+  next();
+});
 
 /** The one shape of refusal this file knows. Never 403, never a message. */
 function notFound(res: Response): void {
@@ -259,12 +267,12 @@ type NestSummary = {
 // hour window is that it moves while you watch it. Still a cache: a page left
 // open on a second monitor must not run these aggregates once a second.
 const CACHE_MS = 20_000;
-let cached: { at: number; value: NestSummary } | null = null;
+let cached: { at: number; key: string; value: NestSummary } | null = null;
 
 router.get("/nest/summary", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
-  if (cached && Date.now() - cached.at < CACHE_MS) {
+  if (cached && cached.key === nestExclusionKey(req) && Date.now() - cached.at < CACHE_MS) {
     res.json(cached.value);
     return;
   }
@@ -277,7 +285,7 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
   // needs no array typing and cannot be reinterpreted.
   // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
   // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
-  const owners = [...nonLearnerUserIds];
+  const owners = [...nestExcludedIds(req)];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -504,7 +512,7 @@ router.get("/nest/summary", async (req: Request, res: Response): Promise<void> =
       ttsBytes: n("tts_bytes"),
       dbBytes: n("db_bytes"),
     };
-    cached = { at: Date.now(), value };
+    cached = { at: Date.now(), key: nestExclusionKey(req), value };
     res.json(value);
   } catch (err) {
     req.log.error({ err }, "nest summary failed");
@@ -669,7 +677,7 @@ const DRILL_LIMIT = 200;
  */
 
 router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
   const metric = String(req.query.metric ?? "");
   const def = DRILL_METRICS[metric];
@@ -686,7 +694,7 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
   const { from, to } = parsed;
   const exclOwner = req.query.exclOwner !== "0";
 
-  const owners = [...nonLearnerUserIds];
+  const owners = [...nestExcludedIds(req)];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -1010,10 +1018,10 @@ type NestReports = {
 const REPORTS_LIMIT = 200;
 
 router.get("/nest/reports", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
   const exclOwner = req.query.exclOwner !== "0";
-  const owners = [...nonLearnerUserIds];
+  const owners = [...nestExcludedIds(req)];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -1122,7 +1130,7 @@ router.get("/nest/reports", async (req: Request, res: Response): Promise<void> =
       firstAt: new Date(r.first_at as string).toISOString(),
       lastAt: new Date(r.last_at as string).toISOString(),
       open: r.open === true,
-      excluded: nonLearnerUserIds.has(String(r.reported_user_id)),
+      excluded: nestExcludedIds(req).has(String(r.reported_user_id)),
       reportersAllExcluded: r.reporters_all_excluded === true,
     }));
 
@@ -1225,12 +1233,12 @@ type NestMap = {
 };
 
 router.get("/nest/map", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
   const exclOwner = req.query.exclOwner !== "0";
   // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
   // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
-  const owners = [...nonLearnerUserIds];
+  const owners = [...nestExcludedIds(req)];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -1504,7 +1512,7 @@ function parseRange(q: Record<string, unknown>): { from: Date; to: Date } | null
 }
 
 router.get("/nest/range", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
   const parsed = parseRange(req.query as Record<string, unknown>);
   if (!parsed) {
@@ -1519,7 +1527,7 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
 
   // nonLearnerUserIds, not ownerUserIds: the App Review tester is not a
   // customer either, and it filed all 47 phrase reports. See lib/ownerGate.
-  const owners = [...nonLearnerUserIds];
+  const owners = [...nestExcludedIds(req)];
   const ownerList = sql.join(
     owners.map((o) => sql`${o}`),
     sql`, `,
@@ -1765,17 +1773,17 @@ type NestLive = {
 
 /** Ten seconds. Short enough that "right now" means it. */
 const LIVE_CACHE_MS = 10_000;
-let liveCached: { at: number; minutes: number; value: NestLive } | null = null;
+let liveCached: { at: number; key: string; minutes: number; value: NestLive } | null = null;
 
 router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
 
   const raw = Number(req.query.minutes ?? 15);
   // A day is the ceiling: past that this stops being "right now" and the range
   // endpoint is the right tool.
   const minutes = Number.isFinite(raw) ? Math.min(1440, Math.max(1, Math.round(raw))) : 15;
 
-  if (liveCached && liveCached.minutes === minutes && Date.now() - liveCached.at < LIVE_CACHE_MS) {
+  if (liveCached && liveCached.key === nestExclusionKey(req) && liveCached.minutes === minutes && Date.now() - liveCached.at < LIVE_CACHE_MS) {
     res.json(liveCached.value);
     return;
   }
@@ -1806,7 +1814,7 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
 
   if (here.length === 0) {
     const value: NestLive = { ...base, total: 0, totalExclOwner: 0, people: [] };
-    liveCached = { at: now, minutes, value };
+    liveCached = { at: now, key: nestExclusionKey(req), minutes, value };
     res.json(value);
     return;
   }
@@ -1845,7 +1853,7 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
         tier: row?.tier == null ? null : String(row.tier),
         lastRequestAt: new Date(at).toISOString(),
         clerkLastActiveAt: clerkAt === undefined ? null : new Date(clerkAt).toISOString(),
-        excluded: nonLearnerUserIds.has(userId),
+        excluded: nestExcludedIds(req).has(userId),
       };
     });
 
@@ -1856,7 +1864,7 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
       totalExclOwner: people.length - excluded,
       people,
     };
-    liveCached = { at: now, minutes, value };
+    liveCached = { at: now, key: nestExclusionKey(req), minutes, value };
     res.json(value);
   } catch (err) {
     req.log.error({ err }, "nest live could not hydrate names");
@@ -1864,7 +1872,7 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
     const value: NestLive = {
       ...base,
       total: here.length,
-      totalExclOwner: here.filter((h) => !nonLearnerUserIds.has(h.userId)).length,
+      totalExclOwner: here.filter((h) => !nestExcludedIds(req).has(h.userId)).length,
       people: [],
     };
     res.json(value);
@@ -2042,7 +2050,7 @@ router.post("/nest/mail/reply", async (req: Request, res: Response): Promise<voi
  * exactly like nobody commenting.
  */
 router.get("/nest/social", async (req: Request, res: Response): Promise<void> => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
   if (!supportConfigured()) {
     res.json({
       configured: false,
@@ -2078,7 +2086,7 @@ router.get("/nest/social", async (req: Request, res: Response): Promise<void> =>
 });
 
 router.get("/nest/wardrobe", (req: Request, res: Response): void => {
-  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  if (!canReadNest(req)) return notFound(res);
   const items = OUTFIT_CATALOG.map((entry) => ({
     id: entry.id,
     name: entry.name,
@@ -2131,7 +2139,7 @@ router.get("/nest/page", (req: Request, res: Response): void => {
     // invisible behind a stale copy for as long as the browser felt like it.
     res.set("Content-Type", "text/html; charset=utf-8");
     res.set("Cache-Control", "no-store");
-    res.send(nestPage());
+    res.send(req.query.view === "classic" ? nestPage() : nestAsset("nest-fleet.html"));
   } catch (err) {
     req.log.error({ err }, "nest page missing from the build");
     res.status(500).json({ error: "The cockpit is not in this build" });
@@ -2156,7 +2164,30 @@ router.get("/nest/page", (req: Request, res: Response): void => {
  * can: it throws at boot rather than serving a cockpit with holes in it, which
  * is the same fail-closed direction as the owner gate.
  */
+
+// Read-only, paginated picker. It is never constrained by the reporting exclusions.
+router.get("/nest/exclusion-accounts", async (req: Request, res: Response): Promise<void> => {
+  if (!canReadNest(req)) return notFound(res);
+  const search = typeof req.query.search === "string" ? req.query.search.slice(0, 120) : "";
+  const cursor = typeof req.query.cursor === "string" ? req.query.cursor.slice(0, 128) : "";
+  try {
+    const result = await db.execute(sql`select id, email, display_name, username from users
+      where (${search} = '' or concat_ws(' ', email, display_name, username, id) ilike ${'%' + search + '%'})
+        and (${cursor} = '' or id > ${cursor}) order by id limit 101`);
+    const rows = (result as unknown as { rows?: Record<string, unknown>[] }).rows ?? (result as unknown as Record<string, unknown>[]);
+    res.set("Cache-Control", "no-store").json({
+      defaultExcludedIds: [...nonLearnerUserIds],
+      rows: rows.slice(0,100).map(row => ({ id: String(row.id), email: row.email, name: row.username || row.display_name || null })),
+      nextCursor: rows.length > 100 ? String(rows[99].id) : null,
+    });
+  } catch (err) {
+    req.log.error({ err }, "nest account picker failed");
+    res.status(500).json({ error: "Could not load accounts" });
+  }
+});
+
 const EXPECTED_ROUTES = [
+  "/nest/exclusion-accounts",
   "/nest/redirect",
   "/nest/summary",
   "/nest/drill",

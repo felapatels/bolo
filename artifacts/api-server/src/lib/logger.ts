@@ -8,6 +8,7 @@ const base = pino({
   level: process.env.LOG_LEVEL ?? "info",
   redact: [
     "req.headers.authorization",
+    "req.headers['x-nest-relay-key']",
     "req.headers.cookie",
     "res.headers['set-cookie']",
   ],

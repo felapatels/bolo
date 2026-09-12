@@ -1,3 +1,4 @@
+import { createNestFleetRouters } from "../lib/nestFleet";
 import { guardAiRequests } from "../middlewares/guardAiRequests";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
@@ -70,6 +71,8 @@ router.use(contactRouter);
 // Public for the same reason contact is: the contributors are relatives who
 // write the script and have never signed in. See routes/scriptTrace.ts.
 router.use(scriptTraceRouter);
+const nestFleet = createNestFleetRouters(nestRouter);
+router.use(nestFleet.relay);
 router.use(requireAuth);
 router.use(guardAiRequests);
 // THE NEST: internal tooling, 404 for everybody but the owner. It sits directly
@@ -78,6 +81,7 @@ router.use(guardAiRequests);
 // entitlement resolution. It also must stay under /api, which it is by being
 // here, because bolo-india.app/nest returns 200 today from the SPA catch-all
 // and anything that needs to answer 404 has to sit in front of that.
+router.use(nestFleet.hub);
 router.use(nestRouter);
 router.use(loadEntitlements);
 router.use(entitlementsRouter);
