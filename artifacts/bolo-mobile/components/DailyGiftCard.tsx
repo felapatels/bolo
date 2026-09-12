@@ -122,7 +122,8 @@ export function DailyGiftCard({ testID }: { testID?: string }) {
       // already composes it as `claimable && earnedToday` (routes/tokens.ts), so
       // an unearned day arrives here as false and the box locks itself. With no
       // payload at all it is false, which is the correct resting state.
-      claimable={(g?.claimable ?? false) && (g?.earnedToday ?? false) && !claim.isPending}
+      claimable={(g?.claimable ?? false) && (g?.earnedToday ?? false)}
+      busy={claim.isPending}
       chaiToNextStop={g?.chaiToNextStop}
       stopCost={g?.stopCost}
       balance={tokensQuery.data?.balance}

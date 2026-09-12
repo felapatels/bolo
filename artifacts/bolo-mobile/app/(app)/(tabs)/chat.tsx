@@ -529,7 +529,9 @@ export default function ChatScreen() {
         playbackRef.current?.stop();
         playbackRef.current = null;
         try {
-          void recorderRef.current.stop();
+          void recorderRef.current.stop().catch(() => {
+            // Native stop also rejects asynchronously when already idle.
+          });
         } catch {
           // Best-effort: the recorder may already be stopped/idle.
         }

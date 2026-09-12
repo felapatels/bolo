@@ -1,3 +1,4 @@
+import { DailyGiftRow } from '@/components/DailyGiftRow';
 /**
  * THE DAILY GIFT. Resting it is one row; opened it earns its height.
  *
@@ -275,6 +276,7 @@ export interface DailyGiftBoxProps {
   tier: GiftTier;
   claimed: boolean;
   claimable: boolean;
+  busy?: boolean;
   /** Chai still needed for the next stop. Absent for an entitled learner. */
   chaiToNextStop?: number;
   /** What a stop costs, so the bar has a denominator. */
@@ -302,6 +304,7 @@ export function DailyGiftBox({
   tier,
   claimed,
   claimable,
+  busy = false,
   chaiToNextStop,
   stopCost,
   balance,
@@ -448,107 +451,17 @@ export function DailyGiftBox({
     </Pressable>
   );
 
-  // ── RESTING ───────────────────────────────────────────────────────────────
+  // A single row until opened; the receipt keeps its existing reveal below.
   if (!claimed) {
-    return (
-      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Pressable
-        testID={testID}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !claimable }}
-        accessibilityLabel={
-          claimable
-            ? `Open today's gift, day ${day}. ${giftRangeCopy(multiplier)}`
-            : `Today's gift, locked. Finish a stop today to open it. ${giftRangeCopy(multiplier)}`
-        }
-        onPress={press}
-        disabled={!claimable}
-      >
-        {error ? <Text accessibilityLiveRegion="polite" style={{ padding: 8, color: colors.foreground }}>{error}</Text> : null}
-        <View style={styles.row}>
-          <Animated.View
-            testID={`${testID}-art`}
-            style={{ transform: [{ rotate }] }}
-          >
-            <BoxArt tier={tier} day={day} accent={colors.primary} locked={!claimable} />
-          </Animated.View>
-          <View style={styles.rowCopy}>
-            {/* LOCKED IS THE RESTING STATE, NOT THE ABSENT ONE (owner,
-                2026-09-09: "I want it to always show but be locked until the
-                lesson is complete").
- 
-                INDIA USED TO HIDE THE CARD ENTIRELY until the day was earned,
-                and that was MY design with a reason written at the guard: a
-                permanent box at the top of Home every morning reads as a nag.
-                THE REASONING WAS WRONG FOR THIS PRODUCT. An absent box teaches
-                nothing: a learner who has not practised sees no gift, so there
-                is no promise to come back for and no visible reason to finish a
-                stop. The whole retention mechanic depends on the box being
-                VISIBLE WHILE IT IS SHUT.
- 
-                IT IS AN INSTRUCTION, NOT A STATE. "Finish a stop today to open
-                it" tells a learner what to do; a dimmed box tells them only
-                that something is wrong. That is the same ruling as "we should
-                show that on the gift so its obvious".
- 
-                AND THE RANGE STAYS, THE DRAW NEVER APPEARS. The range is the
-                promise and it is honest before the day is earned. A specific
-                number on a box you cannot open is a promise with no event
-                behind it, which is exactly what Europe shipped. */}
-            {!claimable ? (
-              <>
-                <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>TODAY&apos;S GIFT</Text>
-                <Text
-                  testID={`${testID}-locked`}
-                  style={[styles.remain, { color: colors.foreground }]}
-                >
-                  Finish a stop today to open it
-                </Text>
-                <Text
-                  testID={`${testID}-range`}
-                  style={[styles.body, { color: colors.mutedForeground }]}
-                >
-                  {giftRangeCopy(multiplier)}
-                </Text>
-              </>
-            ) : isPlus ? (
-              <>
-                <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>TODAY&apos;S GIFT</Text>
-                <Text style={[styles.remain, { color: colors.foreground }]}>Tap to open</Text>
-                <Text
-                  testID={`${testID}-range`}
-                  style={[styles.body, { color: colors.mutedForeground }]}
-                >
-                  {giftRangeCopy(multiplier)}
-                </Text>
-              </>
-            ) : (
-              <>
-                <View style={styles.meterHead}>
-                  <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>NEXT STOP</Text>
-                  <Text testID={`${testID}-count`} style={[styles.body, { color: colors.mutedForeground }]}>
-                    {stopCost != null && chaiToNextStop != null
-                      ? `${Math.max(0, stopCost - chaiToNextStop)} of ${stopCost}`
-                      : ''}
-                  </Text>
-                </View>
-                <StopTrack
-                  spentPct={spentPct}
-                  todayPct={0}
-                  border={colors.card}
-                  muted={colors.mutedForeground}
-                />
-                <Text testID={`${testID}-remain`} style={[styles.remain, { color: colors.foreground }]}>
-                  {remainLabel}
-                </Text>
-              </>
-            )}
-          </View>
-        </View>
-      </Pressable>
-      {shopButton}
-      </View>
-    );
+    return <DailyGiftRow
+      testID={`${testID}-row`} giftTestID={testID}
+      instructionTestID={`${testID}-locked`} rangeTestID={`${testID}-range`} shopTestID={`${testID}-shop`}
+      art={<Animated.View style={{ transform: [{ rotate }] }}><BoxArt tier={tier} day={day} accent={colors.primary} locked={!claimable} /></Animated.View>}
+      artWidth={80}
+      title={claimable ? 'Tap to open' : 'Finish a stop today to open it'}
+      range={giftRangeCopy(multiplier)} locked={!claimable} busy={busy}
+      onOpen={press} onShop={onShop} error={error}
+    />;
   }
 
   // ── OPENED ────────────────────────────────────────────────────────────────
