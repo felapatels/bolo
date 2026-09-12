@@ -1,3 +1,4 @@
+import { canPreviewDailyGift } from "../lib/dailyGiftPreview";
 import { canPurchaseInOrder, purchasableJourneyStops, journeyStopRefId, hasJourneyStopUnlock, listJourneyStopUnlocks, validateJourneyStop } from "../lib/journeyStopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
@@ -580,7 +581,7 @@ async function readDailyGift(req: Request): Promise<{
       ),
     )
     .limit(1);
-  const earnedToday = earnedDayKeys.has(todayKey);
+  const earnedToday = earnedDayKeys.has(todayKey) || await canPreviewDailyGift(userId);
   const gift = dailyGiftFor({
     streakDays: currentStreakDays,
     claimedDayKey: claimedRow ? todayKey : null,
