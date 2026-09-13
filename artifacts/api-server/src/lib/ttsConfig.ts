@@ -24,7 +24,36 @@ import { getVoiceIdForLanguage } from "./languageVoice";
  */
 export type TtsProvider = "gpt-audio" | "gpt-4o-mini-tts" | "elevenlabs";
 
-export const TTS_PROVIDER = "gpt-4o-mini-tts" as TtsProvider;
+export const TTS_PROVIDER = "elevenlabs" as TtsProvider;
+
+/**
+ * WHICH LANGUAGES ACTUALLY GO TO ELEVENLABS, 2026-09-13.
+ *
+ * India had no such set, because the provider was never switched on: every
+ * language resolved to gpt-4o-mini-tts and the whole ElevenLabs configuration
+ * in languageVoice.ts was unreachable. With the provider live the set has to
+ * exist, or a language ElevenLabs does not speak is handed to it anyway.
+ *
+ * THESE ARE THE ELEVEN eleven_multilingual_v2 SPEAKS NATIVELY, and they are
+ * not a new judgement: they are exactly the codes LANGUAGE_ID_MAP already
+ * marks "natively supported" rather than mapping to a closest neighbour.
+ *
+ * The other twelve stay on gpt-4o-mini-tts on purpose. LANGUAGE_ID_MAP does
+ * carry closest-language fallbacks for them (Sanskrit to Hindi, Odia to
+ * Bengali, Kashmiri to Urdu and so on) and those are good mappings, but
+ * sending an unsupported language to its neighbour is the same move LATAM's
+ * own ttsConfig warns about: the danger is not silence, it is a confident
+ * reading in the wrong phonology. Widening this set is a separate decision.
+ */
+export const ELEVENLABS_LANGUAGES: ReadonlySet<string> = new Set([
+  "hi", "gu", "ta", "bn", "ur", "mr", "pa", "te", "kn", "ml", "ne",
+]);
+
+/** True when the configured ElevenLabs model can speak this language. */
+export function elevenLabsSpeaks(languageCode?: string): boolean {
+  if (!languageCode) return false;
+  return ELEVENLABS_LANGUAGES.has(languageCode.trim().toLowerCase());
+}
 
 /**
  * Derived from TTS_PROVIDER for backward compatibility with existing readers
@@ -288,11 +317,24 @@ export function phraseAudioIdentity(
 ): PhraseAudioIdentity {
   switch (TTS_PROVIDER) {
     case "elevenlabs":
+      // GATED PER LANGUAGE since 2026-09-13. This used to return an ElevenLabs
+      // identity for every language, which was harmless only while the provider
+      // was off. Santali is the clearest case: Ol Chiki is in no model's
+      // inventory and LANGUAGE_ID_MAP deliberately has no row for it, so it
+      // would arrive with no language hint at all.
+      if (elevenLabsSpeaks(languageCode)) {
+        return {
+          provider: "elevenlabs",
+          model: PHRASE_ELEVENLABS_MODEL,
+          voice: getVoiceIdForLanguage(languageCode),
+          instructions: "",
+        };
+      }
       return {
-        provider: "elevenlabs",
-        model: PHRASE_ELEVENLABS_MODEL,
-        voice: getVoiceIdForLanguage(languageCode),
-        instructions: "",
+        provider: "gpt-4o-mini-tts",
+        model: "gpt-4o-mini-tts",
+        voice: PHRASE_AUDIO_DEFAULT_VOICE,
+        instructions: BOLO_PHRASE_TTS_INSTRUCTIONS,
       };
     case "gpt-4o-mini-tts":
       return {

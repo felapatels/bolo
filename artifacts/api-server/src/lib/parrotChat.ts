@@ -8,12 +8,12 @@ import {
   convertToWav,
   type SpeechToTextOptions,
 } from "@workspace/integrations-openai-ai-server/audio";
-import { getLanguageIdForCode } from "./languageVoice";
+import { getLanguageIdForCode, getVoiceIdForLanguage } from "./languageVoice";
 import { wavDurationSeconds } from "./audioDuration";
 import { isEffectivelyEmpty } from "./pronunciationGuards";
 import { isQuotaExhaustedError } from "./ttsUtils";
 import { elevenLabsQuotaMonitor } from "./elevenLabsQuotaMonitor";
-import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST } from "./ttsConfig";
+import { TTS_PROVIDER, BOLO_CHAT_TTS_INSTRUCTIONS, BOLO_CHAT_TTS_INSTRUCTIONS_DIGEST, elevenLabsSpeaks } from "./ttsConfig";
 // The RESOLVED scene, not the definition: by the time a prompt is built the
 // phrases and the steering are language-specific, and a definition still
 // carrying "{{language}}" must never reach the model.
@@ -573,14 +573,25 @@ async function boloTTSMiniStream(
 // returns distorted, garbled audio. Multilingual_v2 adds ~1–2 s synthesis
 // latency vs flash but is the only model that handles the full Indic script
 // inventory accurately.
-const BOLO_ELEVENLABS_VOICE_ID = "FGY2WhTYpPnrIDTdsKH5"; // Laura
+// THE BIRD SPEAKS IN THE COACH'S VOICE. Owner rule restated 2026-09-13: "Bolo
+// Bird = coach voice (they should be the same) elder should be different."
+//
+// THIS WAS A PINNED ID AND IT WAS ALREADY WRONG. It read Laura's literal, which
+// stopped being the coach the moment languageVoice.ts moved the default to the
+// owner's pick. It never showed, because TTS_PROVIDER was gpt-4o-mini-tts and
+// this function was unreachable. SEA had the identical defect and it DID show:
+// 5cb16d89 gave the coach per-language voices, left the bird pinned, and chat
+// and practice became two different women in all ten languages.
+//
+// Resolved through getVoiceIdForLanguage, the same function the phrase audio
+// uses, so the two cannot drift apart again.
 const BOLO_ELEVENLABS_MODEL = "eleven_multilingual_v2";
 
 // Fast ElevenLabs synthesis for Bolo's chat replies.
 async function boloTTSElevenLabs(text: string, languageName: string, languageCode: string): Promise<Buffer> {
   return textToSpeechElevenLabs(
     text,
-    BOLO_ELEVENLABS_VOICE_ID,
+    getVoiceIdForLanguage(languageCode),
     languageName,
     BOLO_ELEVENLABS_MODEL,
     getLanguageIdForCode(languageCode),
@@ -788,15 +799,22 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   // synthesize path on every gpt-audio turn.
   ...(TTS_PROVIDER === "elevenlabs"
     ? {
+        // GATED PER LANGUAGE since 2026-09-13, matching the five forks. Without
+        // the gate a language ElevenLabs does not speak still streams through
+        // it: Santali is the clearest case, since LANGUAGE_ID_MAP deliberately
+        // has no row for Ol Chiki, so it would arrive with no language hint at
+        // all and be read as whatever the model guesses from the script.
         synthesizeStream: (text, _languageName, languageCode, onChunk) =>
-          textToSpeechElevenLabsStream(
-            text,
-            BOLO_ELEVENLABS_VOICE_ID,
-            _languageName,
-            BOLO_ELEVENLABS_MODEL,
-            getLanguageIdForCode(languageCode),
-            onChunk,
-          ),
+          elevenLabsSpeaks(languageCode)
+            ? textToSpeechElevenLabsStream(
+                text,
+                getVoiceIdForLanguage(languageCode),
+                _languageName,
+                BOLO_ELEVENLABS_MODEL,
+                getLanguageIdForCode(languageCode),
+                onChunk,
+              )
+            : boloTTSMiniStream(text, _languageName, languageCode, onChunk),
       }
     : TTS_PROVIDER === "gpt-4o-mini-tts"
       ? { synthesizeStream: boloTTSMiniStream }

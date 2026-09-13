@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { runParrotTurn as _runParrotTurn, makeSynthesizeWithFallback, normalizeSquawkConsistency, BOLO_MINI_TTS_VOICE, type ParrotChatDeps, type ChatHistoryTurn, type ParrotTurnResult } from "./parrotChat";
 import { PHRASE_AUDIO_DEFAULT_VOICE } from "./ttsConfig";
 
@@ -1641,4 +1642,56 @@ test("runParrotTurn rejects a Hindi romanized/native vocabulary echo", async () 
     }));
     assert.deepEqual(result, { noSpeech: true, reason: "hint_echo" });
   }
+});
+
+// ---------------------------------------------------------------------------
+// The bird's ElevenLabs voice, and the language gate
+// ---------------------------------------------------------------------------
+
+test("bird's ElevenLabs voice is resolved per language, never pinned to one id", () => {
+  // THE GUARD ABOVE ONLY COVERS THE OpenAI PAIR, which is how this stayed wrong
+  // here for as long as the provider was off. Both ElevenLabs call sites held
+  // Laura's literal, and Laura stopped being the coach the moment the voice map
+  // moved to the owner's pick. SEA had the identical defect with the provider
+  // ON, and chat and practice were two different women in all ten languages for
+  // a day (5cb16d89).
+  //
+  // A census rather than a behavioural assertion: both paths are module-private
+  // and the audio module is not mocked in this file, so the cheap honest check
+  // is that neither call site has been re-pinned.
+  const source = readFileSync(new URL("./parrotChat.ts", import.meta.url), "utf8");
+
+  assert.equal(
+    /const\s+BOLO_ELEVENLABS_VOICE_ID\s*=/.test(source), false,
+    "the bird must not hold a fixed ElevenLabs voice id: it drifts the moment the coach's voice changes",
+  );
+
+  const calls = source.match(/textToSpeechElevenLabs(?:Stream)?\(\s*\n\s*text,\s*\n\s*([^\n,]+),/g) ?? [];
+  assert.equal(calls.length, 2, "expected exactly two ElevenLabs synthesis call sites (buffered and streaming)");
+  for (const call of calls) {
+    assert.ok(
+      call.includes("getVoiceIdForLanguage(languageCode)"),
+      `ElevenLabs synthesis must take the coach's voice for the active language, got: ${call}`,
+    );
+  }
+
+  // And the streaming path must refuse a language ElevenLabs cannot speak,
+  // rather than handing it over with no language hint. Santali is the case.
+  assert.ok(
+    /elevenLabsSpeaks\(languageCode\)\s*\n?\s*\?/.test(source),
+    "the streaming path must gate on elevenLabsSpeaks before reaching ElevenLabs",
+  );
+});
+
+test("every language ElevenLabs speaks resolves to an ElevenLabs phrase identity", async () => {
+  // The mirror of the census above, on the phrase side. phraseAudioIdentity
+  // used to switch on TTS_PROVIDER alone, which was harmless only while the
+  // provider was off; with it live, a language the model cannot speak would
+  // have been handed to ElevenLabs anyway.
+  const { ELEVENLABS_LANGUAGES, phraseAudioIdentity } = await import("./ttsConfig");
+  for (const code of ELEVENLABS_LANGUAGES) {
+    assert.equal(phraseAudioIdentity(code).provider, "elevenlabs", `${code} must reach ElevenLabs`);
+  }
+  // Santali is in no model's inventory and LANGUAGE_ID_MAP deliberately omits it.
+  assert.notEqual(phraseAudioIdentity("sat").provider, "elevenlabs", "Santali must not reach ElevenLabs");
 });

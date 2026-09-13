@@ -7,7 +7,7 @@ import { db, pool, ttsCacheTable, languagesTable, usersTable } from "@workspace/
 import { eq } from "drizzle-orm";
 import openaiRouter from "./openai";
 import { greetingAudioCacheKey, buildGreetingDisplayText, GREETING_SQUAWK_VARIANT } from "../lib/greetingStrings";
-import { getVoiceIdForLanguage, LANGUAGE_VOICE_MAP, DEFAULT_MULTILINGUAL_VOICE_ID } from "../lib/languageVoice";
+import { getVoiceIdForLanguage, LANGUAGE_VOICE_MAP, DEFAULT_MULTILINGUAL_VOICE_ID, DRAVIDIAN_VOICE_ID } from "../lib/languageVoice";
 import { phraseAudioIdentity, BOLO_GREETING_TTS_INSTRUCTIONS_DIGEST } from "../lib/ttsConfig";
 
 /**
@@ -401,33 +401,58 @@ test("getVoiceIdForLanguage returns a non-empty string for Hindi (hi)", () => {
   );
 });
 
-test("all mapped languages resolve to the universal Laura voice (task #643: unified Auto default)", () => {
-  // Task #643 intentionally set Laura (FGY2WhTYpPnrIDTdsKH5) as the single
-  // Auto-voice default for every language family. eleven_multilingual_v2 handles
-  // per-language phoneme rendering, so a consistent cheerful timbre across all
-  // languages is the correct product behaviour.
-  const LAURA_ID = DEFAULT_MULTILINGUAL_VOICE_ID; // "FGY2WhTYpPnrIDTdsKH5"
+// INVERTED 2026-09-13. The owner overruled task #643 ("i'm overuling task 643").
+//
+// This test used to assert the opposite: that EVERY language resolved to one
+// universal voice, Laura. That was deliberate at the time, on the reasoning that
+// eleven_multilingual_v2 renders the phonemes and a consistent timbre was better
+// product. Two things changed. The provider was switched on, so the voice stopped
+// being theoretical, and Laura turned out to be `language: en`, an English voice
+// about to read twenty-three Indian languages to real learners.
+//
+// The map is per language now. The library only actually has native female voices
+// for Hindi and Tamil, so "per language" means two: Monika Sogam for the
+// Indo-Aryan set and Vani for the Dravidian four.
+test("the voice map is split by language family, not unified (task #643 overruled)", () => {
+  const DRAVIDIAN = ["ta", "te", "kn", "ml"];
+  for (const code of DRAVIDIAN) {
+    assert.equal(
+      LANGUAGE_VOICE_MAP[code],
+      DRAVIDIAN_VOICE_ID,
+      `${code} is Dravidian and must use the native Tamil voice, not the Hindi default`,
+    );
+  }
+  assert.notEqual(
+    DRAVIDIAN_VOICE_ID,
+    DEFAULT_MULTILINGUAL_VOICE_ID,
+    "the split is only meaningful while the two voices actually differ",
+  );
   for (const [code, voiceId] of Object.entries(LANGUAGE_VOICE_MAP)) {
+    if (DRAVIDIAN.includes(code)) continue;
     assert.equal(
       voiceId,
-      LAURA_ID,
-      `Language ${code} must resolve to the universal Laura voice after the Auto-voice unification`,
+      DEFAULT_MULTILINGUAL_VOICE_ID,
+      `Language ${code} is not Dravidian and must use the Hindi default`,
     );
   }
 });
 
-test("getVoiceIdForLanguage returns the same voice for mapped and unmapped languages (unified default)", () => {
-  // After the Auto-voice unification all languages — whether explicitly mapped
-  // or not — should return the same Laura voice ID. The fallback and every map
-  // entry intentionally share the same ID.
+// INVERTED 2026-09-13 with the test above, same reason: task #643 overruled.
+// This asserted that a mapped language and an unmapped one returned the SAME id.
+// A Dravidian language must now differ from the default, which is the whole
+// point of the split; everything else still falls back to it.
+test("getVoiceIdForLanguage: Dravidian differs from the default, everything else falls back to it", () => {
   const guVoiceId = getVoiceIdForLanguage("gu");
   const hiVoiceId = getVoiceIdForLanguage("hi");
+  const taVoiceId = getVoiceIdForLanguage("ta");
   const unknownVoiceId = getVoiceIdForLanguage("xx"); // unmapped → default
-  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Gujarati must resolve to the Laura Auto-default after unification");
-  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Hindi must resolve to the Laura Auto-default after unification");
-  assert.equal(unknownVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Unknown language code must also resolve to the Laura Auto-default");
+  assert.equal(guVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Gujarati is Indo-Aryan and uses the Hindi default");
+  assert.equal(hiVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Hindi uses its own native voice, which is the default");
+  assert.equal(taVoiceId, DRAVIDIAN_VOICE_ID, "Tamil must use the native Tamil voice");
+  assert.notEqual(taVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "Tamil must NOT fall back to the Hindi default");
+  assert.equal(unknownVoiceId, DEFAULT_MULTILINGUAL_VOICE_ID, "An unmapped code still falls back to the default");
   assert.ok(guVoiceId && guVoiceId.length > 0, "Gujarati voice ID must be a non-empty string");
-  assert.ok(hiVoiceId && hiVoiceId.length > 0, "Hindi voice ID must be a non-empty string");
+  assert.ok(taVoiceId && taVoiceId.length > 0, "Tamil voice ID must be a non-empty string");
   assert.ok(unknownVoiceId && unknownVoiceId.length > 0, "Unknown language must still produce a non-empty voice ID");
 });
 

@@ -97,48 +97,85 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
 /** Fast lookup set for validating user-supplied voice IDs. */
 export const VALID_VOICE_IDS = new Set(VOICE_CATALOG.map((v) => v.id));
 
-/** Fallback voice ID for any language code not found in the map below. */
-export const DEFAULT_MULTILINGUAL_VOICE_ID = "FGY2WhTYpPnrIDTdsKH5"; // Laura
+/**
+ * THE ONE VOICE EVERY LANGUAGE SPEAKS IN. Owner pick, 2026-09-13, chosen by ear
+ * from the audition of every elder and coach in the fleet: Monika Sogam, a
+ * NATIVE HINDI female voice.
+ *
+ * THIS REPLACES LAURA, WHO WAS AN ENGLISH VOICE. Laura is `language: en`, and
+ * she was about to read Hindi, Tamil, Bengali and eighteen more to real
+ * learners the moment the provider was switched on.
+ *
+ * TASK #643 IS OVERRULED, by the owner, 2026-09-13. That task deliberately made
+ * one voice the Auto default for every language family, reasoning that
+ * eleven_multilingual_v2 does the phoneme rendering and a consistent timbre was
+ * the right product behaviour. Two tests pinned it and they are inverted rather
+ * than deleted, per the working rules. The map is per language now, the same
+ * shape the five forks got the same day.
+ *
+ * WHAT THE LIBRARY ACTUALLY HAS, searched 2026-09-13 for a native female at
+ * every age in each of the eleven languages the model speaks: **Hindi has many,
+ * Tamil has nineteen, and Gujarati, Bengali, Urdu, Marathi, Punjabi, Telugu,
+ * Kannada, Malayalam and Nepali have NONE AT ALL.** So per-language is really
+ * two voices, and the split that buys the most is by family.
+ */
+export const DEFAULT_MULTILINGUAL_VOICE_ID = "sTuFDs5r9KT8f6JSiJbq"; // Monika Sogam, native Hindi
 
 /**
- * Maps ISO-639-1 language codes to ElevenLabs premade voice IDs that sound
- * more authentic for each language family when synthesized by eleven_multilingual_v2.
+ * A NATIVE TAMIL VOICE for the Dravidian languages. Vani, chosen for being
+ * pleasant and conversational, which is the register a coach reads in; the
+ * alternatives were a narrator and an educational read.
+ *
+ * TELUGU, KANNADA AND MALAYALAM FOLLOW HER because they are Dravidian and she
+ * is the only Dravidian voice that exists here. That is the same regional reuse
+ * the coach maps in Europe, SEA and Africa already do, and it beats an
+ * Indo-Aryan voice reading a Dravidian language.
+ */
+export const DRAVIDIAN_VOICE_ID = "hhPtGvkQC1ce5z3pPhYh"; // Vani, native Tamil
+
+/**
+ * Maps ISO-639-1 language codes to the ElevenLabs voice used for that language.
+ *
+ * Only the eleven in ttsConfig's ELEVENLABS_LANGUAGES actually reach this map;
+ * the other twelve resolve to gpt-4o-mini-tts before a voice is ever chosen.
+ * The unreachable rows are kept so the map still answers for every language the
+ * app teaches, and so widening ELEVENLABS_LANGUAGES needs no second edit here.
  */
 export const LANGUAGE_VOICE_MAP: Record<string, string> = {
   // ── North Indian / Indic ────────────────────────────────────────────────
-  hi: "FGY2WhTYpPnrIDTdsKH5", // Hindi      → Laura (bubbly, cheerful female)
-  pa: "FGY2WhTYpPnrIDTdsKH5", // Punjabi    → Laura
-  mr: "FGY2WhTYpPnrIDTdsKH5", // Marathi    → Laura
-  ne: "FGY2WhTYpPnrIDTdsKH5", // Nepali     → Laura
-  sa: "FGY2WhTYpPnrIDTdsKH5", // Sanskrit   → Laura
+  hi: DEFAULT_MULTILINGUAL_VOICE_ID, // Hindi, and Monika's own language
+  pa: DEFAULT_MULTILINGUAL_VOICE_ID, // Punjabi
+  mr: DEFAULT_MULTILINGUAL_VOICE_ID, // Marathi
+  ne: DEFAULT_MULTILINGUAL_VOICE_ID, // Nepali
+  sa: DEFAULT_MULTILINGUAL_VOICE_ID, // Sanskrit
 
   // ── South Indian / Dravidian ────────────────────────────────────────────
-  ta: "FGY2WhTYpPnrIDTdsKH5", // Tamil      → Laura
-  te: "FGY2WhTYpPnrIDTdsKH5", // Telugu     → Laura
-  kn: "FGY2WhTYpPnrIDTdsKH5", // Kannada    → Laura
-  ml: "FGY2WhTYpPnrIDTdsKH5", // Malayalam  → Laura
+  ta: DRAVIDIAN_VOICE_ID, // Tamil, and Vani's own language
+  te: DRAVIDIAN_VOICE_ID, // Telugu
+  kn: DRAVIDIAN_VOICE_ID, // Kannada
+  ml: DRAVIDIAN_VOICE_ID, // Malayalam
 
   // ── East Indian ─────────────────────────────────────────────────────────
-  bn: "FGY2WhTYpPnrIDTdsKH5", // Bengali    → Laura
-  or: "FGY2WhTYpPnrIDTdsKH5", // Odia       → Laura
-  as: "FGY2WhTYpPnrIDTdsKH5", // Assamese   → Laura
+  bn: DEFAULT_MULTILINGUAL_VOICE_ID, // Bengali
+  or: DEFAULT_MULTILINGUAL_VOICE_ID, // Odia
+  as: DEFAULT_MULTILINGUAL_VOICE_ID, // Assamese
 
   // ── West Indian ─────────────────────────────────────────────────────────
-  gu: "FGY2WhTYpPnrIDTdsKH5", // Gujarati   → Laura
-  raj: "FGY2WhTYpPnrIDTdsKH5",// Rajasthani → Laura (non-standard code, best-effort)
+  gu: DEFAULT_MULTILINGUAL_VOICE_ID, // Gujarati
+  raj: DEFAULT_MULTILINGUAL_VOICE_ID,// Rajasthani (non-standard code, best-effort)
 
   // ── Perso-Arabic script ─────────────────────────────────────────────────
-  ur: "FGY2WhTYpPnrIDTdsKH5", // Urdu       → Laura
-  ks: "FGY2WhTYpPnrIDTdsKH5", // Kashmiri   → Laura
+  ur: DEFAULT_MULTILINGUAL_VOICE_ID, // Urdu
+  ks: DEFAULT_MULTILINGUAL_VOICE_ID, // Kashmiri
 
   // ── North-East / Other ──────────────────────────────────────────────────
-  mni: "FGY2WhTYpPnrIDTdsKH5",// Manipuri   → Laura
-  sat: "FGY2WhTYpPnrIDTdsKH5",// Santali    → Laura
-  doi: "FGY2WhTYpPnrIDTdsKH5",// Dogri      → Laura
-  mai: "FGY2WhTYpPnrIDTdsKH5",// Maithili   → Laura
-  sd:  "FGY2WhTYpPnrIDTdsKH5",// Sindhi     → Laura
-  kok: "FGY2WhTYpPnrIDTdsKH5",// Konkani    → Laura
-  bho: "FGY2WhTYpPnrIDTdsKH5",// Bhojpuri   → Laura
+  mni: DEFAULT_MULTILINGUAL_VOICE_ID,// Manipuri
+  sat: DEFAULT_MULTILINGUAL_VOICE_ID,// Santali
+  doi: DEFAULT_MULTILINGUAL_VOICE_ID,// Dogri
+  mai: DEFAULT_MULTILINGUAL_VOICE_ID,// Maithili
+  sd:  DEFAULT_MULTILINGUAL_VOICE_ID,// Sindhi
+  kok: DEFAULT_MULTILINGUAL_VOICE_ID,// Konkani
+  bho: DEFAULT_MULTILINGUAL_VOICE_ID,// Bhojpuri
 };
 
 /**
