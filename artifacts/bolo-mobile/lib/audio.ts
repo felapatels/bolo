@@ -477,7 +477,10 @@ let playbackModeToken = 0;
  */
 let liveCoachPlayer: { remove: () => void } | null = null;
 
-function newCoachPlayer<T extends { remove: () => void }>(create: () => T): T {
+function newCoachPlayer<T extends { remove: () => void }>(
+  create: () => T,
+  targetLanguage = true,
+): T {
   const previous = liveCoachPlayer;
   liveCoachPlayer = null;
   if (previous) {
@@ -486,7 +489,7 @@ function newCoachPlayer<T extends { remove: () => void }>(create: () => T): T {
     } catch {}
   }
   const player = create();
-  applySpeechRate(player);
+  applySpeechRate(player, targetLanguage);
   liveCoachPlayer = player;
   return player;
 }
@@ -510,7 +513,17 @@ function newCoachPlayer<T extends { remove: () => void }>(create: () => T): T {
  * this runs on the chat reply path where a disk read would sit between the
  * learner speaking and Bolo answering.
  */
-function applySpeechRate(player: unknown): void {
+function applySpeechRate(player: unknown, targetLanguage = true): void {
+  // OWNER RULING 2026-09-13: the speed control slows THE LANGUAGE BEING
+  // TAUGHT, not every sound the app makes. The English meaning gloss, the
+  // feedback read-aloud, the band call-outs and the learner's own recording
+  // all pass targetLanguage: false. English at 0.65 does not help anybody
+  // learn Hindi; it just sounds broken.
+  //
+  // The default is TRUE because most call sites are target speech, so a new
+  // one inherits the useful behaviour. A new ENGLISH path must opt out, and
+  // that is the direction worth remembering when adding one.
+  if (!targetLanguage) return;
   const rate = currentSpeechRate();
   if (rate === NORMAL_SPEECH_RATE) return;
   try {
@@ -555,6 +568,13 @@ export async function playStreamingAudio(
   onDone?: () => void,
   /** Called once his voice is actually sounding. See firstSoundNotifier. */
   onStart?: () => void,
+
+  /**
+   * False for anything spoken in ENGLISH (the meaning gloss, the feedback
+   * read-aloud, band call-outs) or for the learner's own recording. The
+   * speaking-speed control slows the language being taught, nothing else.
+   */
+  opts?: { targetLanguage?: boolean },
 ): Promise<PlaybackHandle> {
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
   const myToken = ++playbackModeToken;
@@ -596,8 +616,10 @@ export async function playStreamingAudio(
   // 29 "replies quieter than the greeting" seam: the greeting is the only
   // clip never preceded by another player's completion. Keeping the session
   // active leaves its lifecycle entirely to the serialized mode-flip queue.
-  const player = newCoachPlayer(() =>
+  const player = newCoachPlayer(
+    () =>
     createAudioPlayer({ uri: url, headers }, { keepAudioSessionActive: true }),
+    opts?.targetLanguage !== false,
   );
   const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
@@ -647,6 +669,12 @@ export async function playAssetAudio(
   onDone?: () => void,
   /** Called once the clip is actually sounding. See firstSoundNotifier. */
   onStart?: () => void,
+  /**
+   * False for anything spoken in ENGLISH (the meaning gloss, the feedback
+   * read-aloud, band call-outs) or for the learner's own recording. The
+   * speaking-speed control slows the language being taught, nothing else.
+   */
+  opts?: { targetLanguage?: boolean },
 ): Promise<PlaybackHandle> {
   const needsModeFlip = Platform.OS === 'ios' && recordingSessionActive;
   const myToken = ++playbackModeToken;
@@ -676,8 +704,10 @@ export async function playAssetAudio(
   };
 
   // keepAudioSessionActive: see playStreamingAudio for the deactivation seam.
-  const player = newCoachPlayer(() =>
+  const player = newCoachPlayer(
+    () =>
     createAudioPlayer(source, { keepAudioSessionActive: true }),
+    opts?.targetLanguage !== false,
   );
   const started = firstSoundNotifier(onStart);
   const sub = player.addListener('playbackStatusUpdate', (s) => {
@@ -738,6 +768,12 @@ export async function playBase64Audio(
   onDone?: () => void,
   /** Called once the voice is actually sounding. See firstSoundNotifier. */
   onStart?: () => void,
+  /**
+   * False for anything spoken in ENGLISH (the meaning gloss, the feedback
+   * read-aloud, band call-outs) or for the learner's own recording. The
+   * speaking-speed control slows the language being taught, nothing else.
+   */
+  opts?: { targetLanguage?: boolean },
 ): Promise<PlaybackHandle> {
   if (Platform.OS === 'web') {
     // THE SAME WATCHDOG THE NATIVE PATH CARRIES, and for the same reason.
@@ -839,8 +875,10 @@ export async function playBase64Audio(
   // keepAudioSessionActive: prevent expo-audio's automatic session
   // deactivation when this clip finishes or pauses; see playStreamingAudio
   // for the full explanation of the build 29 loudness seam.
-  const player = newCoachPlayer(() =>
+  const player = newCoachPlayer(
+    () =>
     createAudioPlayer({ uri }, { keepAudioSessionActive: true }),
+    opts?.targetLanguage !== false,
   );
 
   // THE WATCHDOG, AND IT IS THE WHOLE REASON THIS FUNCTION IS NOT JUST A

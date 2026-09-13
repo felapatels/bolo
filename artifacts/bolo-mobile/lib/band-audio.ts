@@ -51,7 +51,8 @@ export function playBandClip(band: Band): BandClipHandle | null {
     });
     let handle: PlaybackHandle | null = null;
     let stopped = false;
-    void playAssetAudio(BAND_CLIP_SOURCES[band], () => done())
+    // English call-out, so the speaking-speed control leaves it alone.
+    void playAssetAudio(BAND_CLIP_SOURCES[band], () => done(), undefined, { targetLanguage: false })
       .then((h) => {
         handle = h;
         // stop() raced ahead of the async start — honor it.

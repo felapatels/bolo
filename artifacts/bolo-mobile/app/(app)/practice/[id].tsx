@@ -1122,13 +1122,21 @@ export default function PracticeScreen() {
     setSelfPlaying(true);
     const myToken = ++selfPlayTokenRef.current;
     try {
-      const handle = await playGuarded(b64, 'm4a', () => {
-        // Natural end of playback — clear state only if we're still the active play.
-        if (selfPlayTokenRef.current === myToken) {
-          selfPlaybackRef.current = null;
-          setSelfPlaying(false);
-        }
-      });
+      const handle = await playGuarded(
+        b64,
+        'm4a',
+        () => {
+          // Natural end of playback — clear state only if we're still the active play.
+          if (selfPlayTokenRef.current === myToken) {
+            selfPlaybackRef.current = null;
+            setSelfPlaying(false);
+          }
+        },
+        undefined,
+        // The learner's OWN recording. Slowing it would misrepresent how they
+        // actually sounded, which is the one thing this playback exists to show.
+        { targetLanguage: false },
+      );
       // playGuarded returns null when the screen unmounted mid-await, and has
       // already stopped that player itself. Nothing left to own.
       if (!handle) return;
@@ -1324,6 +1332,10 @@ export default function PracticeScreen() {
                 setSpeakingSegment(null);
               }
             },
+            undefined,
+            // English gloss: the speaking-speed control is for the language
+            // being taught, not for the translation of it.
+            { targetLanguage: false },
           );
           if (token !== playTokenRef.current) {
             playbackRef.current?.stop();
@@ -1480,6 +1492,9 @@ export default function PracticeScreen() {
           res.audioBase64,
           res.format || 'mp3',
           () => {},
+          undefined,
+          // English read-aloud feedback, not target speech.
+          { targetLanguage: false },
         );
         if (token !== playTokenRef.current) {
           playbackRef.current?.stop();

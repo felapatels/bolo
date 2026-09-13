@@ -775,7 +775,6 @@ export default function StorybookPage() {
           `data:audio/${clip.format};base64,${clip.audioBase64}`,
         );
         audioRef.current = audio;
-        applySpeechRate(audio);
         await audio.play();
       } catch {
         // A story that will not speak still reads, and the picture is still
