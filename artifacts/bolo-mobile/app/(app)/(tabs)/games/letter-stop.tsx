@@ -139,6 +139,30 @@ function LetterRun({
   const ttsVoice = accountQuery.data?.preferences.learning.ttsVoice ?? 'auto';
   const audioCache = useRef(new Map<string, { audioBase64: string; format: string }>());
   const playbackRef = useRef<PlaybackHandle | null>(null);
+  /**
+   * A PLAYER THAT ARRIVES AFTER ITS SCREEN DIED STILL PLAYS. The handle is
+   * assigned AFTER an await, so leaving mid-request starts a player nothing
+   * holds (owner, 2026-09-12: "back out, the audio keeps playing"). Stopping
+   * on unmount cannot catch it: the player does not exist yet when the
+   * cleanup runs. playGuarded refuses to hand one back once the screen is gone.
+   */
+  const aliveRef = useRef(true);
+  const playGuarded = useCallback(
+    async (...args: Parameters<typeof playBase64Audio>): Promise<PlaybackHandle | null> => {
+      const h = await playBase64Audio(...args);
+      if (!aliveRef.current) { h.stop(); return null; }
+      return h;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      aliveRef.current = false;
+      playbackRef.current?.stop();
+      playbackRef.current = null;
+    },
+    [],
+  );
   const [audioState, setAudioState] = useState<'idle' | 'loading' | 'playing'>('idle');
 
   const asks = useRef<Ask[]>(
@@ -209,7 +233,7 @@ function LetterRun({
           return;
         }
         setAudioState('playing');
-        playbackRef.current = await playBase64Audio(res.audioBase64, res.format, () =>
+        playbackRef.current = await playGuarded(res.audioBase64, res.format, () =>
           setAudioState('idle'),
         );
       } catch {

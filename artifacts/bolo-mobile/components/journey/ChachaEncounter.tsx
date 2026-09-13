@@ -59,6 +59,9 @@ export function ChachaEncounterDialog({
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackStop, setPlaybackStop] = useState<(() => void) | null>(null);
+  /** The handle is adopted after an await, and adopting it is a setState. */
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
 
   useEffect(() => {
     return () => {
@@ -200,6 +203,7 @@ export function ChachaEncounterDialog({
         const handle = await playBase64Audio(res.audioBase64, res.format ?? 'mp3', () => {
           setIsPlaying(false);
         });
+        if (!aliveRef.current) { handle.stop(); return; }
         setPlaybackStop(() => handle.stop);
       })
       .catch(() => {

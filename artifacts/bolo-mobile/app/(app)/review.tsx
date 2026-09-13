@@ -579,6 +579,32 @@ export default function ReviewScreen() {
   const [selfPlaying, setSelfPlaying] = React.useState(false);
   const lastRecordingBase64Ref = React.useRef<string | null>(null);
   const selfPlaybackRef = React.useRef<PlaybackHandle | null>(null);
+  /**
+   * A PLAYER THAT ARRIVES AFTER ITS SCREEN DIED STILL PLAYS. The handle is
+   * assigned AFTER an await, so leaving mid-request starts a player nothing
+   * holds (owner, 2026-09-12: "back out, the audio keeps playing"). Stopping
+   * on unmount cannot catch it: the player does not exist yet when the
+   * cleanup runs. playGuarded refuses to hand one back once the screen is gone.
+   */
+  const aliveRef = React.useRef(true);
+  const playGuarded = React.useCallback(
+    async (...args: Parameters<typeof playBase64Audio>): Promise<PlaybackHandle | null> => {
+      const h = await playBase64Audio(...args);
+      if (!aliveRef.current) { h.stop(); return null; }
+      return h;
+    },
+    [],
+  );
+  React.useEffect(
+    () => () => {
+      aliveRef.current = false;
+      selfPlaybackRef.current?.stop();
+      selfPlaybackRef.current = null;
+      playbackRef.current?.stop();
+      playbackRef.current = null;
+    },
+    [],
+  );
   const selfPlayTokenRef = React.useRef(0);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
   const [celebrate, setCelebrate] = React.useState(false);
@@ -718,12 +744,15 @@ export default function ReviewScreen() {
     setSelfPlaying(true);
     const myToken = ++selfPlayTokenRef.current;
     try {
-      const handle = await playBase64Audio(b64, 'm4a', () => {
+      const handle = await playGuarded(b64, 'm4a', () => {
         if (selfPlayTokenRef.current === myToken) {
           selfPlaybackRef.current = null;
           setSelfPlaying(false);
         }
       });
+      // playGuarded returns null when the screen unmounted mid-await, and has
+      // already stopped that player itself. Nothing left to own.
+      if (!handle) return;
       if (selfPlayTokenRef.current !== myToken) {
         handle.stop();
         return;
@@ -945,7 +974,7 @@ export default function ReviewScreen() {
             ),
           ]);
           if (token !== playTokenRef.current) return;
-          playbackRef.current = await playBase64Audio(
+          playbackRef.current = await playGuarded(
             meaningRes.audioBase64,
             meaningRes.format || 'mp3',
             () => {
@@ -962,7 +991,7 @@ export default function ReviewScreen() {
           if (token === playTokenRef.current) setCoachPlaying(false);
         }
       };
-      playbackRef.current = await playBase64Audio(res.audioBase64, res.format || 'mp3', () => {
+      playbackRef.current = await playGuarded(res.audioBase64, res.format || 'mp3', () => {
         // coachPlaying (and the disabled listen buttons) span the meaning
         // segment too, so the whole chain rides one playback token: barge-in
         // and iOS routing need no extra handling.
@@ -1034,7 +1063,7 @@ export default function ReviewScreen() {
         const res = await pending;
         if (!res) return;
         if (token !== playTokenRef.current) return;
-        playbackRef.current = await playBase64Audio(res.audioBase64, res.format || 'mp3', () => {});
+        playbackRef.current = await playGuarded(res.audioBase64, res.format || 'mp3', () => {});
         if (token !== playTokenRef.current) {
           playbackRef.current?.stop();
           playbackRef.current = null;

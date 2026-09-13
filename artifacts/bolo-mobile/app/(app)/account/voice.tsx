@@ -224,6 +224,19 @@ function VoiceRow({
 }) {
   const [sampleState, setSampleState] = React.useState<'idle' | 'loading' | 'playing'>('idle');
   const currentPlayerRef = React.useRef<{ stop: () => void } | null>(null);
+  /**
+   * No unmount stop existed here, so a voice sample kept playing after the
+   * learner left Account, and one that arrived after they left was never held.
+   */
+  const aliveRef = React.useRef(true);
+  React.useEffect(
+    () => () => {
+      aliveRef.current = false;
+      currentPlayerRef.current?.stop();
+      currentPlayerRef.current = null;
+    },
+    [],
+  );
 
   async function handlePlaySample() {
     // Stop any in-progress playback for this row.
@@ -254,6 +267,7 @@ function VoiceRow({
         setSampleState('idle');
         currentPlayerRef.current = null;
       });
+      if (!aliveRef.current) { handle.stop(); return; }
       currentPlayerRef.current = handle;
     } catch {
       setSampleState('idle');

@@ -184,6 +184,30 @@ export default function StorybookScreen() {
   const synthesize = useSynthesizeSpeech();
   const narrateApi = useNarrateStoryLine();
   const soundRef = useRef<PlaybackHandle | null>(null);
+  /**
+   * A PLAYER THAT ARRIVES AFTER ITS SCREEN DIED STILL PLAYS. The handle is
+   * assigned AFTER an await, so leaving mid-request starts a player nothing
+   * holds (owner, 2026-09-12: "back out, the audio keeps playing"). Stopping
+   * on unmount cannot catch it: the player does not exist yet when the
+   * cleanup runs. playGuarded refuses to hand one back once the screen is gone.
+   */
+  const aliveRef = useRef(true);
+  const playGuarded = useCallback(
+    async (...args: Parameters<typeof playBase64Audio>): Promise<PlaybackHandle | null> => {
+      const h = await playBase64Audio(...args);
+      if (!aliveRef.current) { h.stop(); return null; }
+      return h;
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      aliveRef.current = false;
+      soundRef.current?.stop();
+      soundRef.current = null;
+    },
+    [],
+  );
   useEffect(
     () => () => {
       soundRef.current?.stop();
@@ -204,7 +228,7 @@ export default function StorybookScreen() {
             languageName: activeLanguage?.name ?? activeLang,
           },
         });
-        soundRef.current = await playBase64Audio(res.audioBase64, res.format);
+        soundRef.current = await playGuarded(res.audioBase64, res.format);
       } catch {
         // A line that will not speak still reads. Silence is the fallback.
       }
@@ -222,7 +246,7 @@ export default function StorybookScreen() {
       try {
         soundRef.current?.stop();
         const res = await narrateApi.mutateAsync({ data: { text: line } });
-        soundRef.current = await playBase64Audio(res.audioBase64, res.format);
+        soundRef.current = await playGuarded(res.audioBase64, res.format);
       } catch {
         // Same contract as speak: the story still reads.
       }

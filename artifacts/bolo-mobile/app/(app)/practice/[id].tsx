@@ -738,6 +738,32 @@ export default function PracticeScreen() {
   /** The learner's own recording from the most recent attempt (base64 m4a). */
   const lastRecordingBase64Ref = React.useRef<string | null>(null);
   const selfPlaybackRef = React.useRef<PlaybackHandle | null>(null);
+  /**
+   * A PLAYER THAT ARRIVES AFTER ITS SCREEN DIED STILL PLAYS. The handle is
+   * assigned AFTER an await, so leaving mid-request starts a player nothing
+   * holds (owner, 2026-09-12: "back out, the audio keeps playing"). Stopping
+   * on unmount cannot catch it: the player does not exist yet when the
+   * cleanup runs. playGuarded refuses to hand one back once the screen is gone.
+   */
+  const aliveRef = React.useRef(true);
+  const playGuarded = React.useCallback(
+    async (...args: Parameters<typeof playBase64Audio>): Promise<PlaybackHandle | null> => {
+      const h = await playBase64Audio(...args);
+      if (!aliveRef.current) { h.stop(); return null; }
+      return h;
+    },
+    [],
+  );
+  React.useEffect(
+    () => () => {
+      aliveRef.current = false;
+      selfPlaybackRef.current?.stop();
+      selfPlaybackRef.current = null;
+      playbackRef.current?.stop();
+      playbackRef.current = null;
+    },
+    [],
+  );
   /** Monotonic token — bumped on every stopSelfPlayback so post-await guards can detect staleness. */
   const selfPlayTokenRef = React.useRef(0);
   const [unlockedBadges, setUnlockedBadges] = React.useState<EarnedBadge[]>([]);
@@ -1096,13 +1122,16 @@ export default function PracticeScreen() {
     setSelfPlaying(true);
     const myToken = ++selfPlayTokenRef.current;
     try {
-      const handle = await playBase64Audio(b64, 'm4a', () => {
+      const handle = await playGuarded(b64, 'm4a', () => {
         // Natural end of playback — clear state only if we're still the active play.
         if (selfPlayTokenRef.current === myToken) {
           selfPlaybackRef.current = null;
           setSelfPlaying(false);
         }
       });
+      // playGuarded returns null when the screen unmounted mid-await, and has
+      // already stopped that player itself. Nothing left to own.
+      if (!handle) return;
       // Guard: stopSelfPlayback may have been called while we awaited the handle.
       if (selfPlayTokenRef.current !== myToken) {
         handle.stop();
@@ -1286,7 +1315,7 @@ export default function PracticeScreen() {
           ]);
           if (token !== playTokenRef.current) return;
           setSpeakingSegment('meaning');
-          playbackRef.current = await playBase64Audio(
+          playbackRef.current = await playGuarded(
             meaningRes.audioBase64,
             meaningRes.format || 'mp3',
             () => {
@@ -1320,7 +1349,7 @@ export default function PracticeScreen() {
       // enlarging the word during the wait would light up a line that is not
       // being spoken yet, which is the opposite of the point.
       setSpeakingSegment('phrase');
-      playbackRef.current = await playBase64Audio(
+      playbackRef.current = await playGuarded(
         res.audioBase64,
         res.format || 'mp3',
         onCoachDone,
@@ -1447,7 +1476,7 @@ export default function PracticeScreen() {
         if (clip) await clip.finished;
         if (!res) return;
         if (token !== playTokenRef.current) return;
-        playbackRef.current = await playBase64Audio(
+        playbackRef.current = await playGuarded(
           res.audioBase64,
           res.format || 'mp3',
           () => {},
