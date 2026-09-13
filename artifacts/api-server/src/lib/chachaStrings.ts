@@ -53,9 +53,37 @@ export const CHACHA_TTS_PROVIDER = "gpt-4o-mini-tts";
 export const CHACHA_TTS_MODEL = "gpt-4o-mini-tts";
 
 /**
- * Chacha's voice. A male voice, distinct from the coach voice (nova) that
- * reads phrase and meaning audio — he is a character, not the coach.
- * Deliberately NOT PHRASE_AUDIO_DEFAULT_VOICE or BOLO_MINI_TTS_VOICE.
+ * Chacha's voice. A male voice, distinct from the coach voice that reads phrase
+ * and meaning audio: he is a character, not the coach. Deliberately NOT
+ * PHRASE_AUDIO_DEFAULT_VOICE or BOLO_MINI_TTS_VOICE.
+ *
+ * HE STAYS ON `echo` WHILE THE REST OF INDIA MOVED TO ELEVENLABS, and this is
+ * an owner decision (2026-09-13, "a"), not an oversight. Do not "finish the
+ * job" by giving him the ElevenLabs voice picked for him in the audition
+ * (Vedish, idRuFqIwDCUGD5dydSIh). Here is why it does not work:
+ *
+ * HIS CALL IS TWO ENGINES AND ONLY ONE OF THEM CAN BE ELEVENLABS.
+ * `routes/chachaCall.ts` imports both halves. `callLine` serves CANNED lines,
+ * which are synthesized and cached and could be anything. `runLiveTurn` serves
+ * LIVE beats through `chachaCallTurn.ts`, which is
+ * `model: "gpt-audio"` with `audio: { voice: CHACHA_TTS_VOICE, format: "pcm16" }`.
+ * That is OpenAI's own realtime audio: **ElevenLabs cannot supply it.** A single
+ * call plays canned and live lines back to back, so moving only the half that
+ * can move makes his voice change mid-conversation.
+ *
+ * THE FORKS ACCEPTED A SMALLER VERSION OF THIS AND INDIA DID NOT. There the
+ * elder's STALL lines are ElevenLabs while the whole CALL is OpenAI, so he has
+ * one voice at the stall and another on the phone. Two scenes, minutes apart,
+ * which the owner chose to leave. Mid-call is a different thing.
+ *
+ * WHAT WOULD ACTUALLY FIX IT is on the roadmap: take the live beat off
+ * gpt-audio and synthesize its reply text through textToSpeechElevenLabsStream,
+ * which already exists and is what the bird uses. The cost is latency, because
+ * today the audio streams as the model generates it. On a phone call that gap
+ * is the feature, which is why it is a roadmap item and not a cleanup.
+ *
+ * His lines are Hindi for every learner (CHACHA_LINES is one set, not a map),
+ * so there is no per-language question here the way there is for the coach.
  */
 export const CHACHA_TTS_VOICE = "echo";
 
