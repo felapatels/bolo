@@ -55,6 +55,7 @@ import { useTraceStopProgress } from "@/lib/useTraceStopProgress";
 import { pickTargetByStroke, type GesturePoint } from "@/lib/gesture-answer";
 import { webHaptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 /**
  * How far a pointer must travel before the grid claims the gesture as a slash.
@@ -192,6 +193,7 @@ function LetterRun({
         const el = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         audioEl.current = el;
         el.onended = () => setPlaying(false);
+        applySpeechRate(el);
         await el.play();
       } catch {
         setPlaying(false);

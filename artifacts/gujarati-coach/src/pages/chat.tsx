@@ -33,6 +33,7 @@ import { webHaptic } from "@/lib/haptics";
 import { loadSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { chatChipsFor } from "@/lib/chat-chips";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -534,6 +535,7 @@ export default function ChatPage() {
         };
         s.audio.onerror = () => { s.failed = true; release(); };
         guard = setTimeout(release, 8000);
+        applySpeechRate(s.audio);
         s.audio.play().catch(() => { s.failed = true; release(); });
       };
       if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
@@ -655,6 +657,7 @@ export default function ChatPage() {
 
           const startGreetingAudio = () => {
             if (activeTurnRef.current !== myTurn) return;
+            applySpeechRate(greetingAudio);
             greetingAudio.play().catch((e) => {
               console.log('[audio] play blocked path=greeting', (e as Error)?.name);
               onGreetingEnded();
@@ -791,6 +794,7 @@ export default function ChatPage() {
                     if (playbackRef.current === ra) playbackRef.current = null;
                     if (activeTurnRef.current === myTurn) setPhase("idle");
                   };
+                  applySpeechRate(ra);
                   ra.play().catch((e) => {
                     console.log('[audio] play blocked path=reply', (e as Error)?.name);
                     if (playbackRef.current === ra) playbackRef.current = null;
@@ -1143,6 +1147,7 @@ export default function ChatPage() {
               const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
+              applySpeechRate(audio);
               audio.play().catch((e) => {
                 console.log('[audio] play blocked path=reply', (e as Error)?.name);
                 playbackRef.current = null;
@@ -1496,6 +1501,7 @@ export default function ChatPage() {
               const audio = acquireAudio(voicePoolRef, `data:audio/${format};base64,${replyAudioBase64}`);
               playbackRef.current = audio;
               audio.onended = () => { playbackRef.current = null; setPhase("idle"); };
+              applySpeechRate(audio);
               audio.play().catch((e) => {
                 console.log('[audio] play blocked path=reply', (e as Error)?.name);
                 playbackRef.current = null;

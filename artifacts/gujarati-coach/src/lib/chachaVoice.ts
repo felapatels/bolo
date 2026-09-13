@@ -14,6 +14,7 @@
  * dialogue: every failure path is silent, with no error UI and no retry.
  */
 import { getChachaAudioElement } from "./iosAudio";
+import { applySpeechRate } from "./speechRatePref";
 
 export type ChachaClip = { audioBase64: string; format: string };
 
@@ -47,6 +48,7 @@ function playOnce(clip: ChachaClip, onStart?: () => void): Promise<void> {
       audio.onplaying = () => {
         if (!settled) onStart?.();
       };
+      applySpeechRate(audio);
       audio.src = `data:audio/${clip.format};base64,${clip.audioBase64}`;
       const p = audio.play();
       // A refused play() (no blessing, silent switch, autoplay policy) must

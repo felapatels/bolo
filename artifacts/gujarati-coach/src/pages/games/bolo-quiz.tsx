@@ -12,6 +12,7 @@ import {
 } from "@/components/game-miss-review";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
+import { applySpeechRate } from "@/lib/speechRatePref";
 import {
   useGetDailyQuiz,
   useCompleteDailyQuiz,
@@ -214,6 +215,7 @@ function ListenQuestion({
         setIsPlaying(false);
         URL.revokeObjectURL(url);
       };
+      applySpeechRate(audio);
       await audio.play();
     } catch {
       setIsPlaying(false);

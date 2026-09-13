@@ -1,7 +1,7 @@
 import { AiConsentSettings } from '@/components/ai-consent-gate';
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Map } from "lucide-react";
+import { Map, Gauge} from "lucide-react";
 import {
   ArrowLeft,
   User as UserIcon,
@@ -80,6 +80,12 @@ import { loadSpokenFeedback, saveSpokenFeedback } from "@/lib/spoken-feedback";
 import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadSoundPref, saveSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref, saveCoachVoicePref } from "@/lib/coachVoicePref";
+import {
+  SPEECH_RATE_OPTIONS,
+  NORMAL_SPEECH_RATE,
+  loadSpeechRatePref,
+  saveSpeechRatePref,
+} from "@/lib/speechRatePref";
 import { loadMeaningAudio, saveMeaningAudio } from "@/lib/meaning-audio";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 import { ReferralCard } from "@/components/referral-card";
@@ -238,6 +244,15 @@ export default function Account() {
   function handleChangeCoachVoiceOn(enabled: boolean) {
     setCoachVoiceOn(enabled);
     saveCoachVoicePref(enabled);
+  }
+
+  /** HOW FAST THE LANGUAGE IS SPOKEN. Owner request 2026-09-13. A playback
+   *  rate, not a synthesis setting: it re-plays the clip already cached, so it
+   *  costs nothing and takes effect on the very next phrase. */
+  const [speechRate, setSpeechRate] = useState(loadSpeechRatePref);
+  function handleChangeSpeechRate(rate: number) {
+    setSpeechRate(rate);
+    saveSpeechRatePref(rate);
   }
 
   /** One control, two stored keys. The pairing coachVoice=off plus
@@ -856,6 +871,42 @@ export default function Account() {
                     }
                   >
                     <Icon className="h-5 w-5" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-start gap-3 py-1">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Gauge className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground">Speaking speed</p>
+                <p className="text-xs text-muted-foreground">
+                  {speechRate === NORMAL_SPEECH_RATE
+                    ? "Phrases play at natural speed"
+                    : "Phrases play slower, at the same pitch"}
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {SPEECH_RATE_OPTIONS.map(({ rate, label }) => {
+                const active = speechRate === rate;
+                return (
+                  <button
+                    key={rate}
+                    onClick={() => handleChangeSpeechRate(rate)}
+                    aria-pressed={active}
+                    className={
+                      "rounded-2xl border-2 px-2 py-3 text-sm font-semibold transition-all " +
+                      (active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-card-border bg-card text-muted-foreground hover:text-foreground")
+                    }
+                  >
                     {label}
                   </button>
                 );

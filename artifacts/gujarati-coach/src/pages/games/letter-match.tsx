@@ -47,6 +47,7 @@ import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { webHaptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 /** How long a wrong pair stays marked before the board clears it. */
 const MISS_MS = 700;
@@ -135,6 +136,7 @@ export default function LetterMatchPage() {
         audioCache.current.set(key, { audioBase64: res.audioBase64, format: res.format });
         const el = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         audioEl.current = el;
+        applySpeechRate(el);
         await el.play();
       } catch {
         /* a silent letter is better than a broken page */

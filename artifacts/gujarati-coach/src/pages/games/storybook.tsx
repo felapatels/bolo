@@ -51,6 +51,7 @@ import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
 import { webHaptic } from "@/lib/haptics";
 import { useLanguage, useNativeText } from "@/lib/language-context";
+import { applySpeechRate } from "@/lib/speechRatePref";
 import {
   clearStoryBook,
   loadStoryBook,
@@ -729,6 +730,7 @@ export default function StorybookPage() {
           `data:audio/${clip.format};base64,${clip.audioBase64}`,
         );
         audioRef.current = audio;
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         // A line that will not speak still reads. Silence is the fallback, not
@@ -773,6 +775,7 @@ export default function StorybookPage() {
           `data:audio/${clip.format};base64,${clip.audioBase64}`,
         );
         audioRef.current = audio;
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         // A story that will not speak still reads, and the picture is still

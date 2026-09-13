@@ -9,6 +9,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ClerkLoaded, ClerkProvider } from '@clerk/expo';
 import { clerkTokenCache } from '@/lib/clerkTokenCache';
+import { loadSpeechRatePref } from '@/lib/speechRatePref';
 import { setBaseUrl, ApiError } from '@workspace/api-client-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { BrandSplash } from '@/components/BrandSplash';
@@ -126,6 +127,17 @@ function RootLayout() {
   // splash up forever, which is a far worse bug than the flash.
   const [filmPainted, setFilmPainted] = useState(false);
   const [nativeGone, setNativeGone] = useState(false);
+
+  // HYDRATE THE SPEECH RATE ONCE, AT BOOT. lib/audio.ts reads the rate
+  // SYNCHRONOUSLY when it creates a player, because playback sits on the chat
+  // reply path and an AsyncStorage read there would land between the learner
+  // speaking and Bolo answering. Nothing else pulls the stored value into that
+  // cache, so without this the toggle would appear to work (the account screen
+  // writes through) and then silently reset to normal on every app launch.
+  useEffect(() => {
+    void loadSpeechRatePref();
+  }, []);
+
   useEffect(() => {
     if (!(fontsLoaded || fontError)) return;
     // finally, not then: a hide that rejects (already hidden, no native

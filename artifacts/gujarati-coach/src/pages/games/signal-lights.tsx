@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { webHaptic } from "@/lib/haptics";
 import { useNativeText } from "@/lib/language-context";
 import { quickGameById } from "@/lib/quick-games";
+import { applySpeechRate } from "@/lib/speechRatePref";
 import {
   QuickGameShell,
   quickShuffle,
@@ -109,6 +110,7 @@ function SignalLightsRound({
         audio.onpause = () => setAudioPlaying(false);
         audioRef.current = audio;
         setAudioPlaying(true);
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         setAudioPlaying(false);

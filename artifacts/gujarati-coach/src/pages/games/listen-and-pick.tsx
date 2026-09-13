@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { GAME_CONFIG } from "./game-config";
 import { topicLockState } from "@/lib/quick-games";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -309,6 +310,7 @@ function GameRound({
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         audioRef.current = audio;
         audio.onended = () => setIsPlaying(false);
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         setIsPlaying(false);

@@ -87,6 +87,7 @@ import { CountUp } from "@/components/ui/count-up";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { DailyGiftCard } from "@/components/daily-gift";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare" | "capture_saved";
 
@@ -1117,6 +1118,7 @@ export default function Practice({
           // The clip is fetched above and that can take a moment on a cold
           // cache; swelling the word during the wait would light up a line
           // that is not being spoken yet, which is the opposite of the point.
+          applySpeechRate(audio);
           setSpeakingSegment('phrase');
           await audio.play();
         } catch (error) {

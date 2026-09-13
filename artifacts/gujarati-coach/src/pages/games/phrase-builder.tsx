@@ -22,6 +22,7 @@ import {
 import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 const PHRASES_PER_ROUND = 6; // 5–8
 
@@ -230,6 +231,7 @@ function PlayingScreen({
         if (!soundOnRef.current) return;
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         audioRef.current = audio;
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         // Audio is a nice-to-have; tile placement continues silently.

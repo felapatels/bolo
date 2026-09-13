@@ -6,6 +6,7 @@ import {
   setAudioModeAsync,
   type AudioRecorder,
 } from 'expo-audio';
+import { currentSpeechRate, NORMAL_SPEECH_RATE } from './speechRatePref';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Sentry } from '@/lib/sentry';
 
@@ -485,8 +486,52 @@ function newCoachPlayer<T extends { remove: () => void }>(create: () => T): T {
     } catch {}
   }
   const player = create();
+  applySpeechRate(player);
   liveCoachPlayer = player;
   return player;
+}
+
+/**
+ * THE LEARNER'S SPEECH RATE, APPLIED AT THE ONE PLACE A PLAYER IS BORN.
+ * Owner request 2026-09-13, a toggle to slow spoken language down.
+ *
+ * This sits inside newCoachPlayer for exactly the reason that function exists:
+ * it is the single chokepoint. playStreamingAudio, playAssetAudio and the
+ * native branch of playBase64Audio all create their player through it, so all
+ * twenty-odd call sites inherit the rate and none can be forgotten. The web
+ * branch of playBase64Audio does NOT come through here and carries its own.
+ *
+ * `shouldCorrectPitch` is not optional. Without it a slowed clip drops in
+ * pitch and the coach becomes a different, deeper person, which undoes the
+ * voice the owner chose by ear. expo-audio exposes it alongside playbackRate
+ * (AudioModule.types: playbackRate, shouldCorrectPitch, setPlaybackRate).
+ *
+ * The rate is read from the in-memory cache rather than AsyncStorage, because
+ * this runs on the chat reply path where a disk read would sit between the
+ * learner speaking and Bolo answering.
+ */
+function applySpeechRate(player: unknown): void {
+  const rate = currentSpeechRate();
+  if (rate === NORMAL_SPEECH_RATE) return;
+  try {
+    const p = player as { playbackRate?: number; shouldCorrectPitch?: boolean };
+    p.shouldCorrectPitch = true;
+    p.playbackRate = rate;
+  } catch {
+    // A rate the platform refuses must never stop the clip from playing.
+  }
+}
+
+/**
+ * How much longer a clip runs at the learner's rate. A stall watchdog derived
+ * from a clip's own duration is computed from its UNSLOWED length, so at 0.65
+ * a clip runs about 54% longer and a bound that was generous becomes a knife:
+ * it fires mid-sentence, calls onDone, and the chat screen moves on while Bolo
+ * is still talking. Every duration-derived timeout is divided by the rate.
+ */
+export function stallBoundMs(seconds: number): number {
+  const rate = currentSpeechRate() || NORMAL_SPEECH_RATE;
+  return (seconds * 1000 * PLAYBACK_STALL_FACTOR) / rate + PLAYBACK_STALL_SLACK_MS;
 }
 
 /** Called wherever a player is released, so the registry never holds a dead one. */
@@ -702,6 +747,16 @@ export async function playBase64Audio(
     // sits on "Bolo is speaking…" forever. Fixed on native 2026-08-27 off a
     // device report; this branch had the identical hole and no report yet.
     const audio = new Audio(`data:audio/${format};base64,${base64}`);
+    // This branch does not pass through newCoachPlayer, so it carries the
+    // learner's rate itself. preservesPitch keeps the coach's voice hers.
+    const webRate = currentSpeechRate();
+    if (webRate !== NORMAL_SPEECH_RATE) {
+      try {
+        const withPitch = audio as HTMLAudioElement & { preservesPitch?: boolean };
+        withPitch.preservesPitch = true;
+        audio.playbackRate = webRate;
+      } catch {}
+    }
     let settled = false;
     let loadTimer: ReturnType<typeof setTimeout> | null = null;
     let playTimer: ReturnType<typeof setTimeout> | null = null;
@@ -726,10 +781,7 @@ export async function playBase64Audio(
       if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
       const secs = Number.isFinite(audio.duration) ? audio.duration : 0;
       if (secs > 0) {
-        playTimer = setTimeout(
-          settle,
-          secs * 1000 * PLAYBACK_STALL_FACTOR + PLAYBACK_STALL_SLACK_MS,
-        );
+        playTimer = setTimeout(settle, stallBoundMs(secs));
       }
     };
     audio.onerror = settle;
@@ -849,7 +901,7 @@ export async function playBase64Audio(
       if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
       playTimer = setTimeout(
         () => settle('play-timeout'),
-        secs * 1000 * PLAYBACK_STALL_FACTOR + PLAYBACK_STALL_SLACK_MS,
+        stallBoundMs(secs),
       );
     }
   });

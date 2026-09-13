@@ -19,6 +19,7 @@ import { Mascot } from "@/components/mascot";
 import { Confetti } from "@/components/ui/confetti";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { applySpeechRate } from "@/lib/speechRatePref";
 
 const GAME_DURATION = 60; // seconds
 const STREAK_BONUS_THRESHOLD = 3;
@@ -228,6 +229,7 @@ function PlayingScreen({
         if (!soundOnRef.current) return;
         const audio = new Audio(`data:audio/${res.format};base64,${res.audioBase64}`);
         audioRef.current = audio;
+        applySpeechRate(audio);
         await audio.play();
       } catch {
         // Audio is a nice-to-have; the race continues silently.

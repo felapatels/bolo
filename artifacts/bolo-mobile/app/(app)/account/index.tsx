@@ -74,6 +74,12 @@ import {
   reportApiFailure,
 } from '@/lib/apiErrors';
 import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
+import {
+  SPEECH_RATE_OPTIONS,
+  NORMAL_SPEECH_RATE,
+  loadSpeechRatePref,
+  saveSpeechRatePref,
+} from '@/lib/speechRatePref';
 import { BlockedLearnersList } from '@/components/BoardScope';
 import { hapticLight } from '@/lib/haptics';
 import { rateBolo, rateDestination } from '@/lib/store';
@@ -194,6 +200,27 @@ export default function AccountScreen() {
     hapticLight();
     setCoachVoiceOn(enabled);
     void saveCoachVoicePref(enabled);
+  };
+
+  // HOW FAST THE LANGUAGE IS SPOKEN. Owner request 2026-09-13. This is a
+  // playback rate, not a synthesis setting, so it re-plays the clip already
+  // cached and costs nothing. It sits beside Bolo's voice because a learner
+  // reaching for one is usually reaching for the other.
+  const [speechRate, setSpeechRate] = React.useState<number>(NORMAL_SPEECH_RATE);
+  React.useEffect(() => {
+    let cancelled = false;
+    loadSpeechRatePref().then((rate) => {
+      if (!cancelled) setSpeechRate(rate);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const changeSpeechRate = (value: string) => {
+    const rate = Number(value);
+    hapticLight();
+    setSpeechRate(rate);
+    void saveSpeechRatePref(rate);
   };
 
   type VoiceMode = 'on' | 'tap' | 'off';
@@ -820,6 +847,30 @@ export default function AccountScreen() {
                 onChange={changeVoiceMode}
               />
             </View>
+            <Divider />
+            <View style={styles.row}>
+              <View style={styles.rowIcon}>
+                <Feather name="clock" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+                  Speaking speed
+                </Text>
+                <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>
+                  {speechRate === NORMAL_SPEECH_RATE
+                    ? 'Phrases play at natural speed'
+                    : 'Phrases play slower, at the same pitch'}
+                </Text>
+              </View>
+            </View>
+            <Segmented
+              options={SPEECH_RATE_OPTIONS.map((o) => ({
+                value: String(o.rate),
+                label: o.label,
+              }))}
+              value={String(speechRate)}
+              onChange={changeSpeechRate}
+            />
             <Divider />
             <View style={styles.row}>
               <View style={styles.rowIcon}>
