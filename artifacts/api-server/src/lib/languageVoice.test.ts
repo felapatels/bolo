@@ -38,6 +38,7 @@ import {
   getLanguageIdForCode,
   LANGUAGE_VOICE_MAP,
   LANGUAGE_ID_MAP,
+  DRAVIDIAN_VOICE_ID,
   DEFAULT_MULTILINGUAL_VOICE_ID,
 } from "./languageVoice";
 
@@ -74,7 +75,7 @@ test("getVoiceIdForLanguage: unknown code returns the default voice", () => {
 });
 
 test("getVoiceIdForLanguage: code lookup is case-insensitive", () => {
-  // 'hi' → Laura (unified Auto default); confirm 'HI' and 'Hi' resolve identically.
+  // 'hi' -> the default coach; confirm 'HI' and 'Hi' resolve identically.
   const lower = getVoiceIdForLanguage("hi");
   assert.equal(getVoiceIdForLanguage("HI"), lower);
   assert.equal(getVoiceIdForLanguage("Hi"), lower);
@@ -88,7 +89,7 @@ test("getVoiceIdForLanguage: leading/trailing whitespace is stripped", () => {
 });
 
 // Verify every entry in the map resolves to its declared voice ID.
-// After the task #643 Auto-voice unification, all entries map to Laura
+// Task #643 was overruled 2026-09-13: most entries map to the default coach,
 // (DEFAULT_MULTILINGUAL_VOICE_ID) — that is intentional and correct.
 test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID", () => {
   for (const [code, expected] of Object.entries(LANGUAGE_VOICE_MAP)) {
@@ -101,42 +102,67 @@ test("getVoiceIdForLanguage: every mapped code resolves to its declared voice ID
   }
 });
 
-// Spot-check specific language families — all unified to Laura after task #643.
-const LAURA = DEFAULT_MULTILINGUAL_VOICE_ID;
+// Spot-check specific language families.
+//
+// TASK #643 WAS OVERRULED BY THE OWNER ON 2026-09-13 ("i'm overuling task
+// 643"), so the "everything is one Auto voice" world these tests were written
+// for is gone. India now has TWO coach voices: Monika Sogam, a native Hindi
+// speaker, for most of the map, and Vani, a native Tamil speaker, for the four
+// Dravidian languages. The families below still share the default; the
+// Dravidian test is inverted rather than deleted, because the behaviour
+// changed on purpose and the assertion is still worth making.
+//
+// The old name is kept nowhere: `DEFAULT_COACH` pointed at DEFAULT_MULTILINGUAL_VOICE_ID
+// and that constant is no longer Laura, so the name was a stale citation
+// carrying false authority the day the voice moved.
+const DEFAULT_COACH = DEFAULT_MULTILINGUAL_VOICE_ID;
 
-test("getVoiceIdForLanguage: North Indian languages resolve to the Laura Auto-default", () => {
+test("getVoiceIdForLanguage: North Indian languages resolve to the default coach", () => {
   for (const code of ["hi", "pa", "mr", "ne", "sa"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(getVoiceIdForLanguage(code), DEFAULT_COACH, `${code} should map to the default coach`);
   }
 });
 
-test("getVoiceIdForLanguage: Dravidian languages resolve to the Laura Auto-default", () => {
+// INVERTED 2026-09-13 with the overruling of task #643. These four used to
+// resolve to the single Auto default; they now resolve to Vani, who actually
+// speaks one of them. If this ever goes back to the default, the Dravidian
+// languages have silently lost their native speaker again.
+test("getVoiceIdForLanguage: Dravidian languages resolve to the Dravidian voice, not the default", () => {
   for (const code of ["ta", "te", "kn", "ml"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(
+      getVoiceIdForLanguage(code),
+      DRAVIDIAN_VOICE_ID,
+      `${code} should map to the Dravidian voice`,
+    );
+    assert.notEqual(
+      getVoiceIdForLanguage(code),
+      DEFAULT_COACH,
+      `${code} must not fall back to the default coach`,
+    );
   }
 });
 
-test("getVoiceIdForLanguage: East Indian languages resolve to the Laura Auto-default", () => {
+test("getVoiceIdForLanguage: East Indian languages resolve to the default coach", () => {
   for (const code of ["bn", "or", "as", "mni", "sat"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(getVoiceIdForLanguage(code), DEFAULT_COACH, `${code} should map to the default coach`);
   }
 });
 
-test("getVoiceIdForLanguage: West Indian languages resolve to the Laura Auto-default", () => {
+test("getVoiceIdForLanguage: West Indian languages resolve to the default coach", () => {
   for (const code of ["gu", "raj"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(getVoiceIdForLanguage(code), DEFAULT_COACH, `${code} should map to the default coach`);
   }
 });
 
-test("getVoiceIdForLanguage: Perso-Arabic script languages resolve to the Laura Auto-default", () => {
+test("getVoiceIdForLanguage: Perso-Arabic script languages resolve to the default coach", () => {
   for (const code of ["ur", "ks", "sd"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(getVoiceIdForLanguage(code), DEFAULT_COACH, `${code} should map to the default coach`);
   }
 });
 
-test("getVoiceIdForLanguage: North-East / Other languages resolve to the Laura Auto-default", () => {
+test("getVoiceIdForLanguage: North-East / Other languages resolve to the default coach", () => {
   for (const code of ["doi", "mai", "bho", "kok"]) {
-    assert.equal(getVoiceIdForLanguage(code), LAURA, `${code} should map to Laura (unified Auto default)`);
+    assert.equal(getVoiceIdForLanguage(code), DEFAULT_COACH, `${code} should map to the default coach`);
   }
 });
 
@@ -263,8 +289,10 @@ test("getLanguageIdForCode: every mapped code returns a non-undefined language_i
 // These live tests are opt-in (RUN_ELEVENLABS_LIVE_TESTS) and are reported as
 // skipped-with-a-reason rather than dropped, so the suite tally is stable.
 
-// Post-#643 all languages use Laura (DEFAULT_MULTILINGUAL_VOICE_ID).
-// A single smoke case is enough to verify the voice is available on the plan.
+// TWO VOICES SINCE THE OVERRULING OF TASK #643 (2026-09-13), so one smoke case
+// is no longer enough: a voice missing from the plan is a silent 402 at
+// synthesis time, and the case that would have caught it has to exist per
+// distinct voice id. The coverage test below enforces exactly that.
 const VOICE_SMOKE_CASES: Array<{
   voiceName: string;
   voiceId: string;
@@ -272,18 +300,26 @@ const VOICE_SMOKE_CASES: Array<{
   languageCodes: string[];
 }> = [
   {
-    // Laura is the universal Auto default for all supported languages.
-    voiceName: "Laura (Auto / all languages)",
+    // Monika Sogam, a native Hindi speaker, for everything but Dravidian.
+    voiceName: "Monika Sogam (default coach)",
     voiceId: DEFAULT_MULTILINGUAL_VOICE_ID,
     phrase: "नमस्ते",   // "Namaste" — Hindi Devanagari, 6 chars
     languageCodes: [
       "hi", "pa", "mr", "ne", "sa",        // North Indian / Indic
-      "ta", "te", "kn", "ml",               // Dravidian
       "bn", "or", "as", "mni", "sat",       // East Indian
       "gu", "raj",                           // West Indian
       "ur", "ks", "sd",                     // Perso-Arabic
       "doi", "mai", "bho", "kok",           // North-East / Other
     ],
+  },
+  {
+    // Vani, a native Tamil speaker, for the four Dravidian languages. The
+    // phrase is Tamil rather than Devanagari on purpose: a smoke case that
+    // sends this voice a script it will never be asked for proves less.
+    voiceName: "Vani (Dravidian coach)",
+    voiceId: DRAVIDIAN_VOICE_ID,
+    phrase: "வணக்கம்",   // "Vanakkam" — Tamil
+    languageCodes: ["ta", "te", "kn", "ml"],
   },
 ];
 
@@ -358,7 +394,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
     "textToSpeechElevenLabsStream: Hindi (hi) with language_id streams a valid MP3",
     { skip: liveSkipReason },
     async () => {
-      const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // Laura — universal Auto voice
+      const hiVoiceId = DEFAULT_MULTILINGUAL_VOICE_ID; // the default coach
       const hiPhrase = "नमस्ते"; // "Namaste" — 6 chars
       const hiLanguageId = getLanguageIdForCode("hi"); // should be "hi"
 
@@ -399,7 +435,7 @@ const liveSkipReason: string | false = !RUN_ELEVENLABS_LIVE_TESTS
 
         if (/status 402/.test(msg)) {
           assert.fail(
-            "textToSpeechElevenLabsStream returned 402 — the Laura voice may not be " +
+            "textToSpeechElevenLabsStream returned 402 — the coach voice may not be " +
               "available on the current ElevenLabs plan. Replace it with a premade voice.",
           );
         }
