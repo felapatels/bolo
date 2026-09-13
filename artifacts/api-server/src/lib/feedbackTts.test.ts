@@ -6,6 +6,7 @@ import express, { type Express } from "express";
 import { db, pool, ttsCacheTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import openaiRouter from "../routes/openai";
+import { TTS_PROVIDER } from "./ttsConfig";
 import {
   feedbackSpokenText,
   prewarmFeedbackTts,
@@ -97,7 +98,24 @@ test("feedbackSpokenText: drops missing parts instead of leaving stray spaces", 
 
 // ─── Unit: prewarm lifecycle ─────────────────────────────────────────────────
 
-test("prewarmFeedbackTts: registers pending work, caches the audio, then clears", async () => {
+
+// PREWARM IS DELIBERATELY OFF WHILE THE PROVIDER IS ELEVENLABS.
+// feedbackTts.ts returns early on `TTS_PROVIDER === "elevenlabs"`, and its
+// comment says why: per-user ElevenLabs voice prefs make the client's cache key
+// unpredictable from the server, so there is nothing safe to pre-warm. India
+// switched providers in cc007c2f and these four tests kept asserting the old
+// world, which is four of this fork's api failures.
+//
+// THEY ARE SKIPPED WITH A REASON RATHER THAN DELETED. The gpt-4o-mini-tts
+// behaviour they pin is not dead: any fork still on that provider runs it, and
+// India would again if the provider moved back. A deleted test would have to be
+// rewritten from scratch on that day; a skipped one just starts running.
+const PREWARM_ACTIVE = TTS_PROVIDER !== "elevenlabs";
+const prewarmOpts = PREWARM_ACTIVE
+  ? {}
+  : { skip: "prewarm is off while TTS_PROVIDER is elevenlabs (feedbackTts.ts early return)" };
+
+test("prewarmFeedbackTts: registers pending work, caches the audio, then clears", prewarmOpts, async () => {
   const feedback = `__feedback_prewarm_test${RUN}`;
   const tip = "One more time.";
   const text = feedbackSpokenText(feedback, tip);
@@ -133,7 +151,7 @@ test("prewarmFeedbackTts: registers pending work, caches the audio, then clears"
   );
 });
 
-test("prewarmFeedbackTts: concurrent calls for the same text synthesize once", async () => {
+test("prewarmFeedbackTts: concurrent calls for the same text synthesize once", prewarmOpts, async () => {
   const feedback = `__feedback_dedupe_test${RUN}`;
   const text = feedbackSpokenText(feedback, null);
   const cacheKey = keyFor(text);
@@ -160,7 +178,7 @@ test("prewarmFeedbackTts: concurrent calls for the same text synthesize once", a
   assert.equal(synthCalls, 1, "second prewarm for the same text must join, not re-synthesize");
 });
 
-test("prewarmFeedbackTts: failure never caches, never throws, and clears pending", async () => {
+test("prewarmFeedbackTts: failure never caches, never throws, and clears pending", prewarmOpts, async () => {
   const feedback = `__feedback_failure_test${RUN}`;
   const text = feedbackSpokenText(feedback, null);
   const cacheKey = keyFor(text);
@@ -188,7 +206,7 @@ test("prewarmFeedbackTts: failure never caches, never throws, and clears pending
 
 // ─── Integration: /openai/tts joins the in-flight prewarm ───────────────────
 
-test("/openai/tts joins an in-flight prewarm instead of synthesizing a duplicate", async () => {
+test("/openai/tts joins an in-flight prewarm instead of synthesizing a duplicate", prewarmOpts, async () => {
   const text = `__feedback_route_join_test${RUN} Great effort.`;
   const cacheKey = keyFor(text);
   cleanupKeys.push(cacheKey);
