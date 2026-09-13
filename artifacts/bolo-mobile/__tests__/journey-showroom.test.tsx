@@ -166,6 +166,11 @@ jest.mock('@/contexts/EntitlementsContext', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Shared base first, so every override below still wins.
+  ...jest.requireActual<typeof import('./helpers/api-client-mock')>(
+    './helpers/api-client-mock',
+  ).baseApiClientMock(),
+
   // THE DAILY GIFT BOX renders on home and at the end of practice, so every
   // suite that mounts either screen needs these three. FULL-REPLACEMENT MOCKS
   // ARE WHY THIS IS HERE IN THIRTY-TWO FILES: mobile has no shared base like

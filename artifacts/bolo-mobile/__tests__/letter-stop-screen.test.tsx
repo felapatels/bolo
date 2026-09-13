@@ -30,6 +30,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@workspace/api-client-react', () => ({
+  // Shared base first, so every override below still wins.
+  ...jest.requireActual<typeof import('./helpers/api-client-mock')>(
+    './helpers/api-client-mock',
+  ).baseApiClientMock(),
+
   completeLetterStop: (...a: unknown[]) => mockState.complete(...a),
   getGetProgressSummaryQueryKey: () => ['progress'],
   useGetAccount: () => ({ data: { preferences: { learning: { ttsVoice: 'auto' } } } }),
