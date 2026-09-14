@@ -10,7 +10,7 @@
 // tolerates an already-absent user (404) so account deletion is idempotent and a
 // missing Clerk record never blocks purging local data.
 
-import { clerkClient } from "@clerk/express";
+import type { ClerkClient } from "@clerk/backend";
 import { logger } from "./logger";
 
 export interface ProfileNameUpdate {
@@ -55,54 +55,62 @@ function statusOf(err: unknown): number | undefined {
   return undefined;
 }
 
-// The real Clerk-backed implementation.
-export const clerkAccountIdentity: AccountIdentity = {
-  async updateProfile(userId, update) {
-    await clerkClient.users.updateUser(userId, {
-      firstName: update.firstName ?? undefined,
-      lastName: update.lastName ?? undefined,
-    });
-  },
+// The real Clerk-backed implementation, bound to ONE instance's client.
+//
+// A factory, not a constant, since X100 (2026-09-14). The constant used
+// @clerk/express's default client, which reads the development secret, so on
+// the custom domain deleteUser got a 404 for every real learner, read it as
+// "already gone" below, and reported a deletion that never reached Clerk.
+// Build it with clerkClientForRequest(req).
+export function clerkAccountIdentityFor(clerkClient: ClerkClient): AccountIdentity {
+  return {
+    async updateProfile(userId, update) {
+      await clerkClient.users.updateUser(userId, {
+        firstName: update.firstName ?? undefined,
+        lastName: update.lastName ?? undefined,
+      });
+    },
 
-  async updateEmail(userId, email) {
-    // Admin-create the new address as already-verified and primary, then drop
-    // the old primary so exactly one primary email remains.
-    const user = await clerkClient.users.getUser(userId);
-    const previousPrimaryId = user.primaryEmailAddressId;
+    async updateEmail(userId, email) {
+      // Admin-create the new address as already-verified and primary, then drop
+      // the old primary so exactly one primary email remains.
+      const user = await clerkClient.users.getUser(userId);
+      const previousPrimaryId = user.primaryEmailAddressId;
 
-    const created = await clerkClient.emailAddresses.createEmailAddress({
-      userId,
-      emailAddress: email,
-      verified: true,
-      primary: true,
-    });
+      const created = await clerkClient.emailAddresses.createEmailAddress({
+        userId,
+        emailAddress: email,
+        verified: true,
+        primary: true,
+      });
 
-    if (previousPrimaryId && previousPrimaryId !== created.id) {
+      if (previousPrimaryId && previousPrimaryId !== created.id) {
+        try {
+          await clerkClient.emailAddresses.deleteEmailAddress(previousPrimaryId);
+        } catch (err) {
+          // Non-fatal: the new email is already primary; a leftover address is
+          // harmless and can be cleaned up later.
+          logger.warn({ err, userId }, "failed to remove previous email address");
+        }
+      }
+      return created.emailAddress;
+    },
+
+    async updatePassword(userId, password) {
+      await clerkClient.users.updateUser(userId, { password });
+    },
+
+    async deleteUser(userId) {
       try {
-        await clerkClient.emailAddresses.deleteEmailAddress(previousPrimaryId);
+        await clerkClient.users.deleteUser(userId);
       } catch (err) {
-        // Non-fatal: the new email is already primary; a leftover address is
-        // harmless and can be cleaned up later.
-        logger.warn({ err, userId }, "failed to remove previous email address");
+        if (statusOf(err) === 404) {
+          // Already gone — nothing to delete. Idempotent by design.
+          logger.info({ userId }, "Clerk user already absent on delete");
+          return;
+        }
+        throw err;
       }
-    }
-    return created.emailAddress;
-  },
-
-  async updatePassword(userId, password) {
-    await clerkClient.users.updateUser(userId, { password });
-  },
-
-  async deleteUser(userId) {
-    try {
-      await clerkClient.users.deleteUser(userId);
-    } catch (err) {
-      if (statusOf(err) === 404) {
-        // Already gone — nothing to delete. Idempotent by design.
-        logger.info({ userId }, "Clerk user already absent on delete");
-        return;
-      }
-      throw err;
-    }
-  },
-};
+    },
+  };
+}

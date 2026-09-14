@@ -1,6 +1,7 @@
 import { getAuth } from "@clerk/express";
 import type { NextFunction, Request, Response } from "express";
 import { ensureLocalUser } from "../lib/userIdentity";
+import { clerkClientForRequest } from "../lib/clerkInstance";
 import { touchPresence } from "../lib/presence";
 
 // Adds the authenticated Clerk user id to the request after verifying the
@@ -26,7 +27,7 @@ export async function requireAuth(
 
     // Just-in-time provision the local mirror row and capture the caller's
     // display name + email from Clerk (backfilling older rows that lack them).
-    await ensureLocalUser(userId);
+    await ensureLocalUser(userId, clerkClientForRequest(req));
 
     // PRESENCE, recorded here because this is the one line every authenticated
     // request passes through. In memory and O(1); see lib/presence.ts for why

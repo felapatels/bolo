@@ -35,10 +35,11 @@ import { VALID_VOICE_IDS } from "../lib/languageVoice";
 import { invalidateVoicePreferenceCache } from "./openai";
 import { buildSubscriptionDetails } from "../lib/subscriptionDetails";
 import {
-  clerkAccountIdentity,
+  clerkAccountIdentityFor,
   splitDisplayName,
   type AccountIdentity,
 } from "../lib/accountIdentity";
+import { clerkClientForRequest } from "../lib/clerkInstance";
 import { logger } from "../lib/logger";
 
 // The account & subscription surface both apps' settings screens read/write.
@@ -51,7 +52,10 @@ import { logger } from "../lib/logger";
 // be swapped for a fake in tests (Node's test runner has no module mocking).
 
 export interface AccountRouterDeps {
-  identity: AccountIdentity;
+  // Tests inject a fake. Production leaves it unset and gets a Clerk-backed
+  // identity PER REQUEST, bound to the instance that issued the session: one
+  // fixed default read the development secret and deleted nobody (X100).
+  identity?: AccountIdentity;
 }
 
 const THEMES = new Set(["system", "light", "dark"]);
@@ -160,10 +164,11 @@ function hasManageableSubscription(user: User): boolean {
 }
 
 export function createAccountRouter(
-  deps: AccountRouterDeps = { identity: clerkAccountIdentity },
+  deps: AccountRouterDeps = {},
 ): IRouter {
   const router: IRouter = Router();
-  const { identity } = deps;
+  const identityFor = (req: Request): AccountIdentity =>
+    deps.identity ?? clerkAccountIdentityFor(clerkClientForRequest(req));
 
   // GET /account — the caller's profile, preferences, and a subscription
   // summary in one payload the settings screen renders from.
@@ -212,7 +217,7 @@ export function createAccountRouter(
         }
         const displayName = raw.trim();
         try {
-          await identity.updateProfile(id, splitDisplayName(displayName));
+          await identityFor(req).updateProfile(id, splitDisplayName(displayName));
         } catch (err) {
           logger.error({ err, userId: id }, "Clerk profile update failed");
           res.status(502).json({ error: "Could not update your name" });
@@ -330,7 +335,7 @@ export function createAccountRouter(
       }
       let stored: string;
       try {
-        stored = await identity.updateEmail(id, email);
+        stored = await identityFor(req).updateEmail(id, email);
       } catch (err) {
         logger.error({ err, userId: id }, "Clerk email update failed");
         res.status(502).json({ error: "Could not update your email" });
@@ -359,7 +364,7 @@ export function createAccountRouter(
         return;
       }
       try {
-        await identity.updatePassword(id, password);
+        await identityFor(req).updatePassword(id, password);
       } catch (err) {
         logger.error({ err, userId: id }, "Clerk password update failed");
         res.status(502).json({ error: "Could not update your password" });
@@ -514,7 +519,7 @@ export function createAccountRouter(
     async (req: Request, res: Response): Promise<void> => {
       const id = userId(req);
       try {
-        await identity.deleteUser(id);
+        await identityFor(req).deleteUser(id);
       } catch (err) {
         logger.error({ err, userId: id }, "Clerk user deletion failed");
         res.status(502).json({ error: "Could not delete your account" });

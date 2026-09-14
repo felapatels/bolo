@@ -8,6 +8,7 @@ src/lib/chachaCallSessions.test.ts
 src/lib/chachaCallTrigger.test.ts
 src/lib/chachaCallTurn.test.ts
 src/lib/chatMemory.test.ts
+src/lib/clerkInstance.test.ts
 src/lib/clientPlatformBuild.test.ts
 src/lib/crossScript.test.ts
 src/lib/deepHealth.test.ts

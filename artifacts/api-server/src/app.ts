@@ -12,13 +12,12 @@ import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
   CLERK_PROXY_PATH,
   clerkProxyMiddleware,
-  getClerkProxyHost,
 } from "./middlewares/clerkProxyMiddleware";
+import { clerkSecretKeyForRequest, getClerkProxyHost } from "./lib/clerkInstance";
 import { guardUnreadableToken } from "./middlewares/unreadableTokenGuard";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { stripeWebhookHandler } from "./middlewares/stripeWebhook";
-import { APP_DOMAIN } from "./lib/appDomain";
 
 const app: Express = express();
 
@@ -124,10 +123,9 @@ app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 // rather than send nothing.
 const clerk = clerkMiddleware((req) => {
   const host = (getClerkProxyHost(req) ?? "").toLowerCase();
-  const isCustomDomain = host === APP_DOMAIN || host === `www.${APP_DOMAIN}`;
-  const secretKey =
-    (isCustomDomain ? process.env.CLERK_SECRET_KEY_PROD : undefined) ??
-    process.env.CLERK_SECRET_KEY;
+  // The per-host secret rule lives in lib/clerkInstance.ts (X100), so this
+  // check and every backend API call can never pick different instances.
+  const secretKey = clerkSecretKeyForRequest(req);
   return {
     publishableKey: publishableKeyFromHost(host, process.env.CLERK_PUBLISHABLE_KEY),
     ...(secretKey ? { secretKey } : {}),

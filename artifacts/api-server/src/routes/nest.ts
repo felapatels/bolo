@@ -25,7 +25,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router, type IRouter, type Request, type Response } from "express";
-import { clerkClient } from "@clerk/express";
+import { clerkClientForRequest } from "../lib/clerkInstance";
 import { OUTFIT_CATALOG } from "../lib/outfits.catalog.gen";
 import {
   presenceSince,
@@ -1834,7 +1834,7 @@ router.get("/nest/live", async (req: Request, res: Response): Promise<void> => {
     // headline down with it: the count is ours and does not depend on it.
     const clerkSeen = new Map<string, number>();
     try {
-      const list = await clerkClient.users.getUserList({ userId: ids, limit: ids.length });
+      const list = await clerkClientForRequest(req).users.getUserList({ userId: ids, limit: ids.length });
       for (const u of list.data) {
         if (typeof u.lastActiveAt === "number") clerkSeen.set(u.id, u.lastActiveAt);
       }

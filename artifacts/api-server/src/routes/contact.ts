@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db, contactSubmissionsTable } from "@workspace/db";
 import { getAuth } from "@clerk/express";
 import { ensureLocalUser } from "../lib/userIdentity";
+import { clerkClientForRequest } from "../lib/clerkInstance";
 import { createRateLimit } from "../middlewares/rateLimit";
 import { sendContactNotification } from "../lib/resendClient";
 
@@ -57,7 +58,7 @@ router.post(
     let userId: string | null = null;
     try {
       userId = getAuth(req)?.userId ?? null;
-      if (userId) await ensureLocalUser(userId);
+      if (userId) await ensureLocalUser(userId, clerkClientForRequest(req));
     } catch {
       userId = null;
     }

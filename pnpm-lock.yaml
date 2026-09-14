@@ -176,6 +176,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1098.0
         version: 3.1098.0
+      '@clerk/backend':
+        specifier: 3.11.4
+        version: 3.11.4
       '@clerk/express':
         specifier: ^2.1.40
         version: 2.1.40(express@5.2.1(supports-color@8.1.1))

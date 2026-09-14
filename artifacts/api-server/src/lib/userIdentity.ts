@@ -1,4 +1,4 @@
-import { clerkClient } from "@clerk/express";
+import type { ClerkClient } from "@clerk/backend";
 import { db, usersTable, friendInvitesTable, friendshipsTable } from "@workspace/db";
 import { eq, and, or, ne } from "drizzle-orm";
 
@@ -36,9 +36,12 @@ function deriveDisplayName(user: {
   return null;
 }
 
-async function fetchClerkIdentity(userId: string): Promise<ClerkIdentity | null> {
+async function fetchClerkIdentity(
+  clerk: ClerkClient,
+  userId: string,
+): Promise<ClerkIdentity | null> {
   try {
-    const user = await clerkClient.users.getUser(userId);
+    const user = await clerk.users.getUser(userId);
     const primaryEmail =
       user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
         ?.emailAddress ??
@@ -65,7 +68,14 @@ async function fetchClerkIdentity(userId: string): Promise<ClerkIdentity | null>
 // identity in a single round-trip, and Clerk is only consulted when a column is
 // still missing — covering both brand-new users and older rows created before
 // identity capture existed (graceful backfill).
-export async function ensureLocalUser(userId: string): Promise<void> {
+//
+// `clerk` is REQUIRED, and must be clerkClientForRequest(req): the default
+// client reads the development secret, so on the custom domain every lookup
+// missed and new learners were left nameless (X100).
+export async function ensureLocalUser(
+  userId: string,
+  clerk: ClerkClient,
+): Promise<void> {
   const [row] = await db
     .insert(usersTable)
     .values({ id: userId })
@@ -77,7 +87,7 @@ export async function ensureLocalUser(userId: string): Promise<void> {
 
   if (row?.email && row?.displayName) return;
 
-  const identity = await fetchClerkIdentity(userId);
+  const identity = await fetchClerkIdentity(clerk, userId);
   if (!identity) return;
 
   // Only fill in blanks — never clobber a value already stored (e.g. if a user
