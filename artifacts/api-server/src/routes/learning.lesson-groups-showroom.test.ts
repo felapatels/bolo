@@ -353,15 +353,16 @@ test("teaser caller gets the showroom: all locked except the marked teaser stati
 
   // Envelope: exactly the list contract plus the showroom fields.
   // Hotfix 3S: every lesson-groups response now carries the signals payload.
-  // stopUnlock rides the first zone only: it is the Chai price of a stop
-  // unlock, and the first zone is the only place the server sells one.
+  // NO stopUnlock here, inverted from the original. It used to ride the first
+  // zone only; since 365d47fe all of Zone 1 is free, so there is nothing to
+  // sell on it and learning.ts (canBuyZone) sends stopUnlock on every zone
+  // EXCEPT the first. greetings is the teaser's zone, the first one.
   assert.deepEqual(
     Object.keys(json).sort(),
     [
       "access",
       "lessonGroups",
       "signals",
-      "stopUnlock",
       "teaser",
       "unassignedCount",
     ].sort(),

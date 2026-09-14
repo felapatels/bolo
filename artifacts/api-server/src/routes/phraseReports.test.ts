@@ -146,7 +146,18 @@ before(async () => {
   // unauthenticated request must 401 before the router ever runs.
   authApp = express();
   authApp.use(express.json());
-  authApp.use(clerkMiddleware());
+  // The placeholders are CI's own (India's ci.yml sets both). clerkMiddleware()
+  // with no keys THROWS "Publishable key is missing", then "Missing Clerk Secret
+  // Key", on a machine without them, which Express turns into a 500 before
+  // requireAuth can answer 401. A request with no token never reaches Clerk.
+  authApp.use(
+    clerkMiddleware({
+      publishableKey:
+        process.env.CLERK_PUBLISHABLE_KEY ?? "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k",
+      secretKey:
+        process.env.CLERK_SECRET_KEY ?? "sk_test_ci_placeholder_not_a_credential",
+    }),
+  );
   authApp.use(requireAuth);
   authApp.use(phraseReportsRouter);
   await new Promise<void>((resolve) => {

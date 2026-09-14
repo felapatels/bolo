@@ -1,5 +1,6 @@
 // The Script Trace free taste: the first TRACE_TEASER_LIMIT characters of every
-// language are writable by any plan; everything past them is All-Access.
+// language are writable by any plan. Since 365d47fe the rest of journey 1 zone
+// 1's stop is free too (Zone 1 is free); past Zone 1 it is All-Access.
 //
 // WHY THIS FILE EXISTS. Script Trace shipped hard-gated: `scriptTrace` is false
 // for Free AND One-Language, both progress endpoints answered 402, and the web
@@ -51,11 +52,18 @@ async function postProgress(body: unknown): Promise<{ status: number; json: any 
   return { status: res.status, json };
 }
 
-/** The stop the taste comes from, and the characters either side of the line. */
-const firstStop = () => traceStopFor(LANG, 1, 1)!;
+/** The taste, and a character on the paid side of the line. */
 const tasted = () => traceTeaserCharacters(LANG);
-/** The first character past the taste, inside the very same stop. */
-const paid = () => firstStop().characters[TRACE_TEASER_LIMIT]!;
+/**
+ * A character a Free caller does not own: the first of journey 1 zone 2.
+ *
+ * It used to be the fourth character of zone 1's stop. 365d47fe made all of
+ * Zone 1 free, tracing stop included (canTraceOwnedCharacter, following the
+ * zone-one-free ruling), so that character is writable by design and the old
+ * 402 assertion described a world the product left. Zone 2 is the nearest
+ * character that is still genuinely paid.
+ */
+const paid = () => traceStopFor(LANG, 1, 2)!.characters[0]!;
 
 before(async () => {
   await ensureUsersColumns();
@@ -120,7 +128,7 @@ test("the taste is three characters, and a Free caller may write them", async ()
   }
 });
 
-test("the fourth character of the SAME stop is already paid", async () => {
+test("a character past the free Zone 1 is paid", async () => {
   currentUserId = FREE_USER_ID;
   const c = paid();
   const { status } = await postProgress({
@@ -130,8 +138,8 @@ test("the fourth character of the SAME stop is already paid", async () => {
     passed: true,
     score: 88,
   });
-  // The taste is three characters, not the whole stop. This is the assertion
-  // that stops the carve-out quietly widening to a free feature.
+  // The free carve-out is Zone 1, not the whole alphabet. This is the
+  // assertion that stops it quietly widening to a free feature.
   assert.equal(status, 402, "past the taste a Free caller must be refused");
 });
 

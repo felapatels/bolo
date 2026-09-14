@@ -24,6 +24,7 @@ src/lib/lessonGroupUnlock.test.ts
 src/lib/letterTtsKey.test.ts
 src/lib/logger.sentry.test.ts
 src/lib/logger.test.ts
+src/lib/nestFleet.test.ts
 src/lib/nocatchDiagnostics.test.ts
 src/lib/parrotChat.test.ts
 src/lib/phraseAudioVerify.test.ts
