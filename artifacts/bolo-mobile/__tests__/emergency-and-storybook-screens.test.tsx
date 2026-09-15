@@ -29,7 +29,8 @@ const mockPush = jest.fn();
 const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn() }),
+  // dismissTo since 2026-09-14: both screens pop to the open map from a stop.
+  useRouter: () => ({ push: mockPush, replace: mockReplace, back: jest.fn(), dismissTo: jest.fn() }),
   useLocalSearchParams: () => ({}),
 }));
 

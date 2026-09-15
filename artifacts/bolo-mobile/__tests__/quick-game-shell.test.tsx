@@ -31,6 +31,9 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({
     back: (...a: unknown[]) => mockState.back(...a),
     replace: (...a: unknown[]) => mockState.replace(...a),
+    // The journey exits pop to the open map since 2026-09-14 (QuickGameShell
+    // backToJourney), so the pop has to be assertable too.
+    dismissTo: (...a: unknown[]) => mockState.dismissTo(...a),
     // Hoisted into mockState in build 26: a locked topic now ROUTES to the
     // journey, so the push has to be assertable. A fresh jest.fn() per
     // useRouter() call could never be reached from a test.
@@ -315,6 +318,7 @@ beforeEach(() => {
   mockState.params = {};
   mockState.back = jest.fn();
   mockState.replace = jest.fn();
+  mockState.dismissTo = jest.fn();
   mockState.push = jest.fn();
   mockState.invalidate = jest.fn();
   mockState.pendingConfirm = undefined;
@@ -1013,7 +1017,11 @@ describe('exit paths', () => {
       mockState.pendingConfirm();
     });
 
-    expect(mockState.replace).toHaveBeenCalledWith('/(app)/journey');
+    // INVERTED 2026-09-14: this asserted replace, and replace stacked a second
+    // journey that replayed its zone film (owner: "old splash plays when i
+    // leave the Letters stop"). The exit now pops to the open map.
+    expect(mockState.dismissTo).toHaveBeenCalledWith('/(app)/journey');
+    expect(mockState.replace).not.toHaveBeenCalledWith('/(app)/journey');
     expect(screen.queryByText('Greetings')).toBeNull();
   });
 
@@ -1026,7 +1034,9 @@ describe('exit paths', () => {
 
     expect(screen.queryByText('Choose Topic')).toBeNull();
     fireEvent.press(screen.getByText('Back to the Journey'));
-    expect(mockState.replace).toHaveBeenCalledWith('/(app)/journey');
+    // INVERTED 2026-09-14 with the decline above: pop to the open map.
+    expect(mockState.dismissTo).toHaveBeenCalledWith('/(app)/journey');
+    expect(mockState.replace).not.toHaveBeenCalledWith('/(app)/journey');
   });
 
   test('exiting from the picker leaves without a confirm dialog', async () => {

@@ -123,6 +123,14 @@ export default function StorybookScreen() {
 
   const journey = Number(params.journey) || 1;
   const zone = Number(params.zone) || 1;
+  // FROM A STOP, BACK IS THE MAP (owner, on the phone, 2026-09-14: "when i
+  // click the back arrow on the storybook stop, it takes me back to
+  // homescreen"). The map opens this screen in a fresh copy of the tabs whose
+  // games stack holds nothing under it, so back() fell through to the tab bar
+  // and landed on Home. A stop link carries journey and zone; the Games hub
+  // opens the book bare, and from there back() to the hub is still right.
+  const fromStop = params.journey != null;
+  const leave = () => (fromStop ? router.dismissTo('/(app)/journey') : router.back());
   const book: StoryBook | null = useMemo(() => storyBookFor(journey, zone), [journey, zone]);
 
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
@@ -381,9 +389,9 @@ export default function StorybookScreen() {
           device 2026-08-24 by somebody who had come in from the Games hub and
           could not get out. Same treatment as Phrasebook and Leaderboard. */}
       <Pressable
-        onPress={() => router.back()}
+        onPress={leave}
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={fromStop ? 'Back to the journey map' : 'Back'}
         testID="storybook-back"
         hitSlop={10}
         style={[s.backBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -478,10 +486,10 @@ export default function StorybookScreen() {
           </Text>
           <Pressable
             testID="storybook-short-back"
-            onPress={() => router.back()}
+            onPress={leave}
             style={[s.cta, { backgroundColor: colors.primary }]}
           >
-            <Text style={s.ctaText}>Back to the games</Text>
+            <Text style={s.ctaText}>{fromStop ? 'Back to the journey' : 'Back to the games'}</Text>
           </Pressable>
         </View>
       )}

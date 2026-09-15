@@ -191,7 +191,9 @@ export default function EmergencyScreen() {
   // half-played: the learner goes back to the map as though it was never
   // planned. Same fallback as web, same reason the manifest is compiled in.
   useEffect(() => {
-    if (fromJourney && !hasEmergency(journey, zone)) router.replace('/journey');
+    // dismissTo, not replace: a second journey replays its zone film and hides
+    // Home under a duplicate map (2026-09-14, the Letters stop's exit fix).
+    if (fromJourney && !hasEmergency(journey, zone)) router.dismissTo('/(app)/journey');
   }, [fromJourney, journey, zone, router]);
 
   const answer = useCallback(
@@ -393,7 +395,9 @@ export default function EmergencyScreen() {
           >
             <Text style={s.ctaText}>Run it again</Text>
           </Pressable>
-          <Pressable onPress={() => router.replace(fromJourney ? '/journey' : '/games')}>
+          <Pressable
+            onPress={() => (fromJourney ? router.dismissTo('/(app)/journey') : router.replace('/games'))}
+          >
             <Text style={[s.link, { color: colors.mutedForeground }]}>
               {fromJourney ? 'Back to the map' : 'Back to Games'}
             </Text>

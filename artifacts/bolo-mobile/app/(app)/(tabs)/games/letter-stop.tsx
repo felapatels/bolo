@@ -545,7 +545,12 @@ export default function LetterStopScreen() {
     if (!isLoading && !ownership.isLoading && !isPlus && !tasting && !owned) router.replace({ pathname: '/(app)/paywall', params: { reason: 'journey_stop', lang: activeLang, stopKind: 'letter', journey: String(stop?.journey ?? 1), zone: String(stop?.zone ?? 1) } });
   }, [isLoading, ownership.isLoading, isPlus, tasting, owned, router, activeLang, stop?.journey, stop?.zone]);
 
-  const leave = useCallback(() => router.replace('/(app)/journey'), [router]);
+  // BACK TO THE MAP ALREADY OPEN, NOT A NEW ONE (owner, on the phone,
+  // 2026-09-14: "old splash plays when i leave the Letters stop"). replace()
+  // stacked a second journey, which plays its zone film on mount. dismissTo
+  // pops to the journey underneath and replaces only when there is none, as
+  // from a deep link. Last Call's leave is the same fix.
+  const leave = useCallback(() => router.dismissTo('/(app)/journey'), [router]);
 
   const finish = useCallback(
     (correct: number, total: number) => {

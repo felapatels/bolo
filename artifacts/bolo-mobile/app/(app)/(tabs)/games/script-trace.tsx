@@ -2221,7 +2221,9 @@ export default function ScriptTraceScreen() {
   }
 
   const leave = () => {
-    if (fromStop) router.replace('/(app)/journey');
+    // dismissTo, not replace: a second journey replays its zone film (owner,
+    // 2026-09-14, seen leaving the Letters stop). See letter-stop.tsx leave.
+    if (fromStop) router.dismissTo('/(app)/journey');
     else setActiveChapter(null);
   };
 

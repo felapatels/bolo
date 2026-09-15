@@ -67,8 +67,17 @@ type StoryPhrase = {
   english: string;
 };
 
-/** ?journey=&zone=, defaulting to the zone that carries the free taste. */
-function useZoneParams(): { journey: number; zone: number } {
+/**
+ * ?journey=&zone=, defaulting to the zone that carries the free taste.
+ *
+ * `fromStop` is whether a journey was named at all: the map's stop link always
+ * names one and the Games hub opens the book bare. It decides where every way
+ * out goes (owner, on the phone, 2026-09-14: "when i click the back arrow on
+ * the storybook stop, it takes me back to homescreen"). Here every exit was a
+ * link to /games, so a stop reader was sent to the hub rather than the map.
+ * Beat the Train already split its back link this way.
+ */
+function useZoneParams(): { journey: number; zone: number; fromStop: boolean } {
   const search = useSearch();
   return useMemo(() => {
     const params = new URLSearchParams(search);
@@ -77,8 +86,18 @@ function useZoneParams(): { journey: number; zone: number } {
     return {
       journey: Number.isInteger(j) && j > 0 ? j : 1,
       zone: Number.isInteger(z) && z > 0 ? z : 1,
+      fromStop: params.has("journey"),
     };
   }, [search]);
+}
+
+/** Where the book's ways out go: the map from a stop, the hub from the hub. */
+type StoryExit = { href: string; label: string };
+
+function storyExit(fromStop: boolean): StoryExit {
+  return fromStop
+    ? { href: "/journey", label: "Back to the journey" }
+    : { href: "/games", label: "Back to Games" };
 }
 
 // ─── Opening the book ───────────────────────────────────────────────────────
@@ -476,7 +495,7 @@ function ChoiceCard({
  * what tells the two apart. Copy lives in @workspace/story so the phone's twin
  * cannot word it differently.
  */
-function TasteEnd() {
+function TasteEnd({ exit }: { exit: StoryExit }) {
   return (
     <div
       data-testid="story-taste-end"
@@ -500,10 +519,10 @@ function TasteEnd() {
         {STORY_TEASER_END.cta}
       </Link>
       <Link
-        href="/games"
+        href={exit.href}
         className="text-sm text-muted-foreground underline-offset-2 hover:underline"
       >
-        Back to Games
+        {exit.label}
       </Link>
     </div>
   );
@@ -524,12 +543,14 @@ function TheBook({
   entries,
   phrasesByConcept,
   onAgain,
+  exit,
   limited = false,
 }: {
   book: StoryBook;
   entries: LedgerEntry[];
   phrasesByConcept: Map<string, StoryPhrase>;
   onAgain: () => void;
+  exit: StoryExit;
   /**
    * The reader is on the free taste and has just finished the one book it
    * opens.
@@ -621,10 +642,10 @@ function TheBook({
         Read it again
       </button>
       <Link
-        href="/games"
+        href={exit.href}
         className="text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
       >
-        Back to Games
+        {exit.label}
       </Link>
     </div>
   );
@@ -636,7 +657,8 @@ export default function StorybookPage() {
   const { activeLang, activeLanguage } = useLanguage();
   const native = useNativeText();
   const reduceMotion = useReducedMotion();
-  const { journey, zone } = useZoneParams();
+  const { journey, zone, fromStop } = useZoneParams();
+  const exit = storyExit(fromStop);
   const { soundOn, toggle: toggleSound } = useGameAudio();
 
   const book = useMemo(() => storyBookFor(journey, zone), [journey, zone]);
@@ -833,9 +855,9 @@ export default function StorybookPage() {
     <div className="flex min-h-[100dvh] flex-col bg-background pb-nav lg:pb-8">
       <div className="mx-auto flex w-full max-w-2xl items-center gap-3 border-b border-border px-4 py-4">
         <Link
-          href="/games"
+          href={exit.href}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
-          aria-label="Back to Games"
+          aria-label={exit.label}
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
@@ -899,6 +921,7 @@ export default function StorybookPage() {
             entries={entries}
             phrasesByConcept={phrasesByConcept}
             onAgain={readAgain}
+            exit={exit}
             limited={data?.limited === true}
           />
         )}
@@ -907,7 +930,7 @@ export default function StorybookPage() {
             response is the learner reaching the end of what they were given,
             which is a different thing from a language whose corpus is thin. */}
         {book && !isLoading && !finished && !resolved && data?.limited && (
-          <TasteEnd />
+          <TasteEnd exit={exit} />
         )}
 
         {/* The corpus is short in this language. No offer, because there is
@@ -924,10 +947,10 @@ export default function StorybookPage() {
               {activeLanguage?.name ?? "this language"} yet.
             </p>
             <Link
-              href="/games"
+              href={exit.href}
               className="text-sm text-primary underline-offset-2 hover:underline"
             >
-              Back to Games
+              {exit.label}
             </Link>
           </div>
         )}

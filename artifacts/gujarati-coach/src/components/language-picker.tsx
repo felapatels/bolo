@@ -15,6 +15,7 @@ import { getJourneyLine } from "@/lib/journeyLines";
 import { useEntitlements } from "@/lib/entitlements";
 import { useExplicitLanguageChoice } from "@/lib/language-step";
 import { foldForSearch, loadRecentLanguages, recordRecentLanguage } from "@/lib/recent-languages";
+import { forgetJourneyReturn } from "@/lib/stop-splash";
 
 type LanguagePickerProps = {
   /** Optional external open state — pass both open + onOpenChange to control from outside. */
@@ -150,6 +151,8 @@ export function LanguagePicker({ open: openProp, onOpenChange, trigger }: Langua
       setActiveLang(code);
       choose(code);
       setOpen(false);
+      // Another language's map is an arrival, never a return (lib/stop-splash).
+      forgetJourneyReturn();
       setLocation("/journey");
       return;
     }

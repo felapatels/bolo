@@ -564,8 +564,11 @@ export function QuickGameShell({
     setPhase('picker');
   }, [resetRun]);
 
+  // dismissTo, not replace (2026-09-14): replace stacked a second journey,
+  // which replays its zone film and leaves a duplicate map under Back. The
+  // owner saw it leaving the Letters stop; every game stop shared the shape.
   const backToJourney = useCallback(() => {
-    router.replace('/(app)/journey');
+    router.dismissTo('/(app)/journey');
   }, [router]);
 
   /**
