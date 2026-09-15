@@ -29,7 +29,7 @@ import {
 } from "@workspace/db";
 import { and, asc, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { buildPhraseStats, type PhraseStats } from "./progressMetrics";
-import { isSpeechScored } from "./speechCapability";
+import { gatesOnScore } from "./speechCapability";
 import {
   deriveGroupStatuses,
   isZoneComplete,
@@ -88,7 +88,9 @@ export async function loadGroupUnlockContext(
   // Joins the SAME parallel round trip the doc comment promises, so the
   // capability lookup never adds a serial hop. After the first call per
   // language it is a cache hit and costs nothing at all.
-  const speechScored = await isSpeechScored(languageCode);
+  // gatesOnScore, not isSpeechScored: a language scored by hearing it back
+  // keeps its stops open (speechCapability.ts, 2026-09-14).
+  const speechScored = await gatesOnScore(languageCode);
   const [groups, members, [unassigned], progressRows, attempts] =
     await Promise.all([
       db
@@ -471,7 +473,9 @@ export async function unlockedGroupIdsByCategory(
   phrases: { id: number; categoryId: number; lessonGroupId: number | null }[],
   stats: Map<number, PhraseStats>,
 ): Promise<Map<number, Set<number>>> {
-  const speechScored = await isSpeechScored(languageCode);
+  // gatesOnScore, not isSpeechScored: a language scored by hearing it back
+  // keeps its stops open (speechCapability.ts, 2026-09-14).
+  const speechScored = await gatesOnScore(languageCode);
   const [groups, progressRows] = await Promise.all([
     db
       .select({

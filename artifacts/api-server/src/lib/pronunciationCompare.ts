@@ -384,12 +384,25 @@ export function compareToReference(
   referenceWav: Buffer,
   attemptWav: Buffer,
 ): CompareResult | null {
-  const ref = readPcm16(referenceWav);
-  const att = readPcm16(attemptWav);
-  if (!ref || !att) return null;
+  return compareToReferences(attemptWav, [referenceWav])[0] ?? null;
+}
 
-  const refFrames = mfccFrames(ref.samples, ref.sampleRate);
-  if (refFrames.length < MIN_FRAMES) return null;
+/**
+ * ONE ATTEMPT AGAINST SEVERAL REFERENCES, the closed-set question
+ * referenceScoring.ts asks: "which of these lines was that?" (2026-09-14).
+ *
+ * Same metric, same warp search and the same nulls as compareToReference,
+ * which is now this with a single reference. The difference is cost: the
+ * attempt is analysed at each warp ONCE and then aligned against every
+ * reference, where calling compareToReference in a loop would redo those
+ * thirteen analyses for every phrase in the lesson.
+ */
+export function compareToReferences(
+  attemptWav: Buffer,
+  referenceWavs: readonly Buffer[],
+): (CompareResult | null)[] {
+  const att = readPcm16(attemptWav);
+  if (!att) return referenceWavs.map(() => null);
 
   // VTLN BY SEARCH, AND WITHOUT IT THIS WHOLE MODULE IS UNUSABLE.
   //
@@ -404,25 +417,36 @@ export function compareToReference(
   // wins. The learner is not penalised for the size of their head. The range is
   // the usual one for adult-to-child compensation; the step is coarse because
   // the alignment is tolerant and 13 passes over a one second clip is cheap.
-  let best: { distance: number; profile: Float32Array; frames: number; warp: number } | null = null;
+  const warped: { warp: number; frames: Float32Array[] }[] = [];
   for (let warp = VTLN_MIN; warp <= VTLN_MAX + 1e-9; warp += VTLN_STEP) {
-    const attFrames = mfccFrames(att.samples, att.sampleRate, warp);
-    if (attFrames.length < MIN_FRAMES) continue;
-    const d = dtw(refFrames, attFrames);
-    if (!best || d.distance < best.distance) {
-      best = { distance: d.distance, profile: d.profile, frames: attFrames.length, warp };
-    }
+    const frames = mfccFrames(att.samples, att.sampleRate, warp);
+    if (frames.length >= MIN_FRAMES) warped.push({ warp, frames });
   }
-  if (!best) return null;
 
-  return {
-    distance: best.distance,
-    durationRatio: best.frames / refFrames.length,
-    referenceFrames: refFrames.length,
-    attemptFrames: best.frames,
-    warp: best.warp,
-    costProfile: best.profile,
-  };
+  return referenceWavs.map((referenceWav) => {
+    const ref = readPcm16(referenceWav);
+    if (!ref) return null;
+    const refFrames = mfccFrames(ref.samples, ref.sampleRate);
+    if (refFrames.length < MIN_FRAMES) return null;
+
+    let best: { distance: number; profile: Float32Array; frames: number; warp: number } | null = null;
+    for (const { warp, frames } of warped) {
+      const d = dtw(refFrames, frames);
+      if (!best || d.distance < best.distance) {
+        best = { distance: d.distance, profile: d.profile, frames: frames.length, warp };
+      }
+    }
+    if (!best) return null;
+
+    return {
+      distance: best.distance,
+      durationRatio: best.frames / refFrames.length,
+      referenceFrames: refFrames.length,
+      attemptFrames: best.frames,
+      warp: best.warp,
+      costProfile: best.profile,
+    };
+  });
 }
 
 /**

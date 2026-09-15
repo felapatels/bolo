@@ -2,6 +2,7 @@ import { db, languagesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 import type { SpeechCapability } from "./phraseAudioVerify";
+import { isReferenceScored } from "./referenceScoring";
 
 export type { SpeechCapability };
 
@@ -48,6 +49,31 @@ export async function speechCapabilityFor(
  */
 export async function isSpeechScored(languageCode: string): Promise<boolean> {
   return (await speechCapabilityFor(languageCode)) !== "unsupported";
+}
+
+/**
+ * MAY A LESSON STOP STAY LOCKED UNTIL THE PREVIOUS ONE IS MASTERED? The unlock
+ * derivation's question (lessonGroupUnlock.ts `speechScored`), which used to be
+ * answered by isSpeechScored alone.
+ *
+ * NOT FOR A LANGUAGE SCORED BY HEARING IT BACK (referenceScoring.ts, owner
+ * 2026-09-14). Those languages were 'unsupported' with every stop open, because
+ * nothing could be scored. They now score against the app's own synthetic
+ * audio as a stopgap, and gating on that would lock a learner who already
+ * reached stop nine behind mastery they had no way to earn, on a measurement
+ * too approximate to hold anyone back. So they score, earn XP and play the
+ * games, and their stops stay open until native references make the score
+ * worth gating on.
+ */
+export function gatesOnScoreFor(
+  languageCode: string,
+  capability: SpeechCapability | null,
+): boolean {
+  return capability !== "unsupported" && !isReferenceScored(languageCode);
+}
+
+export async function gatesOnScore(languageCode: string): Promise<boolean> {
+  return gatesOnScoreFor(languageCode, await speechCapabilityFor(languageCode));
 }
 
 /** Test seam only: drops the process-lifetime cache. */

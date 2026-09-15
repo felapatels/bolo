@@ -35,6 +35,7 @@ src/lib/presence.test.ts
 src/lib/prewarmFullTtsCache.test.ts
 src/lib/progressMetrics.test.ts
 src/lib/pronunciationCompare.test.ts
+src/lib/referenceScoring.test.ts
 src/lib/pronunciationFusion.test.ts
 src/lib/pronunciationGuards.test.ts
 src/lib/reportNote.test.ts

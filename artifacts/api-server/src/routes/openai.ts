@@ -8,6 +8,7 @@ import {
   textToSpeechElevenLabs,
   speechToText,
   ensureCompatibleFormat,
+  convertToWav,
   UndecodableAudioError,
 } from "@workspace/integrations-openai-ai-server/audio";
 import { elevenLabsQuotaMonitor } from "../lib/elevenLabsQuotaMonitor";
@@ -40,6 +41,38 @@ import {
 import { buildSttOptions, discardAnchorEcho } from "../lib/sttLanguage";
 import { writeNocatchDiagnostic, type NocatchCause } from "../lib/nocatchDiagnostics";
 import { measureAttemptAudio } from "../lib/audioNoise";
+import {
+  isReferenceScored,
+  judgeTakeAgainstReferences,
+  type ReferenceOutcome,
+  type ReferenceVerdict,
+} from "../lib/referenceScoring";
+import { lessonNeighbours, loadReferenceClips, type ReferencePhrase } from "../lib/referenceAudio";
+
+/**
+ * What a learner hears after a take scored by hearing it back. Spoken aloud by
+ * the coach, so no symbols and no dashes. Honest about the method: it says
+ * which LINE the take matched, never how native it sounded, because the
+ * reference is still the app's own synthetic audio (lib/referenceScoring.ts).
+ */
+const REFERENCE_SCORING_COPY: Record<ReferenceOutcome, { feedback: string; tip: string }> = {
+  matched: {
+    feedback: "That matched the line you heard. Nicely done, keep that going.",
+    tip: "Say it along with the recording once more to lock in the rhythm.",
+  },
+  unclear: {
+    feedback: "Close. That sat between this line and one of its neighbours.",
+    tip: "Listen once more, then say every sound a little more clearly.",
+  },
+  other_phrase: {
+    feedback: "That sounded more like a different line from this lesson.",
+    tip: "Play the phrase again and copy it closely.",
+  },
+  unmeasurable: {
+    feedback: "We could not hear a word in that take.",
+    tip: "Hold the phone a little closer and try again.",
+  },
+};
 import { denyLockedFeature, denyLockedLanguage, sendUpgradeRequired } from "../lib/gating";
 import { upgradeRequired, featuresForPlan } from "../lib/entitlements";
 import { SCENARIOS, toPublicScenario, resolveScenario } from "../lib/scenarios";
@@ -971,6 +1004,75 @@ router.post(
           "Could not look up language name from DB; using client-supplied value",
         );
       }
+    }
+
+    // SCORED BY HEARING IT BACK (lib/referenceScoring.ts, owner 2026-09-14: "we
+    // need a temporary scoring mechanism for the other 7 until i can find native
+    // speakers"). The recogniser cannot hear these languages, so the take is
+    // compared with the reference audio of every phrase in its lesson and
+    // passes when it sits clearly nearest its own. It runs BEFORE the
+    // capability gate below and whatever the stored capability says, so the
+    // order of the two switches (this code live, then the language row moved
+    // off 'unsupported') can never send one of these languages to the
+    // transcriber. No transcriber call is made on this path at all.
+    if (isReferenceScored(languageCode) && resolvedPhraseId != null) {
+      let verdict: ReferenceVerdict | null = null;
+      let neighbours: ReferencePhrase[] = [];
+      try {
+        const { buffer, format } = await ensureCompatibleFormat(
+          Buffer.from(audioBase64, "base64"),
+          parsed.data.mimeType,
+        );
+        const attemptWav = format === "wav" ? buffer : await convertToWav(buffer);
+        neighbours = await lessonNeighbours(resolvedPhraseId, languageCode);
+        const clips = await loadReferenceClips(neighbours, languageCode, language);
+        verdict = judgeTakeAgainstReferences(attemptWav, resolvedPhraseId, clips);
+      } catch (err) {
+        // An undecodable take or a failed synthesis is a system miss, never the
+        // learner's: nocatch, the same outcome as silence.
+        req.log.warn({ err, languageCode }, "Reference scoring failed; degrading to nocatch");
+      }
+      const outcome = verdict?.outcome ?? "unmeasurable";
+      const measured = verdict !== null && outcome !== "unmeasurable";
+      const refBand: PronunciationBand = measured ? bandFromScore(verdict!.score) : "nocatch";
+      const refScore = measured ? verdict!.score : 0;
+      const refPassed = isFullCreditBand(refBand);
+      const refXp = measured ? computePronunciationXp(refBand, phraseDifficulty) : 0;
+      // The "transcript" is the lesson line the take sat nearest. Answer Back
+      // reads it to tell which reply card was said (detectChosenCard); practice
+      // shows it as what it sounded like. Empty when nothing was measured.
+      const nearest = measured ? neighbours.find((p) => p.id === verdict!.nearestPhraseId) : undefined;
+      const refTranscript = nearest?.nativeScript ?? "";
+      const { feedback: refFeedback, tip: refTip } = REFERENCE_SCORING_COPY[outcome];
+      prewarmFeedbackTts(refFeedback, refTip, req.log);
+      res.json({
+        transcript: refTranscript,
+        transcriptRomanized: nearest?.romanized ?? "",
+        score: refScore,
+        passed: refPassed,
+        band: refBand,
+        xpAwarded: refXp,
+        xpBreakdown: refXp > 0 ? (refPassed ? "Full XP" : "Half XP") : null,
+        feedback: refFeedback,
+        tip: refTip,
+        evaluationToken: signEvaluation({
+          userId,
+          phraseId: resolvedPhraseId,
+          languageCode,
+          nativeScript: targetNative,
+          romanized: targetRomanized,
+          english: targetEnglish,
+          transcript: refTranscript,
+          score: refScore,
+          passed: refPassed,
+          feedback: refFeedback,
+          band: refBand,
+          xpAwarded: refXp,
+          latencyMs: latencyMs ?? null,
+          ...(measured ? {} : { nocatchCause: "empty_audio_or_silence" as NocatchCause }),
+        }),
+      });
+      return;
     }
 
     // Server-authoritative capability gate: for a language where speech

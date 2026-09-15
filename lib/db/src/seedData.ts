@@ -35,6 +35,16 @@ export type SeedLanguage = {
    *  - sat degraded    — recognizer flips Ol Chiki to Latin transliteration.
    *  - mni unsupported — correct speech transcribed as Bengali gibberish (2/retry).
    *  - brx unsupported — correct speech scored 38/retry.
+   *
+   * brx and mni are "degraded" since 2026-09-14, and NOT because recognition
+   * got better. They are scored by hearing the take back against the app's own
+   * phrase audio (api-server lib/referenceScoring.ts, owner: "we need a
+   * temporary scoring mechanism for the other 7 until i can find native
+   * speakers"), and the server routes them there before any transcriber call.
+   * "degraded" is the value that makes both clients send the take, convert
+   * stops into the voice games and show the "feedback may be approximate"
+   * notice, which is the truth about a synthetic reference. Their stops stay
+   * open (speechCapability.ts gatesOnScore), exactly as they were.
    */
   speechCapability?: "supported" | "degraded" | "unsupported";
 };
@@ -42,7 +52,7 @@ export type SeedLanguage = {
 export const LANGUAGES: SeedLanguage[] = [
   { code: "as", name: "Assamese", nativeName: "অসমীয়া", script: "Bengali-Assamese", fontFamily: "Noto Sans Bengali" },
   { code: "bn", name: "Bengali", nativeName: "বাংলা", script: "Bengali", fontFamily: "Noto Sans Bengali" },
-  { code: "brx", name: "Bodo", nativeName: "बड़ो", script: "Devanagari", fontFamily: "Noto Sans Devanagari", speechCapability: "unsupported" },
+  { code: "brx", name: "Bodo", nativeName: "बड़ो", script: "Devanagari", fontFamily: "Noto Sans Devanagari", speechCapability: "degraded" },
   { code: "doi", name: "Dogri", nativeName: "डोगरी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "gu", name: "Gujarati", nativeName: "ગુજરાતી", script: "Gujarati", fontFamily: "Noto Sans Gujarati" },
   { code: "hi", name: "Hindi", nativeName: "हिन्दी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
@@ -51,7 +61,7 @@ export const LANGUAGES: SeedLanguage[] = [
   { code: "kok", name: "Konkani", nativeName: "कोंकणी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "mai", name: "Maithili", nativeName: "मैथिली", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "ml", name: "Malayalam", nativeName: "മലയാളം", script: "Malayalam", fontFamily: "Noto Sans Malayalam" },
-  { code: "mni", name: "Manipuri", nativeName: "ꯃꯤꯇꯩ ꯂꯣꯟ", script: "Meetei Mayek", fontFamily: "Noto Sans Meetei Mayek", speechCapability: "unsupported" },
+  { code: "mni", name: "Manipuri", nativeName: "ꯃꯤꯇꯩ ꯂꯣꯟ", script: "Meetei Mayek", fontFamily: "Noto Sans Meetei Mayek", speechCapability: "degraded" },
   { code: "mr", name: "Marathi", nativeName: "मराठी", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "ne", name: "Nepali", nativeName: "नेपाली", script: "Devanagari", fontFamily: "Noto Sans Devanagari" },
   { code: "or", name: "Odia", nativeName: "ଓଡ଼ିଆ", script: "Odia", fontFamily: "Noto Sans Oriya" },
