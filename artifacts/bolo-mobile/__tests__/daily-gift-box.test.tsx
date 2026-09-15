@@ -48,7 +48,10 @@ jest.mock('react-native-reanimated', () => ({
   useReducedMotion: () => h.reduceMotion,
 }));
 
-jest.mock('@/lib/haptics', () => ({ hapticMedium: jest.fn() }));
+// hapticLight added 2026-09-15: DailyGiftRow (dc20007a, 2026-09-11) buzzes
+// light on a LOCKED tap, which this mock did not export, so "does not open when
+// tapped while locked" threw inside the press handler instead of asserting.
+jest.mock('@/lib/haptics', () => ({ hapticMedium: jest.fn(), hapticLight: jest.fn() }));
 
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
@@ -170,15 +173,24 @@ describe('the card always draws a box, and locks it', () => {
 });
 
 describe('the closed box', () => {
-  it('offers the distance the Chai is for, not a second copy of the day', () => {
+  it('offers the range and the shop door, not a second copy of the day', () => {
     // INVERTED 2026-09-08 with the owner's redesign. This asserted "Day 4" and
     // "Tap to open" as ROW text. Both moved: the day is now written ON the box
     // itself ("write directly on it, Day 4 Gift"), and the row carries the one
     // thing that gives the Chai a reason. His framing: "a spin with nothing to
     // spend it on is a number going up on its own."
+    //
+    // INVERTED AGAIN 2026-09-15. The owner asked for "one horizontal resting
+    // row across all six mobile apps: gift art, reminder/range, and compact
+    // Shop button" (dc20007a, docs/handoffs/2026-09-11-compact-mobile-gift.md),
+    // so an unopened box is now DailyGiftRow and the distance meter
+    // (remain/count) lives only on the opened receipt. The closed row's reason
+    // to spend is the range and the Shop door beside it.
     render(<DailyGiftCard />);
-    expect(screen.getByTestId('daily-gift-box-remain')).toBeOnTheScreen();
-    expect(screen.getByTestId('daily-gift-box-count')).toBeOnTheScreen();
+    expect(screen.queryByTestId('daily-gift-box-remain')).toBeNull();
+    expect(screen.queryByTestId('daily-gift-box-count')).toBeNull();
+    expect(screen.getByTestId('daily-gift-box-range')).toBeOnTheScreen();
+    expect(screen.getByTestId('daily-gift-box-shop')).toBeOnTheScreen();
     // And the amount is still not printed on the unopened box: it is what the
     // tap BUYS, and naming it first is the near-miss shape by another route.
     expect(screen.queryByText('4 Chai')).toBeNull();
@@ -233,7 +245,11 @@ describe('the opened box', () => {
           onClaim={jest.fn()}
         />,
       );
-      const frame = screen.getByTestId('gift-box-frame');
+      // HIDDEN ELEMENTS INCLUDED, 2026-09-15. Since dc20007a the unopened box
+      // draws inside DailyGiftRow's art slot, which is hidden from
+      // accessibility on purpose (the row's button carries the label), and
+      // RNTL skips hidden elements by default. The size guard is unchanged.
+      const frame = screen.getByTestId('gift-box-frame', { includeHiddenElements: true });
       const width = Number(frame.props.width);
       unmount();
       return width;
