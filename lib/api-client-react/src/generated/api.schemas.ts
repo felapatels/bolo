@@ -1037,6 +1037,17 @@ export interface NarrationInput {
   text: string;
 }
 
+/**
+ * WHO says the line. "coach", and an absent field, is the phrase voice every existing caller hears, with its cache key unchanged. "elder" is the journey's keeper saying a lesson phrase as a character (the keeper's line in Answer Back): the server speaks it in the elder's own voice for languageCode, under a cache namespace of its own, and ignores voice, previewVoiceId, script and the learner's saved voice. An elder request without languageCode is refused with 400, because the elder's voice and cache key are chosen per language. Owner ruling 2026-09-15 (option A), under the 2026-09-13 voice roles rule: the bird is the coach, the elder is always a different voice.
+ */
+export type SpeechInputSpeaker = typeof SpeechInputSpeaker[keyof typeof SpeechInputSpeaker];
+
+
+export const SpeechInputSpeaker = {
+  coach: 'coach',
+  elder: 'elder',
+} as const;
+
 export interface SpeechInput {
   /** @minLength 1 */
   text: string;
@@ -1048,6 +1059,8 @@ export interface SpeechInput {
   previewVoiceId?: string;
   /** The SCRIPT this clip belongs to (e.g. "devanagari"), for audio that is a letter rather than a phrase. When present it replaces languageName in the cache key, because a letter's sound belongs to its script and not to a language: Devanagari serves nine languages and क sounds the same in all of them, so a language-keyed letter stores one identical clip nine times against a tts_cache already at 98% of a 10 GiB ceiling. The voice stays in the key either way, a new voice genuinely being a new clip. Absent for every phrase, which is every caller that existed before the letter stop. */
   script?: string;
+  /** WHO says the line. "coach", and an absent field, is the phrase voice every existing caller hears, with its cache key unchanged. "elder" is the journey's keeper saying a lesson phrase as a character (the keeper's line in Answer Back): the server speaks it in the elder's own voice for languageCode, under a cache namespace of its own, and ignores voice, previewVoiceId, script and the learner's saved voice. An elder request without languageCode is refused with 400, because the elder's voice and cache key are chosen per language. Owner ruling 2026-09-15 (option A), under the 2026-09-13 voice roles rule: the bird is the coach, the elder is always a different voice. */
+  speaker?: SpeechInputSpeaker;
 }
 
 export interface SpeechResult {
