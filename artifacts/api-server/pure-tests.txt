@@ -66,6 +66,7 @@ src/routes/aksharmalaPhraseMode.test.ts
 src/routes/chachaCall.test.ts
 src/routes/nest.drill-metrics.test.ts
 src/routes/nest.page.test.ts
+src/routes/nest.voices.test.ts
 src/routes/openai.pronunciation.language-hint.test.ts
 src/routes/openai.pronunciation.pilot-capture.test.ts
 src/routes/specRouteParity.test.ts

@@ -1006,3 +1006,19 @@ WARNING naming all twelve on every run. The page asks each reader whether the
 text is natural before they record and stores both answers in `passage_feedback`
 **including the plain yeses**, because a yes from a speaker is what lets a
 passage be marked verified.
+
+**LESSON PHRASE MODES, since 2026-09-15 (owner-approved, Bodo zone 1 first).**
+`aksharmala.html?phrases=<code>&key=<key>` has a native speaker say each zone 1
+lesson phrase, one clip each, into `voice_contributions` (now with
+`language_code` and `phrase_id`); `?review=<code>&key=<key>` has a SECOND
+speaker mark each take right or not right, into `voice_contribution_reviews`.
+Copy both links from the Nest's Voices section: a key opens one mode for one
+language and runs out after 30 days (`lib/contributionLinks.ts`, an HMAC over
+SESSION_SECRET, sent as `X-Contribution-Key`). **The phrases are read from the
+database when the page loads, never baked into it,** because phrase ids differ
+between dev and production. **What a take counts as is decided in ONE place,
+`clipState` in `lib/referenceClips.ts`:** the test names above and practice
+never count, a speaker's verdict on their own take never counts, and one real
+"not right" outweighs any number of approvals. **Not wired into scoring yet**:
+`referenceAudio.ts` still hears every take against the synthetic voice. The
+Bodo contributor is never named in code, comments, commits, copy or fixtures.

@@ -753,6 +753,7 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
     <a href="#social" id="chip-social">Social</a>
     <a href="#map">Map</a>
     <a href="#reports">Flagged</a>
+    <a href="#voices">Voices</a>
     <a href="#inbox">Inbox</a>
     <a href="#spend">Spend</a>
     <a href="#surfaces">Surfaces</a>
@@ -982,6 +983,27 @@ footer code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;background:va
 
   <div class="grid g4" style="margin-top:12px" id="reports-tiles"></div>
   <div class="reps" id="reports-list"></div>
+</section>
+
+<section id="voices" data-page="dashboard">
+  <div class="head">
+    <span class="eyebrow">04b / Who is recording the lessons</span>
+    <h2>Native voices</h2>
+    <p>A native speaker saying each zone 1 lesson phrase, for the languages the app scores by hearing a take back, and a second speaker checking every take. Nothing here reaches scoring yet: an approved take is stored and counted, and that is all.</p>
+  </div>
+  <div class="rule"></div>
+
+  <!-- ADDED 2026-09-15 with the contribution page's phrase mode, under the rule
+       that shipping something the owner would watch includes its number and
+       its drill. The drill is the phrase rows under each language: the drill
+       panel speaks only in learner accounts and a speaker has none, so the
+       tiles jump, the way the Flagged numbers do. Counts come from
+       /api/nest/voices, which counts with the same rule the review page and
+       the future scorer use. Test names and practice never count, so the
+       exclude toggle has nothing to do here. -->
+  <p class="barnote" style="margin:0 0 9px"><b>Send a link, never the bare page address.</b> Each link opens one language in one mode, and a link runs out after about a month, so copy a fresh one each time you send one. The record link goes to a speaker. The review link goes to a DIFFERENT speaker: the page refuses to let anybody approve their own recording.</p>
+  <div id="voices-note"></div>
+  <div id="voices-list"></div>
 </section>
 
 <section id="inbox" data-page="dashboard">
@@ -3140,6 +3162,82 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
   if ($("reports-noted")) $("reports-noted").addEventListener("change", renderReports);
 
+  /* ================= native voices =================
+     The lesson phrase takes from aksharmala.html's phrase mode and the second
+     speaker's verdicts, one block per language (2026-09-15). The server sends
+     links as a path and query only, and this page adds its own origin, so a
+     link copied here always opens the same deployment that minted its key. */
+  var VOICES_URL = "/api/nest/voices";
+  state.voices = null;
+  state.voicesErr = null;
+
+  /* The state of a phrase in words, never in colour alone. */
+  var VOICE_STATE_WORD = {approved: "approved", needs_check: "waiting", not_right: "retake", none: "not yet"};
+
+  function loadVoices(){
+    return fetch(VOICES_URL, {credentials:"same-origin", cache:"no-store"}).then(function(res){
+      if (res.status === 404) throw new Error("This account is not on the allowlist.");
+      if (!res.ok) throw new Error("The voices endpoint answered " + res.status + ".");
+      return res.json();
+    }).then(function(j){
+      state.voices = j; state.voicesErr = null;
+      banner("voices-note", j.linksAvailable ? null : "warn", "No link can be made.",
+        "SESSION_SECRET is not set on this server, so the contribution page cannot open its phrase modes.");
+    }, function(err){
+      state.voicesErr = String(err && err.message || err);
+      banner("voices-note", "warn", "Could not read the recordings.", state.voicesErr);
+    });
+  }
+
+  function renderVoices(){
+    var host = $("voices-list");
+    if (!host) return;
+    var v = state.voices;
+    if (!v) {
+      host.innerHTML = state.voicesErr ? "" : '<div class="sline dim"><span class="n">Reading /api/nest/voices.</span></div>';
+      return;
+    }
+    var html = "";
+    v.languages.forEach(function(l){
+      var rowsId = "voices-rows-" + l.code;
+      html += '<p class="dsub" style="margin-top:18px">' + esc(l.name) + ', zone ' + esc(l.zone) + '</p>';
+      if (!l.phrases) {
+        html += '<div class="sline dim"><span class="n">This database has no zone ' + esc(l.zone) + ' lesson phrases for ' +
+          esc(l.name) + ', so there is nothing to record and no link to send.</span></div>';
+        return;
+      }
+      html += '<div class="grid g4">' +
+        tile(fmt(l.recorded) + " / " + fmt(l.phrases), "Recorded",
+             "Phrases with at least one take that counts. Practice and test names never count.", false, null, rowsId) +
+        tile(fmt(l.approved), "Approved",
+             "A second speaker said it sounds right and no real speaker said not right. Not used for scoring yet.",
+             l.approved > 0, null, rowsId) +
+        tile(fmt(l.needsCheck), "Waiting for a check",
+             "Recorded, and nobody but the speaker has judged it. Send the review link.", l.needsCheck > 0, null, rowsId) +
+        tile(fmt(l.needsRetake), "Need a retake",
+             "Every take of the phrase was marked not right, so the speaker has to say it again.", l.needsRetake > 0, null, rowsId) +
+        '</div>';
+      html += '<div class="checkbar" style="margin-top:10px">' +
+        (l.recordLink ? '<button type="button" class="ghost" data-copy="' + esc(location.origin + l.recordLink) + '">Copy the record link</button>' : '') +
+        (l.reviewLink ? '<button type="button" class="ghost" data-copy="' + esc(location.origin + l.reviewLink) + '">Copy the review link</button>' : '') +
+        '<span class="why">' + (l.linksExpire ? "A link copied today runs out " + esc(shortDate(l.linksExpire)) + "." : "No links: see the note above.") + '</span>' +
+        '</div>';
+      html += '<div class="reps" id="' + esc(rowsId) + '">';
+      l.rows.forEach(function(r){
+        html += '<div class="rep">' +
+          '<span class="rwhy">' + esc(VOICE_STATE_WORD[r.progress] || r.progress) + '</span>' +
+          '<span class="rph">' + esc(r.nativeScript) + (r.romanized ? ' <i>' + esc(r.romanized) + '</i>' : '') + '</span>' +
+          '<span class="rgloss">' + esc(r.english) + ' &middot; stop ' + esc(r.stop) + (r.stage === "sentence" ? ' &middot; sentence' : '') + '</span>' +
+          '<span class="rmeta">' + (r.takes ? esc(r.takes) + (r.takes === 1 ? ' take' : ' takes') : 'no take') +
+            (r.approvedTakes ? '<br>' + esc(r.approvedTakes) + ' approved' : '') +
+            (r.notRightTakes ? '<br>' + esc(r.notRightTakes) + ' not right' : '') + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+    });
+    host.innerHTML = html;
+  }
+
   /* ================= the drill-down =================
      "If I click 20 accounts, I should see the data behind that, what are these
      accounts, whatever we know about them." 2026-08-26.
@@ -3522,8 +3620,8 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
   function refreshAll(){
     if (refreshing) return Promise.resolve();
     refreshing = true;
-    return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadLive(), loadSocial()]).then(function(){
-      healthSay(); renderSurfaces(); renderSocial(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderPush(); stamp(); markMovedTiles();
+    return Promise.all([checkHealth(), checkSurfaces(), loadSummary(), loadRange(), loadMap(), loadReports(), loadVoices(), loadLive(), loadSocial()]).then(function(){
+      healthSay(); renderSurfaces(); renderSocial(); renderSpend(); renderAlerts(); renderMilestone(); renderLive(); renderLiveDrill(); renderRange(); renderMap(); renderReports(); renderReportedPeople(); renderVoices(); renderPush(); stamp(); markMovedTiles();
       refreshing = false;
     }, function(){ refreshing = false; });
   }

@@ -52,6 +52,9 @@ import { db } from "@workspace/db";
 import type { AuthedRequest } from "../middlewares/requireAuth";
 import { isOwner, nonLearnerUserIds, NEST_ARTIFACT_URL } from "../lib/ownerGate";
 import { usableNote } from "../lib/reportNote";
+import { REFERENCE_SCORED_LANGUAGES } from "../lib/referenceScoring";
+import { summarizeZoneClips, type ZonePhraseProgressRow } from "../lib/phraseVoices";
+import { CONTRIBUTION_LINK_DAYS, mintContributionKey } from "../lib/contributionLinks";
 
 const router: IRouter = Router();
 router.use((req, res, next) => {
@@ -2186,7 +2189,96 @@ router.get("/nest/exclusion-accounts", async (req: Request, res: Response): Prom
   }
 });
 
+/* ----------------------------- native voices ------------------------------ */
+
+/**
+ * THE NATIVE LESSON RECORDINGS, per language, and the two links that open the
+ * contribution page for them (owner-approved phrase mode, 2026-09-15).
+ *
+ * A speaker records each zone 1 lesson phrase at aksharmala.html?phrases=, a
+ * second speaker checks each take at ?review=, and these are the numbers the
+ * owner watches: how many of the zone's phrases have a take that counts, how
+ * many are approved, how many wait for a check, how many need a retake.
+ *
+ * THE DRILL IS THE PHRASE ROWS, NOT DRILL_METRICS. That panel lists learner
+ * accounts, and a speaker has no account. The tiles jump to the rows under
+ * them instead, which is the pattern the Flagged numbers already use for rows
+ * that are not people.
+ *
+ * EVERY COUNT COMES FROM lib/referenceClips.ts via summarizeZoneClips, the rule
+ * the review page uses and the scorer will use, so "approved" here cannot
+ * drift from "approved" there. Test names and practice never count, so the
+ * exclusion toggle does not apply: those rows are never real.
+ *
+ * OWNER ONLY AND NEVER RELAYED: isOwner rather than canReadNest, and absent
+ * from nestFleet's relay resources on purpose. The payload carries keys that
+ * open a language's recordings to whoever holds them, and a fleet read key
+ * must never be a way to mint one.
+ *
+ * NO NAMES. A request to delete a speaker's recordings is a psql job against
+ * voice_contributions.contributor; the verdicts go with the clips by cascade.
+ *
+ * LANGUAGES: the ones scored by hearing a take back, REFERENCE_SCORED_LANGUAGES,
+ * which is exactly who this recording exists for.
+ */
+type NestVoicesLanguage = {
+  code: string;
+  name: string;
+  zone: number;
+  /** Zone phrases in this database; 0 when the language has no zone content. */
+  phrases: number;
+  recorded: number;
+  approved: number;
+  needsCheck: number;
+  needsRetake: number;
+  /** Path and query only; the page adds its own origin. Null without phrases or a signing secret. */
+  recordLink: string | null;
+  reviewLink: string | null;
+  linksExpire: string | null;
+  rows: ZonePhraseProgressRow[];
+};
+
+const VOICES_ZONE = 1;
+
+router.get("/nest/voices", async (req: Request, res: Response): Promise<void> => {
+  if (!isOwner((req as AuthedRequest).userId)) return notFound(res);
+  try {
+    const languages: NestVoicesLanguage[] = [];
+    for (const code of REFERENCE_SCORED_LANGUAGES) {
+      const summary = await summarizeZoneClips(code, VOICES_ZONE);
+      const record = summary ? mintContributionKey("record", code) : null;
+      const review = summary ? mintContributionKey("review", code) : null;
+      languages.push({
+        code,
+        name: summary?.language.name ?? code,
+        zone: VOICES_ZONE,
+        phrases: summary?.phrases ?? 0,
+        recorded: summary?.recorded ?? 0,
+        approved: summary?.approved ?? 0,
+        needsCheck: summary?.needsCheck ?? 0,
+        needsRetake: summary?.needsRetake ?? 0,
+        recordLink: record ? `/aksharmala.html?phrases=${code}&key=${record.key}` : null,
+        reviewLink: review ? `/aksharmala.html?review=${code}&key=${review.key}` : null,
+        linksExpire: record ? record.expiresAt.toISOString() : null,
+        rows: summary?.rows ?? [],
+      });
+    }
+    res.set("Cache-Control", "no-store");
+    res.json({
+      generatedAt: new Date().toISOString(),
+      linkDays: CONTRIBUTION_LINK_DAYS,
+      // False means SESSION_SECRET is unset, so no link can be made or opened.
+      linksAvailable: mintContributionKey("record", "brx") !== null,
+      languages,
+    });
+  } catch (err) {
+    req.log.error({ err }, "nest voices failed");
+    res.status(500).json({ error: "Could not read the voices" });
+  }
+});
+
 const EXPECTED_ROUTES = [
+  "/nest/voices",
   "/nest/exclusion-accounts",
   "/nest/redirect",
   "/nest/summary",
