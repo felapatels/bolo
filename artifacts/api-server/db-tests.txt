@@ -70,6 +70,7 @@ src/test/gameSessions.test.ts
 src/test/referral.test.ts
 src/test/scenario-route.test.ts
 src/test/scenarioLanguage.test.ts
+src/test/phraseVoices.test.ts
 src/test/scriptTraceContributions.test.ts
 src/test/server-boot.test.ts
 src/test/signalWaves.test.ts

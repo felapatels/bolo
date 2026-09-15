@@ -10,6 +10,7 @@ src/lib/chachaCallTurn.test.ts
 src/lib/chatMemory.test.ts
 src/lib/clerkInstance.test.ts
 src/lib/clientPlatformBuild.test.ts
+src/lib/contributionLinks.test.ts
 src/lib/crossScript.test.ts
 src/lib/deepHealth.test.ts
 src/lib/elevenLabsQuotaMonitor.test.ts
@@ -36,6 +37,7 @@ src/lib/prewarmFullTtsCache.test.ts
 src/lib/progressMetrics.test.ts
 src/lib/pronunciationCompare.test.ts
 src/lib/referenceScoring.test.ts
+src/lib/referenceClips.test.ts
 src/lib/pronunciationFusion.test.ts
 src/lib/pronunciationGuards.test.ts
 src/lib/reportNote.test.ts
