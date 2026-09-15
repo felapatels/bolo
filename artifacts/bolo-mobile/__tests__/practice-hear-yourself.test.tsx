@@ -233,10 +233,18 @@ describe('Hear yourself button', () => {
     });
 
     await waitFor(() =>
+      // INVERTED 2026-09-15: the call gained two arguments on purpose.
+      // ebecbce9 (owner ruling 2026-09-13: "slow the language being taught,
+      // not every sound the app makes") opts the learner's OWN recording out
+      // of the speaking-speed control, because slowing it would misrepresent
+      // how they sounded. `{ targetLanguage: false }` IS that ruling at this
+      // call site, so it is pinned exactly rather than loosened away.
       expect(playMock).toHaveBeenCalledWith(
         'learner-recording-base64',
         'm4a',
         expect.any(Function),
+        undefined,
+        { targetLanguage: false },
       ),
     );
   });
