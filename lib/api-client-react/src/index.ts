@@ -5,4 +5,4 @@ export type { AuthTokenGetter, ErrorType, CustomFetchOptions, FailedResponseInfo
 export * from './generated/api';
 export * from './generated/api.schemas';
 
-export { setAiConsentRequiredListener, notifyAiConsentRequired } from "./ai-consent-notice";
+export { setAiConsentRequiredListener, notifyAiConsentRequired, isAiConsentRequiredError } from "./ai-consent-notice";

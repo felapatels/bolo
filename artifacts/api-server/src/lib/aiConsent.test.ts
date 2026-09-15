@@ -8,17 +8,38 @@ import assert from "node:assert/strict";
 // pinning it is that nothing can stop it running.
 import {
   AI_CONSENT_ENFORCED,
+  AI_CONSENT_REFUSES_DECLINED,
   AI_CONSENT_VERSION,
   decisionOf,
   NEVER_ASKED,
+  refusesAiRequest,
 } from "./aiConsentTypes";
 
-test("India enforcement remains off until explicitly authorized", () => {
+test("India enforcement remains off until the consenting app build is adopted", () => {
+  // Still false, for a new reason since 2026-09-15: the clients now ASK, but
+  // enforcing would refuse everyone on an India app built before the consent
+  // screen (aiConsentTypes.ts). Flipping this is its own authorized release.
   assert.equal(
     AI_CONSENT_ENFORCED,
     false,
-    "India consent is held off by the owner. The completed client UI alone does not authorize activation.",
+    "Server enforcement must wait for the app build that can ask; older India apps cannot answer.",
   );
+});
+
+test("the India transition refuses an explicit no and nothing else", () => {
+  // Asking on, enforcing off (aiConsentTypes.ts, 2026-09-15): a learner who
+  // declined on the new build is refused; everyone on an older app, never
+  // asked, keeps speaking practice, chat and calls.
+  assert.equal(AI_CONSENT_REFUSES_DECLINED, true);
+  assert.equal(refusesAiRequest("declined"), true);
+  assert.equal(refusesAiRequest(null), false);
+  assert.equal(refusesAiRequest("granted"), false);
+  // Once enforcement is on, never-asked is refused too, and granted never is.
+  assert.equal(refusesAiRequest(null, true, true), true);
+  assert.equal(refusesAiRequest("declined", true, false), true);
+  assert.equal(refusesAiRequest("granted", true, true), false);
+  // Neither flag: nothing is refused.
+  assert.equal(refusesAiRequest("declined", false, false), false);
 });
 
 test("null is never-asked and is NOT a refusal", () => {

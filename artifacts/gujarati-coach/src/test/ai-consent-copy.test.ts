@@ -95,8 +95,12 @@ describe('the disclosure copy', () => {
 
 
 describe('India rollout hold', () => {
-  it('keeps the prepared flow disabled until the owner authorizes activation', () => {
-    expect(AI_CONSENT_ENABLED).toBe(false);
+  // INVERTED 2026-09-15: the owner authorized activation for the next build
+  // ("enable india's app consent on this next build, turn the FF on"). The
+  // clients ask now; server enforcement is a separate flag that stays off
+  // until that build is adopted (api-server aiConsentTypes.ts).
+  it('asks for consent in India since the owner authorized it', () => {
+    expect(AI_CONSENT_ENABLED).toBe(true);
   });
   it('keeps reassurance and memory together in the rendered privacy card', () => {
     expect(AI_CONSENT_CARDS.find(card => card.icon === 'shield')?.body)

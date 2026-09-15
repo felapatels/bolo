@@ -113,10 +113,18 @@ export function aiFeaturesAllowed(
 }
 
 
-/** India rollout switch. Owner keeps this OFF until explicitly approving activation.
- * Shared by both clients and the server; disabling it never writes a consent decision.
+/** India rollout switch: the clients ASK (the consent screen and the
+ * aiFeaturesAllowed gate). ON since 2026-09-15, owner: "enable india's app
+ * consent on this next build, turn the FF on".
+ *
+ * It no longer decides server enforcement on its own. The server refuses AI
+ * requests only when api-server lib/aiConsentTypes.ts AI_CONSENT_ENFORCED says
+ * so, and that stays false until the app build carrying this screen has
+ * shipped: every India app released before it (1.0.18 and older) cannot ask,
+ * so enforcing at publish would cut speaking practice, chat and calls for
+ * every learner who has not updated. Disabling this never writes a decision.
  */
-export const AI_CONSENT_ENABLED: boolean = false;
+export const AI_CONSENT_ENABLED: boolean = true;
 export const AI_CONSENT_GREETING = "Let's get Bolo talking!";
 export const AI_CONSENT_SUBTITLE = "Before speaking practice, chat and calls can start, we need your OK to send a few things to outside services.";
 export const AI_CONSENT_CARDS = [

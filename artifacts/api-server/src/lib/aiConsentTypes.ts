@@ -10,10 +10,39 @@
 // The fleet contract lives in bolo-supervisor/AI-CONSENT-SPEC.md, Part 6.
 // ---------------------------------------------------------------------------
 
-// India remains disabled by owner decision, even though the clients are ready.
-// Enable only with an explicitly authorized, coordinated client/server release.
+// ASKING IS ON, REFUSING IS NOT YET (2026-09-15). The owner turned India's
+// consent flag on for the next app build ("enable india's app consent on this
+// next build, turn the FF on"), which makes both clients ask. The SERVER stays
+// permissive, because this flag used to drive enforcement too, and enforcing
+// the moment the server is published would refuse speaking practice, chat and
+// calls to everyone still on an India app that predates the screen (1.0.18 and
+// older): they are "never asked" and have no way to answer. Flip this to
+// AI_CONSENT_ENABLED once the consenting build is live and adopted, as its own
+// owner-authorized release. Decisions recorded meanwhile are real and are what
+// enforcement will read then.
 import { AI_CONSENT_ENABLED } from "@workspace/ai-consent";
-export const AI_CONSENT_ENFORCED = AI_CONSENT_ENABLED;
+export const AI_CONSENT_ENFORCED: boolean = false;
+
+/**
+ * THE TRANSITION: A "NO" IS RESPECTED BEFORE A SILENCE IS. While the clients
+ * ask and the server does not yet enforce, a learner who DECLINED on the new
+ * build must not have their audio sent anyway; a learner who was never asked
+ * (every older India app) must keep working. So requireAiConsent refuses an
+ * explicit "declined" whenever asking is on, and refuses "never asked" only
+ * once AI_CONSENT_ENFORCED is.
+ */
+export const AI_CONSENT_REFUSES_DECLINED: boolean = AI_CONSENT_ENABLED;
+
+/** Pure: the refusal rule requireAiConsent applies, testable without a database. */
+export function refusesAiRequest(
+  decision: "granted" | "declined" | null,
+  enforced: boolean = AI_CONSENT_ENFORCED,
+  refusesDeclined: boolean = AI_CONSENT_REFUSES_DECLINED,
+): boolean {
+  if (decision === "granted") return false;
+  if (enforced) return true;
+  return refusesDeclined && decision === "declined";
+}
 
 /**
  * WHICH DISCLOSURE TEXT WAS AGREED TO.
