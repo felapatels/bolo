@@ -117,6 +117,19 @@ jest.mock('@/components/NotificationPrimer', () => ({
   NotificationPrimer: () => null,
 }));
 
+// The AI consent boundary, stubbed inert for the same reason, 2026-09-15.
+// 2513a449 (owner, 2026-09-15: "enable india's app consent on this next build,
+// turn the FF on") set AI_CONSENT_ENABLED, so the authed layout's
+// AiConsentBoundary now calls useGetAiConsent, which this file's
+// full-replacement api-client mock does not have: all five gate tests threw
+// before routing anything. Southeast Asia stubbed its gate in this file the
+// same way (149d094d). This suite is about the first-run language gate. The
+// boundary's PLACEMENT around the stack is pinned by ai-consent-doors.test.ts;
+// its RENDER (loading, retry, gate, notice) is covered by no mobile suite.
+jest.mock('@/components/AiConsentGate', () => ({
+  AiConsentBoundary: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 jest.mock('@/hooks/useColors', () => ({
   useColors: () => ({
     background: '#FFFFFF',
