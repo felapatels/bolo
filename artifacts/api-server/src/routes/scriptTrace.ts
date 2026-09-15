@@ -19,7 +19,6 @@ import {
   PHRASE_PROMPT_PREFIX,
   findZonePhrase,
   loadClipAudio,
-  loadClipIdentity,
   loadClipsForPhrases,
   loadZonePhrases,
   storePhraseClip,
@@ -572,6 +571,10 @@ const clipAudioQuerySchema = z.object({
 // the passage recorder in the template). format=wav is the fallback for a
 // phone that cannot play what another phone recorded, typically an iPhone
 // handed an Android webm.
+//
+// EVERY ANSWER CARRIES `take`, the hash of the stored bytes (lib/phraseVoices.ts),
+// and the page sends it back with a verdict. The WAV copy carries the take of
+// the recording it was made from, because that recording is what is judged.
 router.get(
   "/script-trace/phrase-clips/:id/audio",
   phraseReadRateLimit,
@@ -593,7 +596,7 @@ router.get(
     }
     res.set("Cache-Control", "no-store");
     if (q.data.format === "original") {
-      res.status(200).json({ mimeType: clip.mimeType, audioBase64: clip.audioBase64 });
+      res.status(200).json({ mimeType: clip.mimeType, audioBase64: clip.audioBase64, take: clip.take });
       return;
     }
     try {
@@ -603,7 +606,7 @@ router.get(
       // has already loaded it, so this costs nothing there.
       const { convertToWav } = await import("@workspace/integrations-openai-ai-server/audio");
       const wav = await convertToWav(Buffer.from(clip.audioBase64, "base64"));
-      res.status(200).json({ mimeType: "audio/wav", audioBase64: wav.toString("base64") });
+      res.status(200).json({ mimeType: "audio/wav", audioBase64: wav.toString("base64"), take: clip.take });
     } catch (err) {
       req.log?.warn({ err, clipId: id }, "Could not convert a lesson phrase clip for playback");
       res.status(422).json({ code: "undecodable", error: "That recording could not be played." });
@@ -617,6 +620,11 @@ const phraseVerdictBodySchema = z.object({
   isPractice: z.boolean().optional().default(false),
   language: languageCodeSchema,
   clipId: z.number().int().positive(),
+  // The take the reviewer heard, exactly as the audio route handed it out.
+  // REQUIRED: a verdict that cannot say which recording it judges is not
+  // stored at all (review 2026-09-15, finding 1). Nothing has published this
+  // page yet, so no open review page predates the field.
+  take: z.string().regex(/^[0-9a-f]{64}$/, "Invalid take"),
   verdict: z.enum(["approved", "rejected"]),
   note: z.string().max(2000).optional().default(""),
 });
@@ -634,8 +642,20 @@ router.post(
     const v = body.data;
     if (!allowLink(req, res, "review", v.language)) return;
 
-    const clip = await loadClipIdentity(v.clipId);
-    if (!clip || clip.phraseId === null || clip.languageCode !== v.language) {
+    // The clip's language, speaker and take are read and the verdict written
+    // in one transaction under a row lock, so a re-record cannot land between
+    // the check and the write (lib/phraseVoices.ts, storeVerdict).
+    const outcome = await storeVerdict({
+      contributionId: v.clipId,
+      languageCode: v.language,
+      take: v.take,
+      sessionId: v.sessionId,
+      reviewer: v.reviewer,
+      verdict: v.verdict,
+      note: v.note.trim(),
+      isPractice: v.isPractice,
+    });
+    if (outcome === "unknown_clip") {
       res.status(404).json({ code: "unknown_clip", error: "That recording is not here." });
       return;
     }
@@ -643,24 +663,31 @@ router.post(
     // than stored and ignored, so the reviewer is told instead of believing
     // they approved it. The page hides their own clips; this is for a name
     // that changed between the two visits.
-    if (sameSpeaker(v.reviewer, clip.contributor)) {
+    if (outcome === "own_recording") {
       res.status(409).json({
         code: "own_recording",
         error: "This is your own recording. A different speaker needs to check it.",
       });
       return;
     }
-
-    await storeVerdict({
-      contributionId: clip.id,
-      sessionId: v.sessionId,
-      reviewer: v.reviewer,
-      verdict: v.verdict,
-      note: v.note.trim(),
-      isPractice: v.isPractice,
-    });
+    // The speaker recorded this phrase again after the page loaded it. A 409
+    // like own_recording, because it is the same kind of answer: the request
+    // is well formed and keyed, and the clip's current state refuses it. The
+    // re-record has already cleared every verdict on the old take, so the page
+    // drops its copy, loads the new one, and asks again.
+    if (outcome === "take_changed") {
+      req.log?.info(
+        { language: v.language, clipId: v.clipId },
+        "Refused a lesson phrase verdict on a take that has since been replaced",
+      );
+      res.status(409).json({
+        code: "take_changed",
+        error: "This recording was replaced after you heard it. Listen to the new one, then answer.",
+      });
+      return;
+    }
     req.log?.info(
-      { language: v.language, clipId: clip.id, verdict: v.verdict, hasNote: v.note.trim().length > 0 },
+      { language: v.language, clipId: v.clipId, verdict: v.verdict, hasNote: v.note.trim().length > 0 },
       "Stored a lesson phrase verdict",
     );
     res.status(200).json({ stored: true });

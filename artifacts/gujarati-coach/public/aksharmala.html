@@ -878,7 +878,7 @@
       RVSKEY="bolo.aksharmala.review.session",PH_MAX_MS=20000;
   var phSet=null,phIdx=0,phWho="",phDone=[],phStream=null,phRec=null,phStartAt=0,
       phTimer=null,phMime="",phBlob=null,phB64="",phMs=0,phSaving=false,
-      rvData=null,rvQueue=[],rvIdx=0,rvCache={},rvSession="",rvAudioFor=0,rvReady=false;
+      rvData=null,rvQueue=[],rvIdx=0,rvCache={},rvSession="",rvAudioFor=0,rvReady=false,rvTake="";
 
   function phShow(which){
     ["s1","s2","s3","tracer","reader","phintro","phrec","rvcheck","phdone","pherror"].forEach(function(s){
@@ -1108,11 +1108,16 @@
     phText("rvsaid",v==="approved"?"You said it sounds right.":v==="rejected"?"You said it is not right.":"");}
   function rvAudio(id){
     var a=$("rvplay"),btn=$("rvplaybtn");
-    rvReady=false;rvAudioFor=id;a.onerror=null;a.pause();a.removeAttribute("src");a.hidden=true;
+    rvReady=false;rvAudioFor=id;rvTake="";a.onerror=null;a.pause();a.removeAttribute("src");a.hidden=true;
     btn.disabled=true;btn.textContent="Loading the recording";
     rvFetchAudio(id,false);}
   // The clip as it was recorded first; a WAV copy made by the server when this
   // phone cannot play that format, which is mostly an iPhone handed a webm.
+  //
+  // THE CACHE HOLDS THE TAKE WITH THE AUDIO (review 2026-09-15, finding 1). A
+  // re-record keeps the clip id, so the id cannot say which recording is in
+  // here; the server's take can. rvTake is always the take of the audio now on
+  // the player, and it is what a verdict sends.
   function rvFetchAudio(id,wav){
     var k=id+(wav?":wav":"");
     if(rvCache[k]){rvSetAudio(id,rvCache[k],wav);return;}
@@ -1122,17 +1127,17 @@
       if(res.status===403||res.status===410){phFail(res);return;}
       if(!res.ok||!res.json.audioBase64){if(!wav){rvFetchAudio(id,true);return;}rvCannotPlay();return;}
       var mime=res.json.mimeType||"audio/mp4",url="data:"+mime+";base64,"+res.json.audioBase64,a=$("rvplay");
-      rvCache[k]=url;
+      rvCache[k]={url:url,take:res.json.take||""};
       if(!wav&&a.canPlayType&&a.canPlayType(mime.split(";")[0])===""){rvFetchAudio(id,true);return;}
-      rvSetAudio(id,url,wav);
+      rvSetAudio(id,rvCache[k],wav);
     }).catch(function(){if(rvAudioFor!==id)return;
       var btn=$("rvplaybtn");btn.disabled=false;btn.textContent="Tap to try loading it again";});}
-  function rvSetAudio(id,url,wav){
+  function rvSetAudio(id,got,wav){
     if(rvAudioFor!==id)return;
     var a=$("rvplay"),btn=$("rvplaybtn");
     a.onerror=function(){if(rvAudioFor!==id)return;rvReady=false;
       if(!wav){rvFetchAudio(id,true);return;}rvCannotPlay();};
-    a.src=url;a.hidden=false;a.load();rvReady=true;
+    a.src=got.url;rvTake=got.take;a.hidden=false;a.load();rvReady=true;
     btn.disabled=false;btn.textContent="Play the recording";}
   function rvCannotPlay(){var btn=$("rvplaybtn");rvReady=false;
     btn.disabled=true;btn.textContent="This phone cannot play it";$("rvplay").hidden=true;
@@ -1149,9 +1154,10 @@
     var q=rvQueue[rvIdx];who=phWho;
     rvBusy(true);note("rvsavenote","Saving...");
     return phApi("POST","/api/script-trace/phrase-verdict",{sessionId:rvSession,reviewer:safeName(),
-      language:PH.lang,clipId:q.clip.clipId,verdict:verdict,note:text||""}
+      language:PH.lang,clipId:q.clip.clipId,take:rvTake,verdict:verdict,note:text||""}
     ).then(function(res){rvBusy(false);
       if(res.status===403||res.status===410){phFail(res);return false;}
+      if(res.status===409&&res.json.code==="take_changed"){rvRetake(q);return false;}
       if(res.status===409){note("rvsavenote","This is your own recording, so a different speaker needs to check it. Tap Next.","bad");return false;}
       if(!res.ok){note("rvsavenote","That did not save. Tap your answer again in a moment.","bad");return false;}
       q.clip.myVerdict=verdict;q.clip.myNote=text||"";rvMark(verdict);
@@ -1159,6 +1165,18 @@
       note("rvsavenote","Saved.","ok");return true;
     }).catch(function(){rvBusy(false);
       note("rvsavenote","That did not save. Check the phone is online, then tap your answer again.","bad");return false;});}
+  // The speaker recorded this phrase again after this page loaded it, so the
+  // server refused an answer given on the old recording (take_changed). The
+  // re-record has already cleared every answer on that clip, this sitting's
+  // included, so the page forgets its own copy of the answer and of the audio,
+  // and loads the new recording to be heard before anyone answers again.
+  function rvRetake(q){var id=q.clip.clipId;
+    delete rvCache[id];delete rvCache[id+":wav"];
+    q.clip.myVerdict=null;q.clip.myNote="";
+    $("rvprogress").style.width=(rvCheckedCount()/rvQueue.length)*100+"%";
+    if($("rvcheck").hidden||rvQueue[rvIdx]!==q)return;
+    rvMark(null);$("rvwhywrap").hidden=true;rvAudio(id);
+    note("rvsavenote","The speaker recorded this phrase again. Listen to the new recording, then answer.","bad");}
   function rvNext(){if(rvIdx>=rvQueue.length-1){rvFinish();return;}rvIdx++;rvDraw();window.scrollTo(0,0);}
   function rvFinish(){
     rvReady=false;rvAudioFor=0;$("rvplay").pause();

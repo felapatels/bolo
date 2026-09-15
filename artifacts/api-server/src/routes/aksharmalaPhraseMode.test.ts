@@ -89,7 +89,8 @@ test("the body and query fields the page sends are the ones the routes parse", (
   }
   const verdict = callSite("POST", '"/api/script-trace/phrase-verdict"');
   const verdictSchema = schemaText("phraseVerdictBodySchema");
-  for (const field of ["sessionId:", "reviewer:", "language:", "clipId:", "verdict:", "note:"]) {
+  // take: since the 2026-09-15 review (finding 1), a verdict names the recording it judges.
+  for (const field of ["sessionId:", "reviewer:", "language:", "clipId:", "take:", "verdict:", "note:"]) {
     assert.ok(verdict.includes(field), `phrase-verdict body lost ${field}`);
     assert.match(verdictSchema, new RegExp(`\\n  ${field}`), `the phrase-verdict route does not parse ${field}`);
   }
@@ -103,6 +104,53 @@ test("the body and query fields the page sends are the ones the routes parse", (
   for (const param of ['"&zone="', '"&sessionId="', '"&reviewer="']) {
     assert.ok(queue.includes(param), `the review queue call lost ${param}`);
   }
+});
+
+test("a verdict carries the take the page was handed with the audio, and a replaced take is handled", () => {
+  // THE REVIEW'S FINDING 1 (2026-09-15): a re-record keeps the clip id and the
+  // page caches audio for the visit, so a verdict tied only to the id could
+  // land on a recording the reviewer never heard. phraseVoices.test.ts proves
+  // the server refuses a stale take under a lock; this proves the page is
+  // holding up its end of the same four strings.
+  const VOICES = readFileSync(resolve(import.meta.dirname, "../lib/phraseVoices.ts"), "utf8");
+
+  // The server hands the take out with BOTH audio formats, so a phone on the
+  // WAV fallback judges with the same take as one playing the original.
+  const audioRoute = ROUTER.slice(
+    ROUTER.indexOf('"/script-trace/phrase-clips/:id/audio"'),
+    ROUTER.indexOf('"/script-trace/phrase-verdict"'),
+  );
+  assert.ok(audioRoute.length > 0, "could not find the audio route");
+  assert.equal(audioRoute.split("take: clip.take").length - 1, 2, "both audio answers must carry take");
+
+  // One SQL definition of the take, used by the read that serves it and the
+  // read that checks it, so they cannot hash different things.
+  assert.equal(VOICES.split("encode(sha256(convert_to(").length - 1, 1, "the take must be defined once");
+  assert.equal(VOICES.split("take: takeHashSql()").length - 1, 2, "serve and check must share the definition");
+  // The check reads under a lock the re-record's upsert conflicts with.
+  const store = VOICES.slice(VOICES.indexOf("export async function storeVerdict("));
+  assert.ok(store.includes('.for("share")'), "storeVerdict no longer locks the clip row");
+  assert.ok(store.indexOf('.for("share")') < store.indexOf(".insert(voiceContributionReviewsTable)"), "lock before the write");
+
+  // sha256 hex is 64 characters; the route refuses anything else.
+  assert.match(schemaText("phraseVerdictBodySchema"), /\n {2}take: z\.string\(\)\.regex\(\/\^\[0-9a-f\]\{64\}\$\//);
+
+  // The page keeps the take beside the audio, and sends the take of what is on the player.
+  assert.ok(PAGE.includes('rvCache[k]={url:url,take:res.json.take||""};'), "the page no longer keeps the take with the audio");
+  assert.ok(PAGE.includes("a.src=got.url;rvTake=got.take;"), "the player's take is not the one its audio came with");
+  assert.ok(callSite("POST", '"/api/script-trace/phrase-verdict"').includes("take:rvTake"));
+
+  // A replaced take answers take_changed, and the page tells it apart from a
+  // self-review, which is the other 409 and would otherwise swallow it.
+  assert.ok(ROUTER.includes('code: "take_changed"'));
+  const handled = PAGE.indexOf('if(res.status===409&&res.json.code==="take_changed"){rvRetake(q);return false;}');
+  const ownRecording = PAGE.indexOf('if(res.status===409){note("rvsavenote","This is your own recording');
+  assert.ok(handled >= 0, "the page does not handle take_changed");
+  assert.ok(ownRecording >= 0, "could not find the self-review branch");
+  assert.ok(handled < ownRecording, "take_changed must be checked before the generic 409");
+  // And it forgets both cached copies before loading the new recording.
+  const retake = PAGE.slice(PAGE.indexOf("function rvRetake(q){"), PAGE.indexOf("function rvNext(){"));
+  assert.ok(retake.includes('delete rvCache[id];delete rvCache[id+":wav"];') && retake.includes("rvAudio(id);"));
 });
 
 test("the page accepts every key the Nest can mint, and the language codes the router does", () => {

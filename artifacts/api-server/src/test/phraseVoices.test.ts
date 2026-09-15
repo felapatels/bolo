@@ -13,6 +13,8 @@
  *     a clip can only be stored against one of them
  *   - saying a phrase again replaces the take AND clears the verdicts on the
  *     old one
+ *   - a verdict names the take it was given on, and one naming a replaced take
+ *     is refused, including while the re-record is still committing
  *   - no contributor name ever leaves the server, and nobody reviews their own
  *   - the Nest's summary counts with the same rule
  *
@@ -20,6 +22,7 @@
  */
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import express, { type Express } from "express";
@@ -34,7 +37,7 @@ import {
   voiceContributionsTable,
   voiceContributionReviewsTable,
 } from "@workspace/db";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import scriptTraceRouter from "../routes/scriptTrace";
 import { mintContributionKey } from "../lib/contributionLinks";
 import { summarizeZoneClips } from "../lib/phraseVoices";
@@ -48,6 +51,14 @@ const SPEAKER = "SpeakerOne";
 const REVIEWER = "ReviewerTwo";
 const AUDIO = Buffer.from("not really audio, the route never decodes a take").toString("base64");
 const DAY = 86_400_000;
+
+/**
+ * The take a verdict must name since the 2026-09-15 review (finding 1): sha256
+ * of the stored base64, which the server computes in SQL. Computed here on its
+ * own and pinned equal to the audio route's answer below, so a body can carry
+ * it without a round trip and the test does not trust the server's arithmetic.
+ */
+const takeOf = (audioBase64: string) => createHash("sha256").update(audioBase64, "utf8").digest("hex");
 
 let app: Express;
 let server: Server;
@@ -362,7 +373,7 @@ describe("saying it again", () => {
 
     const verdict = await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review"),
-      body: { sessionId: session("rev"), reviewer: REVIEWER, language: LANG, clipId: row!.id, verdict: "approved" },
+      body: { sessionId: session("rev"), reviewer: REVIEWER, language: LANG, clipId: row!.id, take: takeOf(AUDIO), verdict: "approved" },
     });
     assert.equal(verdict.status, 200, verdict.text);
 
@@ -397,7 +408,7 @@ describe("saying it again", () => {
     const [row] = (await clipRows()).filter((r) => r.sessionId === sitting);
     const approve = await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review"),
-      body: { sessionId: session("rev"), reviewer: REVIEWER, language: LANG, clipId: row!.id, verdict: "approved" },
+      body: { sessionId: session("rev"), reviewer: REVIEWER, language: LANG, clipId: row!.id, take: takeOf(AUDIO), verdict: "approved" },
     });
     assert.equal(approve.status, 200, approve.text);
 
@@ -426,6 +437,286 @@ describe("saying it again", () => {
 
     // Removed here so the summary counts later in this file stay as asserted.
     await db.delete(voiceContributionsTable).where(eq(voiceContributionsTable.id, row!.id));
+  });
+});
+
+describe("a verdict names the take it was given on", () => {
+  // Review 2026-09-15, finding 1. A re-record keeps the clip id and the review
+  // page keeps each clip's audio for the visit, so a verdict that named only
+  // the id could land on a recording its reviewer never heard.
+  //
+  // EVERY CLIP HERE IS DELETED BY ITS OWN CASE. "counts for the Nest" below
+  // asserts the zone holds no approved phrase, and these cases approve takes.
+  const T1 = Buffer.from("the take the reviewer heard").toString("base64");
+  const T2 = Buffer.from("the same phrase, recorded again").toString("base64");
+
+  async function recordFirstTake(tag: string): Promise<{ sitting: string; clipId: number }> {
+    const sitting = session(tag);
+    const res = await call("POST", "/api/script-trace/phrase-voice", {
+      key: key("record"),
+      body: clipBody({ sessionId: sitting, audioBase64: T1 }),
+    });
+    assert.equal(res.status, 200, res.text);
+    const [row] = (await clipRows()).filter((r) => r.sessionId === sitting);
+    assert.ok(row, "the first take was stored");
+    return { sitting, clipId: row.id };
+  }
+
+  const verdictBody = (clipId: number, sessionId: string, take: string, verdict = "approved") => ({
+    sessionId,
+    reviewer: REVIEWER,
+    language: LANG,
+    clipId,
+    take,
+    verdict,
+  });
+
+  const verdictRows = (clipId: number) =>
+    db
+      .select()
+      .from(voiceContributionReviewsTable)
+      .where(eq(voiceContributionReviewsTable.contributionId, clipId));
+
+  /** Backends in this database blocked on a lock while running a statement like `pattern`. */
+  async function lockWaiters(pattern: string): Promise<number> {
+    const res = await db.execute(sql`
+      select count(*)::int as n from pg_stat_activity
+      where datname = current_database()
+        and state = 'active'
+        and wait_event_type = 'Lock'
+        and query ilike ${pattern}`);
+    return Number((res.rows[0] as { n: number | string }).n);
+  }
+
+  /**
+   * Waits until a statement like `pattern` is blocked on a lock. Polls rather
+   * than sleeping a guessed interval, so the case knows the other transaction
+   * has reached exactly that statement before it acts.
+   */
+  async function untilBlocked(pattern: string, what: string, ms = 5000): Promise<void> {
+    const deadline = Date.now() + ms;
+    for (;;) {
+      if ((await lockWaiters(pattern)) > 0) return;
+      if (Date.now() > deadline) assert.fail(`${what} was not waiting on a lock after ${ms} ms`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }
+
+  /** Must settle within `ms`, so a lock that is never released fails the case instead of hanging the suite. */
+  function within<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${what} did not finish within ${ms} ms`)), ms);
+    });
+    return Promise.race([p, late]).finally(() => clearTimeout(timer));
+  }
+
+  it("accepts the take it served, refuses a replaced one, and accepts the new one", async () => {
+    const { sitting, clipId } = await recordFirstTake("fresh");
+    try {
+      const audio = await call("GET", `/api/script-trace/phrase-clips/${clipId}/audio?language=${LANG}`, {
+        key: key("review"),
+      });
+      assert.equal(audio.status, 200, audio.text);
+      const heard: string = audio.json.take;
+      assert.equal(heard, takeOf(T1));
+
+      const reviewer = session("fresh-rev");
+      const fresh = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, reviewer, heard),
+      });
+      assert.equal(fresh.status, 200, fresh.text);
+
+      // A verdict that cannot say which recording it judges is not a verdict.
+      const missing: Record<string, unknown> = verdictBody(clipId, session("no-take"), heard);
+      delete missing.take;
+      assert.equal((await call("POST", "/api/script-trace/phrase-verdict", { key: key("review"), body: missing })).status, 400);
+      const md5 = createHash("md5").update(T1, "utf8").digest("hex");
+      const wrongShape = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, session("md5"), md5),
+      });
+      assert.equal(wrongShape.status, 400, "an md5 is not a take");
+      assert.equal((await verdictRows(clipId)).length, 1, "neither was stored");
+
+      const again = await call("POST", "/api/script-trace/phrase-voice", {
+        key: key("record"),
+        body: clipBody({ sessionId: sitting, audioBase64: T2 }),
+      });
+      assert.equal(again.status, 200, again.text);
+      assert.equal((await verdictRows(clipId)).length, 0, "the re-record cleared the approval of the first take");
+
+      // The page still holding the first take answers with it.
+      const stale = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, reviewer, heard),
+      });
+      assert.equal(stale.status, 409, stale.text);
+      assert.equal(stale.json?.code, "take_changed");
+      assert.equal((await verdictRows(clipId)).length, 0, "and stored nothing");
+
+      const reloaded = await call("GET", `/api/script-trace/phrase-clips/${clipId}/audio?language=${LANG}`, {
+        key: key("review"),
+      });
+      assert.equal(reloaded.json.take, takeOf(T2));
+      assert.notEqual(reloaded.json.take, heard);
+      const current = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, reviewer, reloaded.json.take),
+      });
+      assert.equal(current.status, 200, current.text);
+      assert.equal((await verdictRows(clipId)).length, 1);
+    } finally {
+      await db.delete(voiceContributionsTable).where(eq(voiceContributionsTable.id, clipId));
+    }
+  });
+
+  it("refuses a verdict that arrives while a re-record is committing, which an unlocked insert survives", async () => {
+    // THE RACE THE REVIEW REASONED FROM LOCK MODES AND DID NOT REPRODUCE, run
+    // here against the real re-record: storePhraseClip, through its own route,
+    // held open after its DELETE has read the table and before it commits.
+    //
+    // How it is held open: an earlier verdict on the clip is row-locked by a
+    // side connection, so the DELETE that removes it waits. Its snapshot is
+    // already taken by then, and everything below happens inside that window.
+    const { sitting, clipId } = await recordFirstTake("race");
+    const heard = takeOf(T1);
+    const earlier = session("race-earlier");
+    const late = session("race-late");
+    const unlocked = session("race-unlocked");
+    const locker = await pool.connect();
+    let lockHeld = false;
+    try {
+      const first = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: { ...verdictBody(clipId, earlier, heard, "rejected"), reviewer: "ReviewerFive" },
+      });
+      assert.equal(first.status, 200, first.text);
+
+      await locker.query("begin");
+      lockHeld = true;
+      await locker.query(
+        "select id from voice_contribution_reviews where contribution_id = $1 and session_id = $2 for update",
+        [clipId, earlier],
+      );
+
+      const rerecord = call("POST", "/api/script-trace/phrase-voice", {
+        key: key("record"),
+        body: clipBody({ sessionId: sitting, audioBase64: T2 }),
+      });
+      await untilBlocked('delete from "voice_contribution_reviews"%', "the re-record's delete");
+
+      // A reviewer whose page loaded the first take answers now.
+      const verdict = call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, late, heard),
+      });
+      // THE FIX: the verdict's read of the take waits for the re-record. With
+      // no lock on that read, nothing would be waiting here.
+      await untilBlocked('select %from "voice_contributions"%for share%', "the verdict's locked read of the take");
+
+      // THE CONTROL, which is the bug itself: an insert that does not lock the
+      // clip row, as this route's was before the fix, goes straight through
+      // the open re-record. Its foreign key check takes FOR KEY SHARE, which
+      // the re-record's FOR NO KEY UPDATE does not block.
+      await within(
+        db
+          .insert(voiceContributionReviewsTable)
+          .values({
+            contributionId: clipId,
+            sessionId: unlocked,
+            reviewer: "ReviewerFour",
+            verdict: "approved",
+            note: "",
+            isPractice: false,
+          })
+          .then(() => undefined),
+        3000,
+        "an unlocked verdict insert during the re-record",
+      );
+
+      await locker.query("rollback");
+      lockHeld = false;
+
+      const saved = await within(rerecord, 5000, "the re-record");
+      assert.equal(saved.status, 200, saved.text);
+      const answer = await within(verdict, 5000, "the late verdict");
+      assert.equal(answer.status, 409, answer.text);
+      assert.equal(answer.json?.code, "take_changed", "the lock made the verdict read the new take");
+
+      const left = new Set((await verdictRows(clipId)).map((r) => r.sessionId));
+      assert.ok(!left.has(earlier), "the re-record cleared the verdict given before it");
+      assert.ok(!left.has(late), "the late verdict was refused, not stored");
+      assert.ok(
+        left.has(unlocked),
+        "the unlocked insert should have outlived the re-record; if it did not, this case is not reproducing the race it guards",
+      );
+      const [row] = (await clipRows()).filter((r) => r.id === clipId);
+      assert.equal(row!.audioBase64, T2);
+    } finally {
+      if (lockHeld) await locker.query("rollback").catch(() => {});
+      locker.release();
+      await db.delete(voiceContributionsTable).where(eq(voiceContributionsTable.id, clipId));
+    }
+  });
+
+  it("a verdict already holding the clip makes a re-record wait, and the re-record then clears it", async () => {
+    // The other order. A reviewer changing their answer passes the take check
+    // and holds the clip row FOR SHARE while their write waits (held here by a
+    // side connection locking their earlier answer), and the speaker saves again.
+    const { sitting, clipId } = await recordFirstTake("order");
+    const heard = takeOf(T1);
+    const reviewer = session("order-rev");
+    const locker = await pool.connect();
+    let lockHeld = false;
+    try {
+      const first = await call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, reviewer, heard, "rejected"),
+      });
+      assert.equal(first.status, 200, first.text);
+
+      await locker.query("begin");
+      lockHeld = true;
+      await locker.query(
+        "select id from voice_contribution_reviews where contribution_id = $1 and session_id = $2 for update",
+        [clipId, reviewer],
+      );
+
+      const verdict = call("POST", "/api/script-trace/phrase-verdict", {
+        key: key("review"),
+        body: verdictBody(clipId, reviewer, heard, "approved"),
+      });
+      await untilBlocked('insert into "voice_contribution_reviews"%', "the verdict's write");
+
+      const rerecord = call("POST", "/api/script-trace/phrase-voice", {
+        key: key("record"),
+        body: clipBody({ sessionId: sitting, audioBase64: T2 }),
+      });
+      // THE FIX: the re-record's upsert waits for the verdict holding the clip.
+      // Without that lock it would run on to its DELETE and wait there instead.
+      await untilBlocked('insert into "voice_contributions"%', "the re-record's upsert");
+
+      await locker.query("rollback");
+      lockHeld = false;
+
+      const answer = await within(verdict, 5000, "the verdict");
+      assert.equal(answer.status, 200, answer.text);
+      const saved = await within(rerecord, 5000, "the re-record");
+      assert.equal(saved.status, 200, saved.text);
+      assert.equal(
+        (await verdictRows(clipId)).length,
+        0,
+        "an answer given on the first take does not survive the second",
+      );
+      const [row] = (await clipRows()).filter((r) => r.id === clipId);
+      assert.equal(row!.audioBase64, T2);
+    } finally {
+      if (lockHeld) await locker.query("rollback").catch(() => {});
+      locker.release();
+      await db.delete(voiceContributionsTable).where(eq(voiceContributionsTable.id, clipId));
+    }
   });
 });
 
@@ -493,6 +784,7 @@ describe("the review half", () => {
     assert.equal(res.status, 200, res.text);
     assert.equal(res.json.mimeType, "audio/webm;codecs=opus");
     assert.equal(res.json.audioBase64, AUDIO);
+    assert.equal(res.json.take, takeOf(AUDIO), "the take is the hash of exactly the bytes served");
     const wrongLang = await call("GET", `/api/script-trace/phrase-clips/${clipId}/audio?language=${OTHER_LANG}`, {
       key: key("review", OTHER_LANG),
     });
@@ -500,7 +792,7 @@ describe("the review half", () => {
   });
 
   it("stores a verdict, shows it back to that sitting only, and replaces it on a change of mind", async () => {
-    const body = { sessionId: reviewSession, reviewer: REVIEWER, language: LANG, clipId, verdict: "approved" };
+    const body = { sessionId: reviewSession, reviewer: REVIEWER, language: LANG, clipId, take: takeOf(AUDIO), verdict: "approved" };
     assert.equal((await call("POST", "/api/script-trace/phrase-verdict", { body })).status, 403);
     assert.equal((await call("POST", "/api/script-trace/phrase-verdict", { key: key("record"), body })).status, 403);
 
@@ -540,7 +832,7 @@ describe("the review half", () => {
       .where(eq(voiceContributionReviewsTable.contributionId, clipId));
     const res = await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review"),
-      body: { sessionId: session("self"), reviewer: " speakerone ", language: LANG, clipId, verdict: "approved" },
+      body: { sessionId: session("self"), reviewer: " speakerone ", language: LANG, clipId, take: takeOf(AUDIO), verdict: "approved" },
     });
     assert.equal(res.status, 409, res.text);
     assert.equal(res.json?.code, "own_recording");
@@ -554,12 +846,13 @@ describe("the review half", () => {
   it("refuses a verdict on a clip of another language or a bad word", async () => {
     const res = await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review", OTHER_LANG),
-      body: { sessionId: session("x"), reviewer: REVIEWER, language: OTHER_LANG, clipId, verdict: "approved" },
+      body: { sessionId: session("x"), reviewer: REVIEWER, language: OTHER_LANG, clipId, take: takeOf(AUDIO), verdict: "approved" },
     });
     assert.equal(res.status, 404);
+    // A valid take, so the 400 below is the verdict word's and nothing else's.
     const bad = await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review"),
-      body: { sessionId: session("x"), reviewer: REVIEWER, language: LANG, clipId, verdict: "maybe" },
+      body: { sessionId: session("x"), reviewer: REVIEWER, language: LANG, clipId, take: takeOf(AUDIO), verdict: "maybe" },
     });
     assert.equal(bad.status, 400);
   });
@@ -578,7 +871,7 @@ describe("the review half", () => {
 
     await call("POST", "/api/script-trace/phrase-verdict", {
       key: key("review"),
-      body: { sessionId: session("second"), reviewer: "ReviewerThree", language: LANG, clipId, verdict: "approved" },
+      body: { sessionId: session("second"), reviewer: "ReviewerThree", language: LANG, clipId, take: takeOf(AUDIO), verdict: "approved" },
     });
     const still = await summarizeZoneClips(LANG, 1);
     assert.equal(

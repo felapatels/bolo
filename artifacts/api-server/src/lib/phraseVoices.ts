@@ -12,6 +12,7 @@ import {
   PHRASE_MODE_ZONE_SLUGS,
   clipState,
   phraseProgress,
+  sameSpeaker,
   type ClipState,
   type ClipVerdict,
   type PhraseClipProgress,
@@ -173,6 +174,10 @@ export interface PhraseClipInput {
  * THE VERDICTS ON THE OLD TAKE GO IN THE SAME TRANSACTION. The row keeps its
  * id through the upsert, so without this an approval given to the first take
  * would silently transfer to a second take nobody has heard.
+ *
+ * That covers verdicts already stored. A verdict still on its way when this
+ * runs is storeVerdict's to refuse: it names the take it was given on, and
+ * checks it under a lock this upsert's row lock conflicts with.
  */
 export async function storePhraseClip(input: PhraseClipInput): Promise<{ id: number }> {
   return db.transaction(async (tx) => {
@@ -294,33 +299,37 @@ export async function loadClipsForPhrases(
   return { clips, verdictsByClip };
 }
 
-/** Who recorded a clip and what it belongs to, without its audio. */
-export async function loadClipIdentity(clipId: number): Promise<{
-  id: number;
-  languageCode: string | null;
-  phraseId: number | null;
-  contributor: string;
-} | null> {
-  const [row] = await db
-    .select({
-      id: voiceContributionsTable.id,
-      languageCode: voiceContributionsTable.languageCode,
-      phraseId: voiceContributionsTable.phraseId,
-      contributor: voiceContributionsTable.contributor,
-    })
-    .from(voiceContributionsTable)
-    .where(eq(voiceContributionsTable.id, clipId))
-    .limit(1);
-  return row ?? null;
+/**
+ * WHICH TAKE A CLIP HOLDS: sha256 of its stored base64, as lowercase hex.
+ *
+ * Added after the 2026-09-15 review of phrase mode (finding 1). A re-record
+ * keeps the row id (storePhraseClip upserts in place) and the review page
+ * keeps each clip's audio for the whole visit, so a clip id cannot say which
+ * recording a reviewer heard. This can: the audio route hands it out with the
+ * bytes and the verdict route will only store a verdict that names it.
+ *
+ * COMPUTED IN SQL, in the same row read as whatever it is checked against, so
+ * no second copy of up to a megabyte of audio is pulled to hash it. sha256
+ * rather than the md5 the review suggested: it costs the same here, and the
+ * bytes being identified are chosen by whoever holds a record key, so the
+ * check should not rest on a hash with practical collisions. The base64 is
+ * ASCII, so convert_to only turns text into the bytes sha256 takes.
+ *
+ * ONE DEFINITION, used by both reads below, so the hash served and the hash
+ * checked cannot drift apart.
+ */
+function takeHashSql() {
+  return sql<string>`encode(sha256(convert_to(${voiceContributionsTable.audioBase64}, 'UTF8')), 'hex')`;
 }
 
-/** A clip's audio, for playback on the review page. */
+/** A clip's audio, for playback on the review page, and the take it is. */
 export async function loadClipAudio(clipId: number): Promise<{
   id: number;
   languageCode: string | null;
   phraseId: number | null;
   mimeType: string;
   audioBase64: string;
+  take: string;
 } | null> {
   const [row] = await db
     .select({
@@ -329,6 +338,8 @@ export async function loadClipAudio(clipId: number): Promise<{
       phraseId: voiceContributionsTable.phraseId,
       mimeType: voiceContributionsTable.mimeType,
       audioBase64: voiceContributionsTable.audioBase64,
+      // One statement, one row version: the take always names these bytes.
+      take: takeHashSql(),
     })
     .from(voiceContributionsTable)
     .where(eq(voiceContributionsTable.id, clipId))
@@ -338,6 +349,10 @@ export async function loadClipAudio(clipId: number): Promise<{
 
 export interface VerdictInput {
   contributionId: number;
+  /** The language the review key opens; a clip of any other answers unknown_clip. */
+  languageCode: string;
+  /** The take the reviewer heard, as the audio route handed it out. */
+  take: string;
   sessionId: string;
   reviewer: string;
   verdict: ClipVerdict;
@@ -345,24 +360,75 @@ export interface VerdictInput {
   isPractice: boolean;
 }
 
-/** A reviewer changing their mind replaces their own verdict, nobody else's. */
-export async function storeVerdict(input: VerdictInput): Promise<void> {
-  await db
-    .insert(voiceContributionReviewsTable)
-    .values(input)
-    .onConflictDoUpdate({
-      target: [
-        voiceContributionReviewsTable.contributionId,
-        voiceContributionReviewsTable.sessionId,
-      ],
-      set: {
+export type VerdictOutcome = "stored" | "unknown_clip" | "own_recording" | "take_changed";
+
+/**
+ * A reviewer changing their mind replaces their own verdict, nobody else's.
+ * Stored only if the clip still holds the take the reviewer heard.
+ *
+ * THE CHECK AND THE WRITE ARE ONE TRANSACTION THAT LOCKS THE CLIP ROW FOR
+ * SHARE. The review (finding 1) reasoned a race the take alone would not
+ * close: storePhraseClip's upsert changes no key column, so it takes FOR NO
+ * KEY UPDATE, and the verdict insert's foreign key check takes FOR KEY SHARE,
+ * which does not conflict with it. Under READ COMMITTED a verdict inserted
+ * after the re-record's DELETE had read the table, but before it committed,
+ * survived that delete and sat on the new take. FOR SHARE is the weakest lock
+ * that conflicts with FOR NO KEY UPDATE, so:
+ *
+ *   - a re-record already underway makes this read wait, and the read then
+ *     returns the NEW row version, whose take no longer matches: refused;
+ *   - a verdict holding the lock first makes the re-record's upsert wait until
+ *     it commits, so the re-record's DELETE reads afterwards and removes it.
+ *
+ * Two reviewers' verdicts on one clip still do not block each other.
+ */
+export async function storeVerdict(input: VerdictInput): Promise<VerdictOutcome> {
+  return db.transaction(async (tx) => {
+    const [clip] = await tx
+      .select({
+        languageCode: voiceContributionsTable.languageCode,
+        phraseId: voiceContributionsTable.phraseId,
+        contributor: voiceContributionsTable.contributor,
+        take: takeHashSql(),
+      })
+      .from(voiceContributionsTable)
+      .where(eq(voiceContributionsTable.id, input.contributionId))
+      .for("share");
+    // A clip of another language answers exactly like a missing one: a key
+    // opens one language and nothing else.
+    if (!clip || clip.phraseId === null || clip.languageCode !== input.languageCode) {
+      return "unknown_clip";
+    }
+    // Before the take: a speaker judging their own recording is refused
+    // whichever take they heard.
+    if (sameSpeaker(input.reviewer, clip.contributor)) return "own_recording";
+    if (clip.take !== input.take) return "take_changed";
+
+    await tx
+      .insert(voiceContributionReviewsTable)
+      .values({
+        contributionId: input.contributionId,
+        sessionId: input.sessionId,
+        reviewer: input.reviewer,
         verdict: input.verdict,
         note: input.note,
-        reviewer: input.reviewer,
         isPractice: input.isPractice,
-        updatedAt: sql`now()`,
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [
+          voiceContributionReviewsTable.contributionId,
+          voiceContributionReviewsTable.sessionId,
+        ],
+        set: {
+          verdict: input.verdict,
+          note: input.note,
+          reviewer: input.reviewer,
+          isPractice: input.isPractice,
+          updatedAt: sql`now()`,
+        },
+      });
+    return "stored";
+  });
 }
 
 export interface ZonePhraseProgressRow {

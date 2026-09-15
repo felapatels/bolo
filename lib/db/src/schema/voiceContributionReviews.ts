@@ -28,7 +28,10 @@ import { voiceContributionsTable } from "./voiceContributions";
 // A VERDICT BELONGS TO THE BYTES IT WAS GIVEN ON. When a speaker records a
 // phrase again, the clip row is updated in place (it upserts on sitting and
 // prompt), and the route deletes these rows in the same transaction: an
-// approval of the old take says nothing about the new one.
+// approval of the old take says nothing about the new one. A verdict sent
+// after that, by a page still holding the old audio, names the take it heard
+// (a hash of the stored base64) and is refused under a row lock when the take
+// has changed (api-server lib/phraseVoices.ts storeVerdict, review 2026-09-15).
 //
 // DELETION, as on every contribution table: the reviewer's first name as
 // typed, so "take my answers out" is satisfiable, and the cascade means
