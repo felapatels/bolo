@@ -972,8 +972,12 @@ export default function PracticeScreen() {
       if (!startPhrase) return;
       const cacheKey = `${startPhrase.id}:${ttsVoice}`;
       if (audioCacheRef.current.has(cacheKey)) return;
+      // languageCode as web practice sends it (2026-09-15): /openai/tts picks
+      // the phrase voice and its cache namespace from the code, so a body with
+      // only the name got the default voice instead of the one auditioned for
+      // the language, missed the pre-warmed clip and synthesised live.
       startingPhraseAudioRef.current = synth
-        .mutateAsync({ data: { text: startPhrase.nativeScript, languageName: activeLanguage?.name } })
+        .mutateAsync({ data: { text: startPhrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } })
         .then((res) => {
           audioCacheRef.current.set(cacheKey, { audioBase64: res.audioBase64, format: res.format || 'mp3' });
           return res;
@@ -1256,6 +1260,9 @@ export default function PracticeScreen() {
           data: {
             text: phrase.nativeScript,
             languageName: activeLanguage?.name,
+            // The same code the prewarm sends, so a replay after a voice change
+            // asks for the same voice (2026-09-15).
+            languageCode: activeLang,
           },
         }));
       if (!res) {
@@ -1382,7 +1389,7 @@ export default function PracticeScreen() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phrase?.id, activeLanguage?.name, ttsVoice, isSentences]);
+  }, [phrase?.id, activeLanguage?.name, activeLang, ttsVoice, isSentences]);
 
   // Auto-play the coach model once when a new phrase appears, unless the
   // learner has opted into silent mode (they prefer to read the phrase and
@@ -1435,6 +1442,9 @@ export default function PracticeScreen() {
           data: {
             text: upcoming.nativeScript,
             languageName: activeLanguage?.name,
+            // Without the code the prefetch warms a clip in the default voice
+            // (2026-09-15).
+            languageCode: activeLang,
           },
         });
         if (cancelled) return;
@@ -1450,7 +1460,7 @@ export default function PracticeScreen() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, list.length, activeLanguage?.name, ttsVoice]);
+  }, [index, list.length, activeLanguage?.name, activeLang, ttsVoice]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
   React.useEffect(() => () => stopSelfPlayback(), [stopSelfPlayback]);

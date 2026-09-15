@@ -165,12 +165,15 @@ function ListenQuestion({
   onAnswer,
   answered,
   activeLang,
+  languageName,
   soundOn,
 }: {
   q: ListenIdentifyQuestion;
   onAnswer: (selected: string) => void;
   answered: boolean;
+  /** The active language's CODE. It used to carry the display name. */
   activeLang: string;
+  languageName: string;
   soundOn: boolean;
 }) {
   const choices = useRef(
@@ -203,7 +206,12 @@ function ListenQuestion({
       const result =
         audioCacheRef.current ??
         (await synthesize.mutateAsync({
-          data: { text: q.correctNativeScript, languageName: activeLang },
+          // The code as languageCode and the name as languageName, the way
+          // practice sends them (2026-09-15). This sent the display name under
+          // languageName and no code, so /openai/tts, which picks the voice and
+          // the cache namespace from the code, answered in the default voice
+          // and synthesised live on every play.
+          data: { text: q.correctNativeScript, languageName, languageCode: activeLang },
         }));
       audioCacheRef.current = { audioBase64: result.audioBase64, format: result.format };
       const bytes = Uint8Array.from(atob(result.audioBase64), (c) => c.charCodeAt(0));
@@ -405,6 +413,7 @@ function QuestionCard({
   onAnswer,
   answered,
   activeLang,
+  languageName,
   soundOn,
 }: {
   question: QuizQuestion;
@@ -413,6 +422,7 @@ function QuestionCard({
   onAnswer: (selected: string) => void;
   answered: boolean;
   activeLang: string;
+  languageName: string;
   soundOn: boolean;
 }) {
   const typeLabel: Record<string, string> = {
@@ -448,7 +458,7 @@ function QuestionCard({
         <McqQuestion q={question} onAnswer={onAnswer} answered={answered} />
       )}
       {question.type === "listen_identify" && (
-        <ListenQuestion q={question} onAnswer={onAnswer} answered={answered} activeLang={activeLang} soundOn={soundOn} />
+        <ListenQuestion q={question} onAnswer={onAnswer} answered={answered} activeLang={activeLang} languageName={languageName} soundOn={soundOn} />
       )}
       {question.type === "order_words" && (
         <OrderQuestion q={question} onAnswer={onAnswer} answered={answered} />
@@ -843,7 +853,8 @@ export default function BoloQuizPage() {
               total={questions.length}
               onAnswer={handleAnswer}
               answered={currentAnswered}
-              activeLang={activeLanguage?.name ?? activeLang}
+              activeLang={activeLang}
+              languageName={activeLanguage?.name ?? activeLang}
               soundOn={soundOn}
             />
 

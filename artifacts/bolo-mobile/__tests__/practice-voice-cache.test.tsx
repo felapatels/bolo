@@ -277,3 +277,47 @@ describe('audio cache keyed by voice ID', () => {
     expect(mockState.synth).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('phrase audio names its language by code', () => {
+  // Added 2026-09-15 (fleet TTS languageCode fix). Mobile practice's three
+  // phrase-audio requests (the start-phrase prewarm, playCoach and the
+  // next-phrase prefetch) sent { text, languageName } only. /openai/tts picks
+  // the phrase voice and its cache namespace from languageCode, so the core
+  // practice screen played the default voice instead of the one auditioned for
+  // the language and synthesised live on every play. Web practice always sent
+  // the code. Every request in a run that reaches all three sites is pinned to
+  // the exact body.
+  test('the prewarm, the play after a voice change and the prefetch all send languageCode', async () => {
+    const phraseB = { id: 2, nativeScript: 'આભાર', romanized: 'aabhar', english: 'thanks' };
+    mockState.phrases = successQuery([phraseA, phraseB]);
+    const { rerender } = render(<PracticeScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('record-button')).not.toBeDisabled(),
+    );
+    // Prewarm of phrase A (consumed by the autoplay) and prefetch of phrase B.
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2));
+
+    // A voice change misses the cache, so the listen button reaches playCoach's
+    // own request for phrase A (the prewarm is spent and never re-runs).
+    mockState.account = makeAccount('voice-B');
+    rerender(<PracticeScreen />);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Listen to coach'));
+    });
+    await waitFor(() =>
+      expect(
+        mockState.synth.mock.calls.filter((c: any[]) => c[0].data.text === phraseA.nativeScript),
+      ).toHaveLength(2),
+    );
+
+    const bodies = mockState.synth.mock.calls.map((c: any[]) => c[0]);
+    for (const body of bodies) {
+      expect(body).toEqual({
+        data: { text: body.data.text, languageName: 'Gujarati', languageCode: 'gu' },
+      });
+    }
+    expect(bodies.map((b: any) => b.data.text)).toEqual(
+      expect.arrayContaining([phraseA.nativeScript, phraseB.nativeScript]),
+    );
+  });
+});

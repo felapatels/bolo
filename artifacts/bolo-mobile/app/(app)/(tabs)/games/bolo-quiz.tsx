@@ -182,6 +182,7 @@ function ListenQuestion({
   answered,
   colors,
   languageName,
+  languageCode,
   ttsVoice,
   soundOn,
 }: {
@@ -190,6 +191,8 @@ function ListenQuestion({
   answered: boolean;
   colors: ReturnType<typeof useColors>;
   languageName: string;
+  /** The active language's code. The server picks the phrase voice from it. */
+  languageCode: string;
   ttsVoice: string;
   soundOn: boolean;
 }) {
@@ -223,8 +226,12 @@ function ListenQuestion({
     try {
       const cacheKey = `${q.correctNativeScript}:${ttsVoice}`;
       const cached = audioCache.current.get(cacheKey);
+      // languageCode as practice sends it (2026-09-15): /openai/tts picks the
+      // voice and the cache namespace from the code, so a body with only the
+      // name got the default voice, missed the pre-warmed clip and synthesised
+      // live on every play.
       const result =
-        cached ?? (await synthesizeSpeech({ text: q.correctNativeScript, languageName }));
+        cached ?? (await synthesizeSpeech({ text: q.correctNativeScript, languageName, languageCode }));
       if (!cached) {
         audioCache.current.set(cacheKey, {
           audioBase64: result.audioBase64,
@@ -847,6 +854,7 @@ export default function BoloQuizScreen() {
               answered={currentAnswered}
               colors={colors}
               languageName={activeLanguage?.name ?? activeLang}
+              languageCode={activeLang}
               ttsVoice={ttsVoice}
               soundOn={soundOn}
             />

@@ -911,7 +911,11 @@ export default function ReviewScreen() {
       const res =
         cached ??
         (await synth.mutateAsync({
-          data: { text: phrase.nativeScript, languageName: activeLanguage?.name },
+          // languageCode as practice sends it (2026-09-15): /openai/tts
+          // picks the phrase voice and its cache namespace from the code, so a
+          // body with only the name got the default voice, missed the
+          // pre-warmed clip and synthesised live on every play.
+          data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang },
         }));
       audioCacheRef.current.set(phrase.id, {
         audioBase64: res.audioBase64,
@@ -1005,7 +1009,7 @@ export default function ReviewScreen() {
       if (token === playTokenRef.current) setCoachPlaying(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phrase?.id, activeLanguage?.name]);
+  }, [phrase?.id, activeLanguage?.name, activeLang]);
 
   React.useEffect(() => {
     if (!phrase) return;
@@ -1032,8 +1036,10 @@ export default function ReviewScreen() {
       if (cancelled || silent) return;
       if (audioCacheRef.current.has(upcoming.id)) return;
       try {
+        // The prefetch sends the code too, or it warms a clip in the wrong voice
+        // under a key playCoach's request would never hit (2026-09-15).
         const res = await synth.mutateAsync({
-          data: { text: upcoming.nativeScript, languageName: activeLanguage?.name },
+          data: { text: upcoming.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang },
         });
         if (cancelled) return;
         audioCacheRef.current.set(upcoming.id, {
@@ -1046,7 +1052,7 @@ export default function ReviewScreen() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, list.length, activeLanguage?.name]);
+  }, [index, list.length, activeLanguage?.name, activeLang]);
 
   React.useEffect(() => () => stopPlayback(), [stopPlayback]);
   React.useEffect(() => () => stopSelfPlayback(), [stopSelfPlayback]);

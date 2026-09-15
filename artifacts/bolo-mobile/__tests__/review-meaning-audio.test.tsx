@@ -305,3 +305,28 @@ describe('review: meaning item disabled when Coach voice is off', () => {
     ).not.toBe(true);
   });
 });
+
+describe('review: phrase audio names its language by code', () => {
+  // Added 2026-09-15 (fleet TTS languageCode fix). Review's play and next-phrase
+  // prefetch asked /openai/tts with { text, languageName } only. The server
+  // picks the phrase voice and its cache namespace from languageCode, so review
+  // played the default voice and synthesised live on every play. Both request
+  // sites are pinned to the exact body. Meaning audio is off so the only calls
+  // are the target-language ones.
+  test('the play and the prefetch both send languageCode', async () => {
+    await AsyncStorage.setItem(MEANING_AUDIO_KEY, 'off');
+    const phraseB = { ...phraseA, id: 2, nativeScript: 'આભાર', romanized: 'aabhar', english: 'thanks' };
+    mockState.phrases = successQuery([phraseA, phraseB]);
+    await renderReady();
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(2), { timeout: 2000 });
+    const bodies = mockState.synth.mock.calls.map((c: unknown[]) => c[0]);
+    expect(bodies).toHaveLength(2);
+    // Autoplay of the first phrase (playCoach) and the prefetch of the second.
+    expect(bodies).toEqual(
+      expect.arrayContaining([
+        { data: { text: phraseA.nativeScript, languageName: 'Gujarati', languageCode: 'gu' } },
+        { data: { text: phraseB.nativeScript, languageName: 'Gujarati', languageCode: 'gu' } },
+      ]),
+    );
+  });
+});

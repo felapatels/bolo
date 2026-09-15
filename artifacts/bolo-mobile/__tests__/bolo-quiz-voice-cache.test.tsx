@@ -182,6 +182,30 @@ describe('bolo-quiz listen question audio cache (voice-keyed)', () => {
     );
   });
 
+  test('the request names the language by code as well as by name', async () => {
+    // Added 2026-09-15 (fleet TTS languageCode fix): the listen question sent
+    // { text, languageName } only. /openai/tts picks the phrase voice and its
+    // cache namespace from languageCode, so the quiz played the default voice
+    // and synthesised live on every play. The exact body is pinned so the code
+    // cannot drop out again unnoticed.
+    render(<BoloQuizScreen />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Listen & Identify')).toBeTruthy(),
+    );
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('quiz-listen-play-btn'));
+    });
+    await waitFor(() => expect(mockState.synth).toHaveBeenCalledTimes(1));
+
+    expect(mockState.synth.mock.calls[0][0]).toEqual({
+      text: LISTEN_QUESTION.correctNativeScript,
+      languageName: 'Gujarati',
+      languageCode: 'gu',
+    });
+  });
+
   test('a different ttsVoice value produces a cache miss and triggers fresh synthesis', async () => {
     // Render with voice-A: first tap populates the cache, second tap hits it.
     mockState.account = accountQuery('voice-A');
