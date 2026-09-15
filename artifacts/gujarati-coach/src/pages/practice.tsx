@@ -2374,7 +2374,14 @@ export default function Practice({
   const phraseAttempts = phraseTallies[phrase?.id ?? -1]?.attempts ?? 0;
   // Test-out is one take per phrase (a server-side batch rule), so the retry
   // is inactive there; the error card's retry is the recovery action.
-  const retrySlotActive = state === "error" || !isTestout;
+  //
+  // EXCEPT A NOCATCH (owner, 2026-09-14: "trying to test out but it didn't
+  // catch it. Try again should be lit up"). Hearing nothing is a system miss,
+  // not the learner's take, and a retry cannot break the batch rule:
+  // testoutTokensRef is keyed by phrase id, so the new token replaces the
+  // nocatch one. Mobile twin: practice/[id].tsx retrySlotActive.
+  const retrySlotActive =
+    state === "error" || !isTestout || (state === "result" && result?.band === "nocatch");
   // The error card has no band and no token: there is nothing to advance
   // from. Test-out is ungated for the same reason its retry is off.
   const advanceSlotActive =
@@ -2550,7 +2557,9 @@ export default function Practice({
             data-testid="testout-banner"
             className="mb-2 shrink-0 rounded-xl border border-border bg-muted/40 px-3 py-2 text-center text-xs font-bold text-muted-foreground"
           >
-            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this stop.
+            {/* A zone test-out skips the ZONE (owner, 2026-09-14: "this message
+                is wrong, i'm on the zone test out"). Mobile twin: practice/[id].tsx. */}
+            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this {isZoneTestout ? "zone" : "stop"}.
           </div>
         )}
 

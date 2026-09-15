@@ -523,9 +523,13 @@ export default function PracticeScreen() {
       params: { flashback: '1' },
     } as Parameters<typeof router.replace>[0]);
   };
+  // BOTH WAYS BACK TO THE MAP POP TO THE ONE ALREADY OPEN (2026-09-14). replace
+  // stacked a second journey, which replays its zone film on mount and leaves a
+  // duplicate map under Back; the owner saw the film leaving the Letters stop.
+  // dismissTo replaces only when no journey is open, as from a deep link.
   const skipFlashback = () => {
     setFlashbackOpen(false);
-    router.replace('/(app)/journey' as Parameters<typeof router.replace>[0]);
+    router.dismissTo('/(app)/journey' as Parameters<typeof router.dismissTo>[0]);
   };
   // Speech-recognition gating (server-classified, defaults to full scoring):
   //  • 'unsupported' → listen-record-compare only, never send an evaluation.
@@ -2505,7 +2509,8 @@ export default function PracticeScreen() {
                 if (Array.isArray(due) && due.length > 0) {
                   setFlashbackOpen(true);
                 } else if (Array.isArray(due)) {
-                  router.replace('/(app)/journey' as Parameters<typeof router.replace>[0]);
+                  // dismissTo, not replace: see skipFlashback.
+                  router.dismissTo('/(app)/journey' as Parameters<typeof router.dismissTo>[0]);
                 } else {
                   router.replace({
                     pathname: '/(app)/review',
@@ -2565,7 +2570,14 @@ export default function PracticeScreen() {
   // ── Result-actions row state (Task #1040) ────────────────────────────────
   // Test-out is one take per phrase (a server-side batch rule), so the retry
   // is inactive there; the error card's retry IS the recovery action.
-  const retrySlotActive = phase === 'error' || !isTestout;
+  //
+  // EXCEPT A NOCATCH (owner, in the simulator, 2026-09-14: "trying to test out
+  // but it didn't catch it. Try again should be lit up"). Hearing nothing is a
+  // system miss, not the learner's take (Spec 1 rule 16), and a retry cannot
+  // break the batch rule: testoutTokensRef is keyed by phrase id, so the new
+  // take's token replaces the nocatch one rather than joining it.
+  const retrySlotActive =
+    phase === 'error' || !isTestout || (phase === 'result' && result?.band === 'nocatch');
   // The error card has no band and no token: there is nothing to advance
   // from. Test-out and the ear-training compare stage are ungated (compare
   // never produces a band at all).
@@ -2617,8 +2629,10 @@ export default function PracticeScreen() {
           testID="testout-banner"
           style={[styles.testoutBanner, { backgroundColor: colors.muted, borderColor: colors.border }]}
         >
+          {/* A zone test-out skips the ZONE (owner, 2026-09-14: "this message
+              is wrong, i'm on the zone test out"). */}
           <Text style={[styles.testoutBannerText, { color: colors.mutedForeground }]}>
-            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this stop.
+            Express check: one take per phrase. Say {testoutRequiredCorrect} of {testoutSampleSize} well to skip this {isZoneTestout ? 'zone' : 'stop'}.
           </Text>
         </View>
       )}
