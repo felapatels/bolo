@@ -105,15 +105,22 @@ jest.mock('@/lib/soundPref', () => ({
 
 // Build 21: the pass starts the journey's arrival film at the tear, through
 // the root overlay's store. Spied so the beat it fires in can be pinned.
+// Since 2f76403d (owner, 2026-09-14: "a new splash to play when coming from the
+// boarding pass") the pass calls playJourneyArrivalSplash instead. This mock
+// lacked it, so every tear threw "is not a function" at the 320ms beat and all
+// nine activation tests failed; web's twin mock was updated in that commit and
+// this one was not. playStopSplash stays spied so the tests can say it is NOT
+// the film the pass plays any more.
 jest.mock('@/lib/stopSplash', () => ({
   playStopSplash: jest.fn(),
+  playJourneyArrivalSplash: jest.fn(),
   currentStopSplashZone: () => null,
 }));
 
 import { JourneyPassCard } from '@/components/journey/JourneyPassCard';
 import { playTearSfx } from '@/lib/tearAudio';
 import { loadSoundPref } from '@/lib/soundPref';
-import { playStopSplash } from '@/lib/stopSplash';
+import { playJourneyArrivalSplash, playStopSplash } from '@/lib/stopSplash';
 
 // expo-router's useFocusEffect needs a navigator; these suites render the card
 // on its own. Same per-file mock the chat suites use, running the callback
@@ -287,17 +294,22 @@ describe('stub tear-off activation', () => {
   // had moved, which a recording of the simulator proved. The film now waits
   // 320ms so a third of a second of tear shows, then dissolves in while the
   // stub is still sailing, still ahead of the navigation at 500.
-  it('starts the current zone\'s arrival film a beat into the tear, before navigation', () => {
+  // INVERTED 2026-09-15: this pinned playStopSplash(2), the CURRENT ZONE'S
+  // stop film. 2f76403d (owner, 2026-09-14: "a new splash to play when coming
+  // from the boarding pass") made the pass play the journey arrival film,
+  // whatever the zone. The beat is unchanged: 320ms into the tear, ahead of
+  // the navigation at 500.
+  it('starts the journey arrival film a beat into the tear, before navigation', () => {
     mockState.journey = { current: CURRENT, doneCount: 2 };
     const onPress = jest.fn();
     render(<JourneyPassCard onPress={onPress} />);
     fireEvent.press(screen.getByTestId('journey-pass-card'));
-    expect(playStopSplash).not.toHaveBeenCalled();
+    expect(playJourneyArrivalSplash).not.toHaveBeenCalled();
     act(() => {
       jest.advanceTimersByTime(320);
     });
-    expect(playStopSplash).toHaveBeenCalledTimes(1);
-    expect(playStopSplash).toHaveBeenCalledWith(2);
+    expect(playJourneyArrivalSplash).toHaveBeenCalledTimes(1);
+    expect(playStopSplash).not.toHaveBeenCalled();
     expect(onPress).not.toHaveBeenCalled();
     act(() => {
       jest.advanceTimersByTime(180);
@@ -305,10 +317,18 @@ describe('stub tear-off activation', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('starts no film with no current stop: the journey keeps its own arrival', () => {
+  // INVERTED 2026-09-15: with no current stop the pass used to start no film,
+  // because a zone film needs a zone to name. The arrival film from 2f76403d
+  // names none, so it plays with or without a current stop (its commit says
+  // so), and still never as a zone's stop film.
+  it('plays the arrival film with no current stop too', () => {
     mockState.journey = { current: null, doneCount: 0 };
     render(<JourneyPassCard onPress={() => {}} />);
     fireEvent.press(screen.getByTestId('journey-pass-card'));
+    act(() => {
+      jest.advanceTimersByTime(320);
+    });
+    expect(playJourneyArrivalSplash).toHaveBeenCalledTimes(1);
     expect(playStopSplash).not.toHaveBeenCalled();
   });
 
