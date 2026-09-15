@@ -2528,7 +2528,7 @@
       {
         "nativeScript": "আমার নতুন খেলাটা দেখে উত্তেজিত লাগছে।",
         "romanized": "amar notun khelata dekhe uttejito lagchhe",
-        "english": "I feel excited দেখে the new game.",
+        "english": "I feel excited seeing the new game.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -3735,7 +3735,7 @@
       {
         "nativeScript": "सुनो, इह बात फ्ही दोहराओ।",
         "romanized": "suno, ih baat phhee doharaao.",
-        "english": "Listen, repeat this बात again.",
+        "english": "Listen, repeat that again.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -3868,7 +3868,7 @@
       {
         "nativeScript": "माफ करियै, में बात निं सुन्या।",
         "romanized": "maaf kariyai, main baat nain sunyaa.",
-        "english": "Excuse me, I did not hear the बात.",
+        "english": "Excuse me, I did not hear what was said.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -7571,7 +7571,7 @@
       {
         "nativeScript": "ನಾಳೆ ನಾವು ಬೇಗ ಮನೆಗೆ ಹೋಗುತ್ತೇವೆ.",
         "romanized": "naale naavu bega manege hogutteve.",
-        "english": "Tomorrow we will go home जल्दी.",
+        "english": "Tomorrow we will go home early.",
         "difficulty": 3,
         "origin": "generated_c1"
       },
@@ -10575,7 +10575,7 @@
       {
         "nativeScript": "क्षमा करू, हम ई बात नहि बुझलहुँ।",
         "romanized": "kshama karu, hum ee baat nahi bujhalahun.",
-        "english": "Sorry, I did not understand this बात.",
+        "english": "Sorry, I did not understand this.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -11430,7 +11430,7 @@
       {
         "nativeScript": "എന്റെ ഇളയ സഹോദരൻ പുറത്തേക്ക് പോകുന്നു.",
         "romanized": "ente ilaya sahodaran purathekku pokunnu.",
-        "english": "My younger brother is going बाहर?",
+        "english": "My younger brother is going out.",
         "difficulty": 1,
         "origin": "generated_c1"
       },
@@ -17249,7 +17249,7 @@
       {
         "nativeScript": "ମୋତେ ନୂଆ ଖେଳ ଦେଖି ଆଶ୍ଚର୍ଯ୍ୟ ଲାଗୁଛି।",
         "romanized": "mote nua khela dekhi ashcharya laguchhi.",
-        "english": "I feel surprised देखकर the new game.",
+        "english": "I feel surprised seeing the new game.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -18393,7 +18393,7 @@
       {
         "nativeScript": "ਮੈਨੂੰ ਇਹ ਗੱਲ ਸਮਝ ਨਹੀਂ ਆਈ।",
         "romanized": "mainu eh gall samajh nahin aai.",
-        "english": "I did not understand this बात.",
+        "english": "I did not understand this.",
         "difficulty": 2,
         "origin": "generated_c1"
       },
@@ -23287,7 +23287,7 @@
       {
         "nativeScript": "مهرباني ڪري، آرام سان ويهو.",
         "romanized": "mehrbani kare, aaram saan veho.",
-        "english": "Please, sit आरामingly.",
+        "english": "Please, sit comfortably.",
         "difficulty": 1,
         "origin": "generated_c1"
       },
