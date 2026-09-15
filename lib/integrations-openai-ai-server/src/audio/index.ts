@@ -2,6 +2,8 @@ export {
   openai,
   detectAudioFormat,
   convertToWav,
+  convertToWavArgs,
+  MAX_DECODE_SECONDS,
   ensureCompatibleFormat,
   type AudioFormat,
   voiceChat,

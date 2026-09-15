@@ -52,7 +52,60 @@ export function detectAudioFormat(buffer: Buffer): AudioFormat {
 }
 
 /**
- * Convert any audio/video format to WAV using ffmpeg.
+ * THE MOST AUDIO convertToWav WILL WRITE, in seconds.
+ *
+ * WHY THERE IS A CAP. Found by the 2026-09-15 review of the contribution page's
+ * phrase mode (finding 3), measured with this function's own arguments: an hour
+ * of silence as FLAC is 371,735 bytes and became a 115,200,078-byte WAV in
+ * 0.28 s. As Ogg-FLAC it starts "OggS", so detectAudioFormat calls it ogg and a
+ * magic-byte gate lets it through. Any signed-in learner reaches this function
+ * through /openai/pronunciation, whose audio has no size limit, and a size cap
+ * would not help anyway: the danger is how far a small input expands. A timeout
+ * would not either, at 0.28 s. What bounds it is the length of the output.
+ *
+ * WHY 120. Every caller's longest honest input, read from the code:
+ *   - review WAV fallback (routes/scriptTrace.ts): one lesson phrase take; the
+ *     page stops a take at 20 s and the route refuses a declared 60 s or more.
+ *   - /openai/pronunciation, through ensureCompatibleFormat, the reference
+ *     scoring path and lib/audioNoise.ts: one attempt at one phrase or sentence.
+ *   - the reference scorer (lib/referenceAudio.ts): synthesised speech of one
+ *     phrase's text.
+ *   - Chacha-ji's call (routes/chachaCall.ts, every iPhone m4a): one held
+ *     answer; the call is sized as four beats at "a generous minute each".
+ *   - chat (lib/parrotChat.ts): only an unrecognised container or a request
+ *     without clientDurationSeconds reaches it, and both clients have sent a
+ *     known container and that field since July. A request that omits it to be
+ *     charged less could already send zero. The free week is 120 s in total.
+ * So 120 is twice the longest of those and six times a phrase take, and it
+ * bounds one conversion at 3.84 MB of PCM (16 kHz mono s16le is 32 KB a second).
+ */
+export const MAX_DECODE_SECONDS = 120;
+
+/**
+ * convertToWav's ffmpeg arguments, apart so the cap can be tested without ffmpeg.
+ *
+ * `-t` comes AFTER `-i`, which makes it an OUTPUT option: ffmpeg stops writing,
+ * and so stops decoding, once the WAV holds that much audio. Before `-i` it
+ * would limit what is read from the input's own timeline instead, which a
+ * crafted file gets to describe. The cap is on the thing that grows.
+ */
+export function convertToWavArgs(inputPath: string, outputPath: string): string[] {
+  return [
+    "-i", inputPath,
+    "-vn",
+    "-t", String(MAX_DECODE_SECONDS),
+    "-f", "wav",
+    "-ar", "16000",
+    "-ac", "1",
+    "-acodec", "pcm_s16le",
+    "-y",
+    outputPath,
+  ];
+}
+
+/**
+ * Convert any audio/video format to WAV using ffmpeg, stopping at
+ * MAX_DECODE_SECONDS of output.
  */
 export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
   const inputPath = join(tmpdir(), `input-${randomUUID()}`);
@@ -62,16 +115,7 @@ export async function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
     await writeFile(inputPath, audioBuffer);
 
     await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn("ffmpeg", [
-        "-i", inputPath,
-        "-vn",
-        "-f", "wav",
-        "-ar", "16000",
-        "-ac", "1",
-        "-acodec", "pcm_s16le",
-        "-y",
-        outputPath,
-      ]);
+      const ffmpeg = spawn("ffmpeg", convertToWavArgs(inputPath, outputPath));
 
       const stderrChunks: Buffer[] = [];
       ffmpeg.stderr.on("data", (chunk: Buffer) => stderrChunks.push(chunk));
