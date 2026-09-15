@@ -408,6 +408,11 @@ export const GIFT_ATTEMPTS_SHIM = {
   sites: [
     "artifacts/bolo-mobile/app/(app)/review.tsx",
     "artifacts/bolo-mobile/app/(app)/practice/[id].tsx",
+    // Last Call and Answer Back score through these twins, mirroring practice's
+    // attempts body field for field (2026-09-14). The mobile one lives in
+    // hooks/, which this guard did not walk until the same day.
+    "artifacts/bolo-mobile/hooks/useSpeakAndScore.ts",
+    "artifacts/gujarati-coach/src/hooks/useSpeakAndScore.ts",
     "artifacts/gujarati-coach/src/pages/practice.tsx",
     "lib/api-spec/openapi.yaml",
   ],

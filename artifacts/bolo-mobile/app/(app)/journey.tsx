@@ -71,6 +71,8 @@ import {
   useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
+  useListLessonGroupPhrases,
+  getListLessonGroupPhrasesQueryKey,
   useListZoneStamps,
   useListScenarios,
   useRecordSignalWave,
@@ -113,6 +115,15 @@ import {
 import { asUpgradeRequired } from '@/lib/entitlements';
 import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { planZoneRows } from '@/lib/journeyRows';
+// Shared with the web journey page since Last Call slice 2 (2026-09-14); the
+// Answer Back half (best-fit counts, the exchange resolver) since the same day.
+import {
+  answerBackExchangesFor,
+  lastPlayedKind,
+  mapRowKindOf,
+  planStopPlay,
+  type StopPlayKind,
+} from '@workspace/script-trace';
 import { CarvedBoard } from '@/components/journey/CarvedBoard';
 import { TrainEngine } from '@/components/journey/TrainEngine';
 import {
@@ -347,6 +358,14 @@ type Station = LessonGroupSummary & {
    *  its copy already counted the letters and only the bar was missing. */
   traceDone?: number;
   traceTotal?: number;
+  /**
+   * How this ROW is played, from @workspace/script-trace stop-play.ts. Set on `rowStations` only,
+   * never on `stations`: the graded list is what every count derives from, and
+   * a play kind must not be able to reach a count. 'last_call' marks a graded
+   * voice stop played as the Last Call game (owner ruling, 2026-09-14); its
+   * lock, status, numbering and id are the voice stop's, unchanged.
+   */
+  play?: StopPlayKind;
 };
 
 type LockInfo = {
@@ -1345,6 +1364,35 @@ function EmergencySoftStop({
 }
 
 
+/**
+ * ANSWER BACK'S CONTENT PROBE. Renders nothing. Fetches one open group's
+ * phrases through the same generated hook and query key the game screen and
+ * practice use, so the fetch is shared with the tap that follows, and reports
+ * how many Answer Back exchanges the group can field
+ * (@workspace/script-trace answerBackExchangesFor).
+ *
+ * A COMPONENT PER GROUP, NOT A HOOK IN A LOOP: the number of converted slots
+ * a learner can open changes as they progress, and hooks cannot be called a
+ * varying number of times. Mounted only for converted rows (every one of them
+ * may be Answer Back under best fit, owner ruling 2026-09-14 "c") that the
+ * learner can open, so a new learner fetches one or two, never the line. The web twin is the component of the same name in src/pages/journey.tsx.
+ */
+function AnswerBackProbe({
+  groupId,
+  onCount,
+}: {
+  groupId: number;
+  onCount: (groupId: number, count: number) => void;
+}) {
+  const { data } = useListLessonGroupPhrases(groupId, {
+    query: { queryKey: getListLessonGroupPhrasesQueryKey(groupId) },
+  });
+  useEffect(() => {
+    if (Array.isArray(data)) onCount(groupId, answerBackExchangesFor(data).length);
+  }, [data, groupId, onCount]);
+  return null;
+}
+
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -1362,7 +1410,10 @@ export default function JourneyScreen() {
   // only this header needs the explicit inset.
   const insets = useSafeAreaInsets();
   const headerTopInset = Platform.OS === 'web' ? 67 : insets.top;
-  const { activeLang, activeLanguage } = useLanguage();
+  // speechCapability decides whether a voice row may be played as Last Call
+  // (@workspace/script-trace stop-play.ts): an unsupported language keeps
+  // every voice stop.
+  const { activeLang, activeLanguage, speechCapability } = useLanguage();
   // Only for placing the free taste: which tracing stops this learner may open.
   // Everything else on this screen gates on the server's own planLocked flag.
   const { isPlus } = useEntitlements();
@@ -1377,6 +1428,16 @@ export default function JourneyScreen() {
   // The closeout payoff beat opens the wallet, so the map hosts the sheet.
   const [walletOpen, setWalletOpen] = useState(false);
   const [waveToast, setWaveToast] = useState({ message: '', key: 0 });
+  // ANSWER BACK CONTENT, BY LESSON GROUP ID. How many exchanges each probed
+  // group can field (AnswerBackProbe below). The map cannot know from a
+  // summary, only from the group's phrases, so an Answer Back slot plays as
+  // Last Call until its count arrives and stays Last Call below the minimum
+  // (owner ruling 2026-09-14). Keyed by group id, so a language switch simply
+  // stops reading the old ids.
+  const [answerBackCounts, setAnswerBackCounts] = useState<Record<number, number>>({});
+  const noteAnswerBackCount = useCallback((groupId: number, count: number) => {
+    setAnswerBackCounts((prev) => (prev[groupId] === count ? prev : { ...prev, [groupId]: count }));
+  }, []);
   const reduceMotion = useReducedMotion();
   // Task 985 port: light scroll parallax on the scenery layer. ONE
   // scroll-linked transform on the scenery wrapper, so it drifts slightly
@@ -1606,6 +1667,16 @@ export default function JourneyScreen() {
       .map((q) => (q.data as LessonGroupList | undefined)?.stopUnlock?.cost)
       .find((c) => typeof c === 'number') ?? null;
 
+  // THE LAST ROW OF THE ZONE BEFORE, AS PLAYED. Zone boundaries count for Last
+  // Call (owner clarification, 2026-09-14: "no 2 neighboring stops should be
+  // the same type of lesson"), so each zone's play plan needs the kind its
+  // predecessor ended on. Carried through the map below in zone order, which
+  // Array.prototype.map guarantees; null for the first zone of the line.
+  let previousZoneLastPlay: StopPlayKind | null = null;
+  // The open groups behind converted rows, whose phrases the map fetches to
+  // settle Answer Back or Last Call by best fit (owner ruling 2026-09-14, "c").
+  // Only stops the learner can open: the phrase route refuses a locked group.
+  const answerBackProbeIds: number[] = [];
   const zones = JOURNEY_ZONES.map((z, i) => {
     const groups = [...((zoneQueries[i]!.data as LessonGroupList | undefined)?.lessonGroups ?? [])]
       // Phrase-stage stops before sentence-stage, then position order.
@@ -1777,6 +1848,37 @@ export default function JourneyScreen() {
       } as Station);
     }
 
+    // HOW EACH ROW IS PLAYED (Last Call, owner ruling 2026-09-14). Runs on the
+    // FINISHED run, after all three splices, because neighbours are map rows
+    // and nothing else: signals and Chacha-ji's stalls sit between rows and
+    // never appear in this list. It relabels and never adds, so stopNumber and
+    // stopCount below are exactly what they were.
+    //
+    // ANSWER BACK OR LAST CALL, BY BEST FIT (owner ruling 2026-09-14, "c"): a
+    // converted row plays Answer Back when its group fields at least
+    // ANSWER_BACK_MIN_EXCHANGES exchanges, Last Call otherwise or until the
+    // count arrives. Converted rows are never neighbours, so either choice
+    // keeps the neighbour rule (stop-play.ts).
+    const play = planStopPlay({
+      rows: withTrace.map(mapRowKindOf),
+      speechCapability,
+      previousZoneLastKind: previousZoneLastPlay,
+      rowGroupIds: withTrace.map((st) => (mapRowKindOf(st) === 'voice' ? st.id : undefined)),
+      answerBackCounts,
+    });
+    previousZoneLastPlay = lastPlayedKind(play, previousZoneLastPlay);
+    withTrace.forEach((st, gi) => {
+      if (
+        (play[gi] === 'last_call' || play[gi] === 'answer_back') &&
+        st.id !== undefined &&
+        st.status !== 'locked' &&
+        st.planLocked !== true &&
+        st.teaserStation !== true
+      ) {
+        answerBackProbeIds.push(st.id);
+      }
+    });
+
     const rowStations: Station[] = withTrace.map((st, gi) => {
       const freeOrOwned = ((st.story || st.trace || st.letter) &&
         (i === 0 || ownsJourneyStop(stopOwnership.data?.unlockedStops, {
@@ -1787,6 +1889,7 @@ export default function JourneyScreen() {
         ...(freeOrOwned ? { planLocked: false, teaserStation: false, status: st.status === 'locked' ? 'unlocked' as const : st.status } : {}),
         stopNumber: gi + 1,
         stopCount: withTrace.length,
+        play: play[gi],
       };
     });
 
@@ -1805,6 +1908,45 @@ export default function JourneyScreen() {
   });
 
   const allStations = zones.flatMap((z) => z.stations);
+  // Graded stops played as Last Call, by lesson group id. Read by every door
+  // that walks a learner into a graded stop from this screen (the stop card and
+  // Chacha-ji's stall), so the stall cannot open practice on a row the map
+  // labels Last Call. The test-out links stay on practice deliberately: a
+  // test-out is an assessment of the stop, not a way of playing it.
+  const lastCallGroupIds = new Set(
+    zones.flatMap((z) => z.rowStations.filter((r) => r.play === 'last_call').map((r) => r.id)),
+  );
+  // Answer Back rows, for the same two doors, for the same reason.
+  const answerBackGroupIds = new Set(
+    zones.flatMap((z) => z.rowStations.filter((r) => r.play === 'answer_back').map((r) => r.id)),
+  );
+  const gradedStopHref = (
+    zoneId: number,
+    groupId: number | undefined,
+    stopLabel?: string,
+  ): Parameters<typeof router.push>[0] => {
+    const game =
+      groupId === undefined
+        ? null
+        : answerBackGroupIds.has(groupId)
+          ? 'answer-back'
+          : lastCallGroupIds.has(groupId)
+            ? 'last-call'
+            : null;
+    return game
+      ? {
+          // Cast for the same reason playSignalGame casts its game path: the
+          // typed-routes file under .expo/types is generated by Metro and is
+          // gitignored, so a brand new screen is unknown to it until the next
+          // `expo start` regenerates it.
+          pathname: `/(app)/(tabs)/games/${game}` as never,
+          params: { group: String(groupId), cat: String(zoneId), ...(stopLabel ? { stop: stopLabel } : {}) },
+        }
+      : {
+          pathname: '/(app)/practice/[id]',
+          params: { id: String(zoneId), group: String(groupId) },
+        };
+  };
   const doneCount = allStations.filter(
     (s) => s.status === 'completed' || s.status === 'tested_out',
   ).length;
@@ -2591,11 +2733,14 @@ export default function JourneyScreen() {
       ? currentGlobalIdx + 1
       : null;
 
-  // Leaving the stall carries on into that stop's first item, which is where
-  // tapping the stop card would have landed anyway. Decline does the same: he
-  // never asks twice.
+  // LEAVING THE STALL STAYS ON THE MAP (owner, in the simulator, 2026-09-14:
+  // "make sure the boarding pass always lands on the journey screen not into
+  // the game. it happened when i just tried before"). It used to walk on into
+  // that stop's first item, and because ChachaSoftStop opens him by itself when
+  // the map loads on his station, pass, stall, dismiss put the learner inside a
+  // game they never tapped: the bounce EmergencySoftStop was fixed for on
+  // 2026-08-26. Decline still never asks twice; the stop is one tap away.
   const leaveChachaStall = () => {
-    const stop = chachaDlg ? allStations[chachaDlg.station - 1] : undefined;
     /**
      * HIS PHONE RINGS AT ONE STOP PER ZONE, and this is where it happens.
      *
@@ -2605,11 +2750,10 @@ export default function JourneyScreen() {
      * of the learner, the language and the zone so a revisit meets it at the
      * same stop rather than rerolling.
      *
-     * IT REPLACES THE WALK INTO PRACTICE, it does not delay it. A call is an
-     * INTERRUPTION by ruling: he rings, the learner takes it or ignores it, and
-     * either way they come back to the map and carry on. Chaining practice on
-     * behind the call would make it a gate on the lesson, which is the one
-     * thing it must not be.
+     * A call is an INTERRUPTION by ruling: he rings, the learner takes it or
+     * ignores it, and either way they come back to the map and carry on.
+     * Chaining practice on behind the call would make it a gate on the lesson,
+     * which is the one thing it must not be.
      *
      * The chai is already poured by this point and nothing here can take it
      * back, so a learner who lets it ring out has lost nothing.
@@ -2619,17 +2763,7 @@ export default function JourneyScreen() {
      */
     const ringsNow = chachaDlg?.callsNow === true;
     setChachaDlg(null);
-    if (ringsNow) {
-      router.push('/(app)/call');
-      return;
-    }
-    if (!stop) return;
-    // No splash leaving the stall either, same reason as the stop cards: the
-    // learner has already watched the arrival film on this visit.
-    router.push({
-      pathname: '/(app)/practice/[id]',
-      params: { id: String(stop.zoneId), group: String(stop.id) },
-    });
+    if (ringsNow) router.push('/(app)/call');
   };
 
   const openChachaEncounter = (stationIdx: number) => {
@@ -2844,6 +2978,10 @@ export default function JourneyScreen() {
 
   return (
     <Screen padTop={false} column={false}>
+      {/* Answer Back's content probes render nothing; see AnswerBackProbe. */}
+      {answerBackProbeIds.map((id) => (
+        <AnswerBackProbe key={`ab-probe-${id}`} groupId={id} onCount={noteAnswerBackCount} />
+      ))}
       {/* Boarding-pass header — full-ticket treatment */}
       <View
         testID="journey-header"
@@ -3327,7 +3465,9 @@ export default function JourneyScreen() {
               ? `${stopLabel}: ${s.trace.title}, ${statusCopy} (tracing stop)`
               : s.letter
               ? `${stopLabel}: ${s.letter.title}, ${statusCopy} (letter stop)`
-              : `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}`;
+              : // A Last Call row says so aloud as well as on its chip, after the
+                // stage, so a screen reader hears what kind of stop it is.
+                `${stopLabel}: ${statusCopy}${s.stage === 'sentence' ? ' (sentence stop)' : ''}${s.play === 'last_call' ? ' (Last Call)' : s.play === 'answer_back' ? ' (Answer Back)' : ''}`;
             const stopTarget: JourneyStopTarget = { kind: s.story ? 'story' : s.trace ? 'trace' : s.letter ? 'letter' : 'lesson', languageCode: activeLang, journey: s.story?.journey ?? s.trace?.journey ?? s.letter?.journey ?? 1, zone: s.zoneIndex + 1, ...(!s.story && !s.trace && !s.letter ? { lessonGroupId: s.id } : {}) };
             const purchased = s.chaiUnlocked === true || ownsJourneyStop(stopOwnership.data?.unlockedStops, stopTarget);
             const onPress = () => {
@@ -3414,10 +3554,11 @@ export default function JourneyScreen() {
               // unnecessary." The arrival film is the one that earns its
               // place; a second showing of the same six seconds between a tap
               // and the thing tapped is a toll.
-                router.push({
-                  pathname: '/(app)/practice/[id]',
-                  params: { id: String(zone.id), group: String(s.id) },
-                });
+              // LAST CALL takes the same gate as the voice stop it replaces:
+              // this branch is reached by exactly the accessible-or-purchased
+              // test above, and only the destination differs (owner ruling,
+              // 2026-09-14).
+                router.push(gradedStopHref(zone.id, s.id, stopLabel));
                 return;
               }
               setLock({
@@ -3803,6 +3944,34 @@ export default function JourneyScreen() {
                           <View style={[styles.traceChip, styles.rusticChip, { backgroundColor: colors.primary, borderColor: colors.primary }]}>
                             <Feather name="book-open" size={8} color="#ffffff" />
                             <Text style={styles.traceChipText}>STORY</Text>
+                          </View>
+                        )}
+                        {/* LAST CALL, slice 1 (owner ruling 2026-09-14). The
+                            same violet kind chip the tracing and story rows
+                            wear, with a bell and the words, so the kind never
+                            rides on colour alone. Placeholder until the art
+                            lands; everything else on this card is the voice
+                            stop's, because it IS the voice stop. */}
+                        {s.play === 'last_call' && (
+                          <View
+                            testID={`stop-last-call-${s.zoneIndex + 1}-${s.stopNumber}`}
+                            style={[styles.traceChip, styles.rusticChip, { backgroundColor: accessible ? colors.primary : TICKET.inkAhead, borderColor: accessible ? colors.primary : TICKET.inkAhead }]}
+                          >
+                            <Feather name="bell" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>LAST CALL</Text>
+                          </View>
+                        )}
+                        {/* ANSWER BACK (owner ruling 2026-09-14): the same kind
+                            chip with its own icon, a speech bubble, and its own
+                            words, so it is told from Last Call by shape and
+                            text, never by colour. */}
+                        {s.play === 'answer_back' && (
+                          <View
+                            testID={`stop-answer-back-${s.zoneIndex + 1}-${s.stopNumber}`}
+                            style={[styles.traceChip, styles.rusticChip, { backgroundColor: accessible ? colors.primary : TICKET.inkAhead, borderColor: accessible ? colors.primary : TICKET.inkAhead }]}
+                          >
+                            <Feather name="message-circle" size={8} color="#ffffff" />
+                            <Text style={styles.traceChipText}>ANSWER BACK</Text>
                           </View>
                         )}
                       <Text

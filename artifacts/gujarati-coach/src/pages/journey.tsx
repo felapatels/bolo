@@ -21,7 +21,7 @@ import { useGetJourneyStopUnlocks, type JourneyStopTarget } from '@workspace/api
 // pass chrome changed.
 import { Link, useLocation } from "wouter";
 import { blessAudioPlayback } from "@/lib/iosAudio";
-import { currentStopSplashZone, playStopSplash } from "@/lib/stop-splash";
+import { currentStopSplashZone, noteJourneyLeft, playStopSplash, takeJourneyReturn } from "@/lib/stop-splash";
 import {
   ZONE_BACKDROP_SCRIM,
   ZONE_BACKDROP_SCRIM_COLOR,
@@ -37,6 +37,8 @@ import {
   useGetTokens,
   useListCategories,
   useListCategoryLessonGroups,
+  useListLessonGroupPhrases,
+  getListLessonGroupPhrasesQueryKey,
   useListZoneStamps,
   useListScenarios,
   useRecordSignalWave,
@@ -44,7 +46,7 @@ import {
   type LessonGroupList,
   type LessonGroupSummary,
 } from "@workspace/api-client-react";
-import { ArrowLeft, ArrowRight, Check, ChevronDown, Lightbulb, Lock, Pencil, Sparkles, Star, Train, Volume2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, Check, ChevronDown, Lightbulb, Lock, MessageCircle, Pencil, Sparkles, Star, Train, Volume2 } from "lucide-react";
 import { ChaiGlyph } from "@/components/chai-stall";
 import { Confetti } from "@/components/ui/confetti";
 import { TrainEngine } from "@/components/train-svg";
@@ -74,10 +76,15 @@ import {
 import { JOURNEY_ZONES, getJourneyLine } from "@/lib/journeyLines";
 import {
   LETTER_STOP_LENGTH,
+  answerBackExchangesFor,
+  lastPlayedKind,
+  mapRowKindOf,
+  planStopPlay,
   traceStopCopy,
   traceStopPassedCount,
   traceStopStatus,
   type LetterStop,
+  type StopPlayKind,
   type TraceStop,
 } from "@workspace/script-trace";
 import {
@@ -316,6 +323,15 @@ type Station = LessonGroupSummary & {
    * after the story row was added without one.
    */
   letter?: LetterStop;
+  /**
+   * How this ROW is played, from planStopPlay (@workspace/script-trace, shared
+   * with the mobile map since Last Call slice 2). Set on `rowStations` only,
+   * never on `stations`: the graded list is what every count derives from, and
+   * a play kind must not be able to reach a count. 'last_call' marks a graded
+   * voice stop played as the Last Call game (owner ruling, 2026-09-14); its
+   * lock, status, numbering and id are the voice stop's, unchanged.
+   */
+  play?: StopPlayKind;
 };
 
 type LockInfo = {
@@ -785,7 +801,6 @@ function StationCard({
   showTeaserChip,
   href,
   onLocked,
-  onNavigate,
   side,
   polishEnabled,
   languageName,
@@ -797,8 +812,6 @@ function StationCard({
   showTeaserChip: boolean;
   href: string;
   onLocked: () => void;
-  /** Fired on an accessible stop's click, BEFORE the route changes. */
-  onNavigate?: () => void;
   side: "left" | "right";
   polishEnabled?: boolean;
   /** The language's name, for the trace ticket's practice line. */
@@ -856,6 +869,33 @@ function StationCard({
           style={{ borderColor: color, color }}
         >
           Express
+        </span>
+      )}
+      {/* LAST CALL (owner ruling 2026-09-14; mobile slice 1, web slice 2). A
+          violet kind chip with a bell AND the words, so the kind never rides
+          on colour alone. Placeholder until the art lands; everything else on
+          this card is the voice stop's, because it IS the voice stop. */}
+      {station.play === "last_call" && (
+        <span
+          data-testid={`stop-last-call-${station.zoneIndex + 1}-${station.stopNumber}`}
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-white"
+          style={{ background: accessible ? "hsl(var(--primary))" : TICKET.inkAhead }}
+        >
+          <Bell className="h-2 w-2" aria-hidden />
+          Last Call
+        </span>
+      )}
+      {/* ANSWER BACK (owner ruling 2026-09-14; mobile twin in journey.tsx). The
+          same kind chip with its own icon, a speech bubble, and its own words,
+          so it is told from Last Call by shape and text, never by colour. */}
+      {station.play === "answer_back" && (
+        <span
+          data-testid={`stop-answer-back-${station.zoneIndex + 1}-${station.stopNumber}`}
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-white"
+          style={{ background: accessible ? "hsl(var(--primary))" : TICKET.inkAhead }}
+        >
+          <MessageCircle className="h-2 w-2" aria-hidden />
+          Answer Back
         </span>
       )}
       {showTeaserChip && (
@@ -1274,7 +1314,9 @@ function StationCard({
       ? `${stopLabel}: ${station.story.title}, ${statusCopy} (story stop)`
       : station.letter
         ? `${stopLabel}: ${station.letter.title}, ${statusCopy} (letter stop)`
-        : `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}`;
+        : // A Last Call row says so aloud as well as on its chip, after the
+          // stage, so a screen reader hears what kind of stop it is (mobile twin).
+          `${stopLabel}: ${statusCopy}${station.stage === "sentence" ? " (sentence stop)" : ""}${station.play === "last_call" ? " (Last Call)" : station.play === "answer_back" ? " (Answer Back)" : ""}`;
   const rowClass = cn(
     "flex w-full items-center gap-1 text-left group",
     side === "left" ? "justify-end" : "justify-start",
@@ -1287,10 +1329,10 @@ function StationCard({
         className={rowClass}
         onClick={() => {
           blessAudioPlayback();
-          // BEFORE the route changes, not after: the overlay has to be on
-          // screen before the destination mounts, or the learner watches the
-          // page appear and then get covered up.
-          onNavigate?.();
+          // NO FILM ON THE WAY INTO A STOP (2026-09-14), the phone's ruling from
+          // chat 11 reaching the web: "I want to get rid of the second splash
+          // playing after you select a stop on journey. feels unnecessary." The
+          // map's own arrival film is the one that earns its place.
         }}
       >
         {body}
@@ -1723,6 +1765,30 @@ function AutoScrollToCurrentStop({
   return null;
 }
 
+/**
+ * ANSWER BACK'S CONTENT PROBE (mobile twin of the same name in journey.tsx).
+ * Renders nothing. Fetches one open group's phrases through the generated hook
+ * and key the game page and practice use, so the fetch is shared with the tap
+ * that follows, and reports how many Answer Back exchanges the group fields.
+ * A component per group because the number of such slots changes with
+ * progress, and a hook cannot be called a varying number of times.
+ */
+function AnswerBackProbe({
+  groupId,
+  onCount,
+}: {
+  groupId: number;
+  onCount: (groupId: number, count: number) => void;
+}) {
+  const { data } = useListLessonGroupPhrases(groupId, {
+    query: { queryKey: getListLessonGroupPhrasesQueryKey(groupId) },
+  });
+  useEffect(() => {
+    if (Array.isArray(data)) onCount(groupId, answerBackExchangesFor(data).length);
+  }, [data, groupId, onCount]);
+  return null;
+}
+
 export default function Journey() {
   const { activeLang, activeLanguage } = useLanguage();
   // Only for placing the free taste: which tracing stops this learner may open.
@@ -1736,6 +1802,16 @@ export default function Journey() {
   const [factDlg, setFactDlg] = useState<{ geoName: string; fact: string } | null>(null);
 
   const [chachaDlg, setChachaDlg] = useState<number | null>(null);
+
+  // ANSWER BACK CONTENT, BY LESSON GROUP ID (mobile twin: journey.tsx). How
+  // many exchanges each probed group can field. A summary cannot say; only the
+  // group's phrases can, so an Answer Back slot plays as Last Call until its
+  // count arrives and stays Last Call below the minimum (owner ruling
+  // 2026-09-14).
+  const [answerBackCounts, setAnswerBackCounts] = useState<Record<number, number>>({});
+  const noteAnswerBackCount = useCallback((groupId: number, count: number) => {
+    setAnswerBackCounts((prev) => (prev[groupId] === count ? prev : { ...prev, [groupId]: count }));
+  }, []);
 
   // Folded zones. With 52 stations the page is dominated by work already done
   // and the learner lands in their own history. Expanding is per-session and
@@ -1894,6 +1970,16 @@ export default function Journey() {
       .map((q) => (q.data as LessonGroupList | undefined)?.stopUnlock?.cost)
       .find((c) => typeof c === "number") ?? null;
 
+  // THE LAST ROW OF THE ZONE BEFORE, AS PLAYED. Zone boundaries count for Last
+  // Call (owner clarification, 2026-09-14: "no 2 neighboring stops should be
+  // the same type of lesson"), so each zone's play plan needs the kind its
+  // predecessor ended on. Carried through the map below in zone order, which
+  // Array.prototype.map guarantees; null for the first zone of the line.
+  let previousZoneLastPlay: StopPlayKind | null = null;
+  // The open groups behind converted rows, whose phrases the map fetches to
+  // settle Answer Back or Last Call by best fit (owner ruling 2026-09-14, "c").
+  // Only stops the learner can open: the phrase route refuses a locked group.
+  const answerBackProbeIds: number[] = [];
   const zones = JOURNEY_ZONES.map((z, i) => {
     const groups = [...((zoneQueries[i]!.data as LessonGroupList | undefined)?.lessonGroups ?? [])]
       // Phrase-stage stops before sentence-stage, then position order.
@@ -2093,12 +2179,50 @@ export default function Journey() {
       });
     }
 
+    // HOW EACH ROW IS PLAYED (Last Call, owner ruling 2026-09-14). Runs on the
+    // FINISHED run, after all three splices, because neighbours are map rows
+    // and nothing else: signals and Chacha-ji's stalls sit between rows and
+    // never appear in this list. It relabels and never adds, so stopNumber and
+    // stopCount below are exactly what they were.
+    //
+    // The capability is read straight off the active language rather than
+    // through useSpeechCapability, and absent reads as supported inside
+    // planStopPlay (the same default speechCapabilityOf applies). Deliberate:
+    // a dozen journey suites mock language-context with useLanguage alone, and
+    // a new hook import here would break every one of them for no behaviour.
+    //
+    // ANSWER BACK OR LAST CALL, BY BEST FIT (owner ruling 2026-09-14, "c"): a
+    // converted row plays Answer Back when its group fields at least
+    // ANSWER_BACK_MIN_EXCHANGES exchanges, Last Call otherwise or until the
+    // count arrives. Converted rows are never neighbours, so either choice
+    // keeps the neighbour rule (stop-play.ts).
+    const play = planStopPlay({
+      rows: withTrace.map(mapRowKindOf),
+      speechCapability: activeLanguage?.speechCapability,
+      previousZoneLastKind: previousZoneLastPlay,
+      rowGroupIds: withTrace.map((st) => (mapRowKindOf(st) === "voice" ? st.id : undefined)),
+      answerBackCounts,
+    });
+    previousZoneLastPlay = lastPlayedKind(play, previousZoneLastPlay);
+    withTrace.forEach((st, gi) => {
+      if (
+        (play[gi] === "last_call" || play[gi] === "answer_back") &&
+        st.id !== undefined &&
+        st.status !== "locked" &&
+        st.planLocked !== true &&
+        st.teaserStation !== true
+      ) {
+        answerBackProbeIds.push(st.id);
+      }
+    });
+
     const rowStations: Station[] = withTrace.map((st, gi) => ({
       ...st,
       ...((st.trace || st.story || st.letter) && (i === 0 || ownsJourneyStop(stopOwnership.data?.unlockedStops, { kind: st.story ? 'story' : st.letter ? 'letter' : 'trace', languageCode: activeLang, journey: 1, zone: i + 1 }))
         ? { planLocked: false, teaserStation: false, status: st.status === 'locked' ? 'unlocked' as const : st.status } : {}),
       stopNumber: gi + 1,
       stopCount: withTrace.length,
+      play: play[gi],
     }));
 
     return {
@@ -2112,6 +2236,33 @@ export default function Journey() {
   });
 
   const allStations = zones.flatMap((z) => z.stations);
+  // Graded stops played as Last Call, by lesson group id. Read by every door
+  // that walks a learner into a graded stop from this page (the stop card and
+  // Chacha-ji's stall), so the stall cannot open practice on a row the map
+  // labels Last Call. The test-out and Polish links stay on practice
+  // deliberately: a test-out is an assessment of the stop and Polish is a
+  // practice mode, neither is a way of playing it. Mobile twin: journey.tsx
+  // gradedStopHref.
+  const lastCallGroupIds = new Set(
+    zones.flatMap((z) => z.rowStations.filter((r) => r.play === "last_call").map((r) => r.id)),
+  );
+  // Answer Back rows, for the same two doors, for the same reason.
+  const answerBackGroupIds = new Set(
+    zones.flatMap((z) => z.rowStations.filter((r) => r.play === "answer_back").map((r) => r.id)),
+  );
+  const gradedStopHref = (zoneId: number, groupId: number | undefined, stopLabel?: string): string => {
+    const game =
+      groupId === undefined
+        ? null
+        : answerBackGroupIds.has(groupId)
+          ? "answer-back"
+          : lastCallGroupIds.has(groupId)
+            ? "last-call"
+            : null;
+    return game
+      ? `/games/${game}?group=${groupId}&cat=${zoneId}${stopLabel ? `&stop=${encodeURIComponent(stopLabel)}` : ""}`
+      : `/practice/${zoneId}?group=${groupId}`;
+  };
   const doneCount = allStations.filter(
     (s) => s.status === "completed" || s.status === "tested_out",
   ).length;
@@ -2141,13 +2292,30 @@ export default function Journey() {
   // scene, and this page mounts under that film. Restarting it here would
   // remount the player mid-hold. Any other door in finds no film up and plays
   // its own as before.
+  //
+  // AND NOT ON A RETURN (owner, 2026-09-14, on the phone: "old splash plays
+  // when i leave the Letters stop"). The phone pops back to the journey it
+  // already has, so its once-per-mount film never replays; this page mounts
+  // fresh on every return, so it asks lib/stop-splash whether the last thing
+  // the learner did was leave it (takeJourneyReturn, below).
   const arrivalPlayed = useRef(false);
   useEffect(() => {
     if (arrivalPlayed.current || !currentZone) return;
     arrivalPlayed.current = true;
+    if (takeJourneyReturn()) return;
     if (currentStopSplashZone() === currentZone.id) return;
     playStopSplash(currentZone.id);
   }, [currentZone]);
+  // THE NOTE THAT MAKES THE NEXT MOUNT A RETURN. Written on a REAL departure
+  // only: wouter has already pushed the new URL when this page unmounts, so a
+  // changed pathname means the learner went somewhere, and an unmount without
+  // one (a remount in place) leaves no note.
+  useEffect(() => {
+    const here = window.location.pathname;
+    return () => {
+      if (window.location.pathname !== here) noteJourneyLeft();
+    };
+  }, []);
 
   const languageName = activeLanguage?.name ?? "this language";
   const upgradeLanguageHref = upgradeHref({
@@ -2523,16 +2691,15 @@ export default function Journey() {
     currentStationNumber > 0 && isChachaEncounterStation(currentStationNumber)
       ? currentStationNumber
       : null;
-  // The open encounter carries its stop with it: leaving the stall walks on
-  // into that stop's first item, never back to the map.
+  // LEAVING THE STALL STAYS ON THE MAP (owner, 2026-09-14: "make sure the
+  // boarding pass always lands on the journey screen not into the game"). It
+  // used to walk on into the stop's first item, and because ChachaSoftStop
+  // opens him by itself when the map loads on his station, pass, stall, close
+  // put the learner inside a game they never tapped: the bounce
+  // EmergencySoftStop was fixed for on 2026-08-26. Mobile twin: journey.tsx
+  // leaveChachaStall.
   const chachaStopEntry = chachaDlg != null ? allStations[chachaDlg - 1] : undefined;
-  const chachaStop =
-    chachaDlg != null && chachaStopEntry
-      ? {
-          station: chachaDlg,
-          href: `/practice/${chachaStopEntry.zoneId}?group=${chachaStopEntry.id}`,
-        }
-      : null;
+  const chachaStop = chachaDlg != null && chachaStopEntry ? { station: chachaDlg } : null;
   const signals: SignalSpot[] = showroom
     ? []
     : planTracksideSignals(totalCount).flatMap(({ afterStop, signalIndex }) => {
@@ -2684,6 +2851,10 @@ export default function Journey() {
 
   return (
     <div className="app-surface journey-wide-on relative min-h-[100dvh] bg-background flex flex-col">
+      {/* Answer Back's content probes render nothing; see AnswerBackProbe. */}
+      {answerBackProbeIds.map((id) => (
+        <AnswerBackProbe key={`ab-probe-${id}`} groupId={id} onCount={noteAnswerBackCount} />
+      ))}
       {/* THE WIDE BAZAAR, big screens only. See `.journey-wide-backdrop` in
           index.css for why it is one tile for every zone and why the six
           per-zone paintings step aside for it here. Mobile has no equivalent
@@ -3326,9 +3497,12 @@ export default function Journey() {
                               ? `/games/storybook?journey=${s.story.journey}&zone=${s.story.zone}`
                               : s.letter
                                 ? `/games/letter-stop?journey=${s.letter.journey}&zone=${s.letter.zone}`
-                                : `/practice/${zone.id}?group=${s.id}`
+                                : // LAST CALL takes the same gate as the voice
+                                  // stop it replaces: `accessible` above is
+                                  // unchanged, only the destination differs
+                                  // (owner ruling, 2026-09-14).
+                                  gradedStopHref(zone.id, s.id, stopLabel)
                         }
-                        onNavigate={() => playStopSplash(zone.id)}
                         onLocked={() =>
                           needsPurchase ? navigate(journeyStopUpgradeHref(stopTarget)) : setLock({
                             kind: showroom
@@ -3804,12 +3978,10 @@ export default function Journey() {
         </DialogContent>
       </Dialog>
 
-      {/* Chacha-ji's stall. Dismissing it carries on into the stop's first
-          item, which is the same place tapping the stop card would land. */}
+      {/* Chacha-ji's stall. Dismissing it stays on the map (see chachaStop). */}
       {chachaStop && (
         <ChachaEncounterDialog
           stationIndex={chachaStop.station}
-          firstItemHref={chachaStop.href}
           open
           onOpenChange={(open) => !open && setChachaDlg(null)}
         />

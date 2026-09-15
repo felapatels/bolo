@@ -36,6 +36,11 @@ const SEARCH = [
   "artifacts/api-server/src",
   "artifacts/bolo-mobile/app",
   "artifacts/bolo-mobile/components",
+  // hooks/ and lib/ were NOT walked, so a mobile call site there was invisible
+  // to check 2. Found 2026-09-14: the Last Call hook sent the field from hooks/
+  // while its web twin, in a walked tree, would have failed this test.
+  "artifacts/bolo-mobile/hooks",
+  "artifacts/bolo-mobile/lib",
   "artifacts/gujarati-coach/src",
   "lib/api-spec",
 ];

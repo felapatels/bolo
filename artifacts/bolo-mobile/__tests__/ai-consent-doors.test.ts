@@ -73,6 +73,12 @@ function callersOfGatedHooks(): string[] {
  */
 const SCREEN_FOR: Record<string, string> = {
   'components/call/useLiveCall.ts': 'app/(app)/call.tsx',
+  // Last Call slice 1 (2026-09-14): the hook that speaks and scores, reached
+  // only through the Last Call screen. A fifth door, found by this census.
+  // Answer Back (the same day) is its second caller, app/(app)/(tabs)/games/
+  // answer-back.tsx, under the same app/(app)/ boundary; one screen is enough
+  // for this map's single-value shape to prove the hook sits inside it.
+  'hooks/useSpeakAndScore.ts': 'app/(app)/(tabs)/games/last-call.tsx',
 };
 
 describe('the AI consent gate is mounted at every door that sends', () => {

@@ -36,7 +36,13 @@ export function ChachaEncounterDialog({
   onOpenChange,
 }: {
   stationIndex: number;
-  firstItemHref: string;
+  /**
+   * Where closing the stall walks on to. The journey no longer passes one
+   * (owner, 2026-09-14: "make sure the boarding pass always lands on the
+   * journey screen not into the game"), so closing leaves the learner on the
+   * map; a caller that does pass one still gets the walk-on.
+   */
+  firstItemHref?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -183,7 +189,7 @@ export function ChachaEncounterDialog({
     // Silence beats overlap.
     stopChachaVoice();
     onOpenChange(false);
-    setLocation(firstItemHref);
+    if (firstItemHref) setLocation(firstItemHref);
   };
 
   const playPhrase = async () => {

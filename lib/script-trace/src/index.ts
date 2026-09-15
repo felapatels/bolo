@@ -31,3 +31,16 @@ export * from "./contributed-strokes";
 export * from "./chapters";
 export * from "./authoring";
 export * from "./passages";
+// Last Call (2026-09-14): which voice rows are played as a game, and the
+// game's round. Not strokes; here for the reason written at the top of
+// stop-play.ts. Both are import-free, so the purity promise above still holds.
+export * from "./stop-play";
+export * from "./last-call-round";
+// Last Call's art pass (2026-09-14): the six cut-outs' sign boxes, the
+// passenger rotation and the sign text fitter. Data and pure functions only.
+export * from "./last-call-passengers";
+// Answer Back (2026-09-14): the second game sharing Last Call's converted
+// slots. Its exchange table and resolver, and its round. The round imports one
+// type from the resolver and nothing from outside this directory.
+export * from "./answer-back";
+export * from "./answer-back-round";

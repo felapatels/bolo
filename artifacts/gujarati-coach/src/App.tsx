@@ -106,6 +106,10 @@ const GamesExpressListening = lazyRoute(() => import('@/pages/games/express-list
 const GamesSignalLights = lazyRoute(() => import('@/pages/games/signal-lights'));
 const GamesStorybook = lazyRoute(() => import('@/pages/games/storybook'));
 const GamesLetterStop = lazyRoute(() => import('@/pages/games/letter-stop'));
+// Last Call (slice 2, 2026-09-14): a voice stop the journey plays as a game.
+const GamesLastCall = lazyRoute(() => import('@/pages/games/last-call'));
+// Answer Back (2026-09-14): the second game in Last Call's converted slots.
+const GamesAnswerBack = lazyRoute(() => import('@/pages/games/answer-back'));
 const GamesLetterMatch = lazyRoute(() => import('@/pages/games/letter-match'));
 const GamesEmergency = lazyRoute(() => import('@/pages/games/emergency'));
 const Bazaar = lazyRoute<{ door?: ShopDoor }>(() => import('@/pages/bazaar'));
@@ -623,6 +627,24 @@ function AppRouter() {
       <Route path="/games/letter-stop">
         <Guard>
           <GamesLetterStop />
+        </Guard>
+      </Route>
+      {/* LAST CALL reads ?group=&cat=&stop=. A journey stop, not a hub game:
+          nothing links to it but a map row that planStopPlay converted from a
+          voice stop, so the lesson group it plays is always a real one.
+          Guarded like every signed-in route, which is also what puts the AI
+          consent boundary in front of its microphone. */}
+      <Route path="/games/last-call">
+        <Guard>
+          <GamesLastCall />
+        </Guard>
+      </Route>
+      {/* ANSWER BACK reads ?group=&cat=&stop=, exactly like Last Call, and for
+          the same reasons: only a converted map row links here, and Guard puts
+          the AI consent boundary in front of its microphone. */}
+      <Route path="/games/answer-back">
+        <Guard>
+          <GamesAnswerBack />
         </Guard>
       </Route>
       {/* Letter Match is a Games hub game rather than a journey stop, so it
