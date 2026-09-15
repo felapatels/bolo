@@ -871,8 +871,17 @@ export default function TabsLayout() {
         // shadow; sits above the home indicator via the safe-area inset.
         tabBarStyle: {
           position: 'absolute',
-          left: 14 + contentInset,
-          right: 14 + contentInset,
+          // START AND END, NEVER LEFT AND RIGHT (2026-09-14). React Navigation's
+          // BottomTabBar styles its bar `start: 0, end: 0` and merges this object
+          // on top, and on native `start`/`end` take precedence over `left`/`right`.
+          // So `left` was ignored on every screen, which is what the iPad
+          // measurement below saw, and the maxWidth clamp then pinned a 572pt bar
+          // to the LEFT edge with the column's right side showing beside it (owner:
+          // "Navigation is not right on ipad apps"). Setting the same keys the
+          // library sets is what actually moves it. It also restores the 14pt gap
+          // on a phone, which `left` never delivered there either.
+          start: 14 + contentInset,
+          end: 14 + contentInset,
           // MEASURED ON THE REVIEWER'S OWN iPad SCREENSHOT (2026-09-10) in
           // BOLO SEA, an 820pt-wide iPad 10th gen: the card fill ran the full
           // window and `left` did not land, while height and borderRadius did.

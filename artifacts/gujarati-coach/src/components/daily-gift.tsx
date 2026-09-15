@@ -535,17 +535,25 @@ export function DailyGiftBox({
               {remainLabel}
             </div>
           </div>
+        </>
+      )}
+      {/* ONE ROW, HALF EACH, the owner's call on 2026-09-14 ("home screen gift,
+          these buttons should be side by side, one row only"). All-Access has
+          no Get more Chai, so Go Shopping keeps the whole row there. Mobile
+          twin: DailyGiftBox.tsx. */}
+      <div className="flex gap-2">
+        {!isPlus ? (
           <button
             type="button"
             data-testid={`${testId}-getmore`}
             onClick={onGetMore}
-            className="h-11 w-full rounded-xl bg-primary text-sm font-bold text-primary-foreground"
+            className="h-11 min-w-0 flex-1 whitespace-nowrap rounded-xl bg-primary px-2 text-sm font-bold text-primary-foreground"
           >
             Get more Chai
           </button>
-        </>
-      )}
-      {shopButton}
+        ) : null}
+        <div className="min-w-0 flex-1">{shopButton}</div>
+      </div>
     </div>
   );
 }

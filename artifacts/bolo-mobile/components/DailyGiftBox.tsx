@@ -597,17 +597,26 @@ export function DailyGiftBox({
               {remainLabel}
             </Text>
           </View>
+        </>
+      )}
+      {/* ONE ROW, HALF EACH. Owner, 2026-09-14, on the opened card: "home screen
+          gift, these buttons should be side by side, one row only". They were
+          two full-width buttons stacked. All-Access has no Get more Chai (they
+          cannot buy a stop), so there Go Shopping keeps the whole row. Web
+          twin: gujarati-coach daily-gift.tsx. */}
+      <View style={styles.buttonRow}>
+        {!isPlus ? (
           <Pressable
             testID={`${testID}-getmore`}
             accessibilityRole="button"
             onPress={onGetMore}
-            style={[styles.button, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
+            style={[styles.button, styles.buttonHalf, { backgroundColor: colors.primary, shadowColor: colors.primaryShadow }]}
           >
-            <Text style={styles.buttonLabel}>Get more Chai</Text>
+            <Text style={styles.buttonLabel} numberOfLines={1}>Get more Chai</Text>
           </Pressable>
-        </>
-      )}
-      {shopButton}
+        ) : null}
+        <View style={styles.buttonHalf}>{shopButton}</View>
+      </View>
     </View>
   );
 }
@@ -727,4 +736,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonLabel: { fontFamily: AppFonts.bold, fontSize: 14, color: '#FFFFFF' },
+  buttonRow: { flexDirection: 'row', gap: 8 },
+  buttonHalf: { flex: 1, minWidth: 0 },
 });

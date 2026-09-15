@@ -1000,17 +1000,17 @@ export default function HomeScreen() {
               from the journey card's MEASURED box, so it stays on the chimney
               without depending on the scroll content's height.
 
-              PHONE ONLY, AND NOT FOR TASTE. HomeColumns deals its children into
-              two independent tablet columns by reading a STRING width off each
-              one; this layer's width is a number, so it took the
-              "self-positioning, cost it no slot" branch, which pushes the child
-              into the band list WITHOUT flushing the column pair still being
-              filled. Everything below it then came out in the wrong order and
-              the wrong column, which is the ragged lower half on the iPad. Its
-              geometry is calibrated to the phone's journey card anyway, and on
-              a tablet the stats band lives in the OTHER column, so the plume
-              could never have crossed it there. */}
-          {!wideScreen && journeyBox && (
+              ON THE iPAD TOO, AGAIN (owner, 2026-09-14: "smokestack isn't
+              working on india", "ipad"). fc23f715 made it phone only, blaming it
+              for the ragged lower half: HomeColumns deals children by a STRING
+              width and this layer's is a number. But HomeColumns reads only its
+              DIRECT children, and this layer sat inside the journey section's
+              colHalf wrapper then as now, so it was never dealt at all. The
+              ragged half was the other change in that commit, the quiz and
+              All-Access leaving colFull. And the stats band is in the SAME
+              column as the journey card on a tablet, above it, which is the
+              phone's arrangement: the plume crosses it exactly as there. */}
+          {journeyBox && (
             <TrainSteam
               enabled={!reduceMotion}
               height={STEAM_RISE}
