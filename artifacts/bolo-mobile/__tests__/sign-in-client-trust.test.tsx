@@ -33,13 +33,28 @@ const mockRouter = { replace: jest.fn(), push: jest.fn(), back: jest.fn() };
 const mockSignIn = {
   id: 'sia_test',
   status: undefined as string | undefined,
-  supportedFirstFactors: [{ strategy: 'password' }, { strategy: 'email_code' }],
+  // Was [password, email_code] until 2026-09-15, when the owner switched
+  // email-code sign-in off in every Bolo Clerk instance. The factors a
+  // password account offers now are these two.
+  supportedFirstFactors: [
+    { strategy: 'password' },
+    { strategy: 'reset_password_email_code' },
+  ],
   supportedSecondFactors: [] as Array<{ strategy: string }>,
+  create: jest.fn(),
   password: jest.fn(),
   finalize: jest.fn(),
+  // Kept although nothing on the screen may call it any more, so every
+  // "not called" assertion below can still fail if a caller comes back.
   emailCode: {
     sendCode: jest.fn(),
     verifyCode: jest.fn(),
+  },
+  // The forgot-password flow's calls, added 2026-09-15.
+  resetPasswordEmailCode: {
+    sendCode: jest.fn(),
+    verifyCode: jest.fn(),
+    submitPassword: jest.fn(),
   },
   mfa: {
     sendEmailCode: jest.fn(),
@@ -231,11 +246,18 @@ describe('needs_client_trust without an email_code second factor', () => {
 /**
  * THE ESCAPE EXISTED AND WAS UNLABELLED, which is the whole point of this pin.
  *
- * "Email me a sign-in code instead" has always run this handler, and it has
- * always worked; a locked-out learner scanning for the words "forgot" and
- * "password" simply never recognised it as recovery. These tests hold the
- * label, and they hold the fact that it does the same thing, so nobody
- * "tidies" one of the two away and quietly closes the only door out.
+ * Until 2026-09-15, "Email me a sign-in code instead" ran this handler and
+ * worked; a locked-out learner scanning for the words "forgot" and "password"
+ * simply never recognised it as recovery. These tests held the label, and
+ * held the fact that both controls did the same thing, so nobody "tidied" one
+ * away and quietly closed the only door out.
+ *
+ * ON 2026-09-15 THE DOOR ITSELF CLOSED. The owner switched email-code sign-in
+ * off in every Bolo Clerk instance, so that shared handler could only fail
+ * with factor_not_found (163 Sentry events across the six apps in 30 days).
+ * The label stays; behind it is now Clerk's reset flow, pinned end to end in
+ * sign-in-forgot-password.test.tsx. The assertions below that described the
+ * old door are INVERTED, not deleted, so the history of why reads here.
  *
  * It matters more on this fork than the others: India's Clerk instance runs
  * min_length 0 with min_zxcvbn_strength 2, so a refused password has no length
@@ -245,13 +267,19 @@ describe('a locked-out learner can find the way back in', () => {
   it('offers "Forgot your password?" on the credentials step', () => {
     render(<SignInScreen />);
     expect(screen.getByText('Forgot your password?')).toBeOnTheScreen();
-    // The passwordless entry point stays: it answers a DIFFERENT question,
-    // "I never had a password", which is every web sign-up.
-    expect(screen.getByText('Email me a sign-in code instead')).toBeOnTheScreen();
+    // INVERTED 2026-09-15. This used to hold the passwordless entry point in
+    // place, as the answer to "I never had a password". With email-code
+    // sign-in off in Clerk that line could only fail, so it is gone and must
+    // stay gone.
+    expect(screen.queryByText('Email me a sign-in code instead')).toBeNull();
   });
 
   it('emails a code from it, rather than dead-ending', async () => {
+    // The old success, left in place on purpose: even when the sign-in code
+    // send would work, the link must not use it.
     mockSignIn.emailCode.sendCode.mockResolvedValue({});
+    mockSignIn.create.mockResolvedValue({ error: null });
+    mockSignIn.resetPasswordEmailCode.sendCode.mockResolvedValue({ error: null });
     render(<SignInScreen />);
     fireEvent.changeText(
       screen.getByPlaceholderText('you@example.com'),
@@ -260,7 +288,13 @@ describe('a locked-out learner can find the way back in', () => {
     await act(async () => {
       fireEvent.press(screen.getByText('Forgot your password?'));
     });
-    expect(mockSignIn.emailCode.sendCode).toHaveBeenCalledTimes(1);
+    // The code that goes out now is a RESET code (added 2026-09-15).
+    await waitFor(() =>
+      expect(mockSignIn.resetPasswordEmailCode.sendCode).toHaveBeenCalledTimes(1),
+    );
+    // INVERTED 2026-09-15: was toHaveBeenCalledTimes(1). The sign-in code
+    // send is the factor_not_found door, so the link must never reach it.
+    expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
     expect(screen.getByText('Enter your code')).toBeOnTheScreen();
   });
 
@@ -270,6 +304,10 @@ describe('a locked-out learner can find the way back in', () => {
       fireEvent.press(screen.getByText('Forgot your password?'));
     });
     expect(mockSignIn.emailCode.sendCode).not.toHaveBeenCalled();
+    // Added 2026-09-15: the line above cannot fail now that nothing calls the
+    // sign-in code send, so the reset calls carry the pin instead.
+    expect(mockSignIn.create).not.toHaveBeenCalled();
+    expect(mockSignIn.resetPasswordEmailCode.sendCode).not.toHaveBeenCalled();
     expect(screen.getByText(/Enter your email above first/)).toBeOnTheScreen();
   });
 });
