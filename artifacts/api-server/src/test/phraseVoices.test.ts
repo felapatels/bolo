@@ -383,6 +383,50 @@ describe("saying it again", () => {
       .where(eq(voiceContributionReviewsTable.contributionId, row!.id));
     assert.equal(verdicts.length, 0, "an approval of the first take must not carry over to the second");
   });
+
+  it("the unkeyed passage route cannot rewrite a phrase take behind its verdicts", async () => {
+    // Added after this file's one recorded run, with the guard it pins: the
+    // passage route upserts on the same (sitting, prompt) key and clears no
+    // verdicts, so it must refuse the phrase prefix outright.
+    const sitting = session("door");
+    const first = await call("POST", "/api/script-trace/phrase-voice", {
+      key: key("record"),
+      body: clipBody({ sessionId: sitting }),
+    });
+    assert.equal(first.status, 200, first.text);
+    const [row] = (await clipRows()).filter((r) => r.sessionId === sitting);
+    const approve = await call("POST", "/api/script-trace/phrase-verdict", {
+      key: key("review"),
+      body: { sessionId: session("rev"), reviewer: REVIEWER, language: LANG, clipId: row!.id, verdict: "approved" },
+    });
+    assert.equal(approve.status, 200, approve.text);
+
+    const sideDoor = await call("POST", "/api/script-trace/voice", {
+      body: {
+        sessionId: sitting,
+        script: "Devanagari",
+        contributor: SPEAKER,
+        promptId: row!.promptId,
+        promptText: "anything at all",
+        audioBase64: Buffer.from("different bytes").toString("base64"),
+        mimeType: "audio/webm",
+      },
+    });
+    assert.equal(sideDoor.status, 400, sideDoor.text);
+    // Refused BY THE GUARD, not by a body that happened to fail validation,
+    // which would pass the status check above and prove nothing.
+    assert.match(String(sideDoor.json?.error ?? ""), /lesson phrase recorder/);
+    const [after] = (await clipRows()).filter((r) => r.sessionId === sitting);
+    assert.equal(after!.audioBase64, AUDIO, "the approved bytes are untouched");
+    const verdicts = await db
+      .select()
+      .from(voiceContributionReviewsTable)
+      .where(eq(voiceContributionReviewsTable.contributionId, row!.id));
+    assert.equal(verdicts.length, 1, "and so is the approval of them");
+
+    // Removed here so the summary counts later in this file stay as asserted.
+    await db.delete(voiceContributionsTable).where(eq(voiceContributionsTable.id, row!.id));
+  });
 });
 
 describe("the review half", () => {

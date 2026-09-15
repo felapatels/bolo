@@ -16,6 +16,7 @@ import { createRateLimit } from "../middlewares/rateLimit";
 import { checkContributionKey, type ContributionLinkMode } from "../lib/contributionLinks";
 import { reviewerSeesClip, sameSpeaker } from "../lib/referenceClips";
 import {
+  PHRASE_PROMPT_PREFIX,
   findZonePhrase,
   loadClipAudio,
   loadClipIdentity,
@@ -225,6 +226,15 @@ router.post(
 
     if (!/^audio\//.test(v.mimeType)) {
       res.status(400).json({ error: "That is not an audio recording." });
+      return;
+    }
+    // A lesson phrase take lives in this same table under the same upsert key,
+    // and its verdicts belong to its exact bytes. This route is unkeyed and
+    // does not clear verdicts, so it must never be a second door onto a phrase
+    // take (2026-09-15). The page never sends such an id; only a crafted
+    // request would.
+    if (v.promptId.startsWith(PHRASE_PROMPT_PREFIX)) {
+      res.status(400).json({ error: "That prompt belongs to the lesson phrase recorder." });
       return;
     }
 

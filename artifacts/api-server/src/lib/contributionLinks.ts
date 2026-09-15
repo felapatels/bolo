@@ -24,8 +24,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  * under SESSION_SECRET, which already signs every pronunciation evaluation
  * (lib/evaluationToken.ts). No table of keys, no secret to add to Replit.
  * The input is domain-separated so a link signature can never be replayed as
- * any other signature this secret makes. Rotating SESSION_SECRET kills every
- * outstanding link, which is the right failure.
+ * any other signature this secret makes.
+ *
+ * THERE IS NO PER-LINK REVOCATION. A key works until it expires, which is why
+ * the expiry is short. Rotating SESSION_SECRET would kill every link, but it is
+ * not a revocation tool: it also voids every pronunciation evaluation in flight
+ * and is the fallback secret for the push and games crons, deep health and the
+ * TTS audit wherever their own secrets are unset. A link that must die early
+ * needs a stored link version, which does not exist yet.
  *
  * NO SECRET, NO LINKS. Minting returns null and every check answers invalid,
  * the fail-closed direction.

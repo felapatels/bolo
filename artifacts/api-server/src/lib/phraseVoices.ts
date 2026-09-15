@@ -144,9 +144,16 @@ export async function findZonePhrase(
   return row ?? null;
 }
 
-/** The prompt id a phrase clip is stored under, beside the passages' own ids. */
+/**
+ * The prompt ids phrase clips are stored under, beside the passages' own ids.
+ * RESERVED: the unkeyed passage route refuses any prompt id with this prefix
+ * (routes/scriptTrace.ts), so the only door that can change a phrase take is
+ * the one that clears its verdicts.
+ */
+export const PHRASE_PROMPT_PREFIX = "phrase:";
+
 export function phrasePromptId(phraseId: number): string {
-  return `phrase:${phraseId}`;
+  return `${PHRASE_PROMPT_PREFIX}${phraseId}`;
 }
 
 export interface PhraseClipInput {
