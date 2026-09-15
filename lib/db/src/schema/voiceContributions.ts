@@ -53,6 +53,24 @@ export const voiceContributionsTable = pgTable(
     // Same meaning as on the traced contributions: somebody trying the page out
     // rather than contributing. Filtered by default everywhere it is read.
     isPractice: boolean("is_practice").notNull().default(false),
+    // LESSON PHRASE CLIPS (2026-09-15). The page's phrase mode records a native
+    // speaker saying, one clip each, the lesson phrases the app itself teaches,
+    // for the languages the recogniser cannot hear (Bodo, Manipuri), so a
+    // learner's take can one day be heard against a real voice instead of the
+    // app's synthetic one (api-server lib/referenceScoring.ts).
+    //
+    // BOTH NULL for a passage recording, which belongs to a SCRIPT rather than
+    // a language. For a phrase clip, language_code is the app language (brx)
+    // because Devanagari is shared by nine of them, and phrase_id is the
+    // phrases row the speaker was shown, in the database that served the page.
+    // prompt_text still holds the words as shown, so a clip whose phrase has
+    // since been edited is recognisable as a reading of the OLD words.
+    //
+    // NO FOREIGN KEY on phrase_id, on purpose, following the id-and-text shape
+    // above: a phrase deleted by a content fix must not be blocked by a
+    // recording of it, and the recording stays interpretable without the row.
+    languageCode: text("language_code"),
+    phraseId: integer("phrase_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -65,6 +83,9 @@ export const voiceContributionsTable = pgTable(
     scriptIdx: index("vc_script_idx").on(table.script),
     promptIdx: index("vc_prompt_idx").on(table.promptId),
     contributorIdx: index("vc_contributor_idx").on(table.contributor),
+    // The one question the review page, the Nest and the future scorer all
+    // ask: which clips exist for these phrases.
+    phraseIdx: index("vc_phrase_idx").on(table.phraseId),
   }),
 );
 

@@ -38,4 +38,5 @@ export * from "./activityEvents";
 
 export * from "./pushTokens";
 export * from "./voiceContributions";
+export * from "./voiceContributionReviews";
 export * from "./passageFeedback";
