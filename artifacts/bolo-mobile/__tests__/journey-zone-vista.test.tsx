@@ -27,7 +27,10 @@ describe('which band of the painting each postcard shows', () => {
     expect(ZONE_VISTA_Y).toEqual([40, 40, 8, 24, 8, 24]);
   });
 
-  it('shows each new painting's landmark, for stated reasons', () => {
+  // DOUBLE QUOTES, fixed 2026-09-15. 2f76403d wrote this name in single quotes
+  // around "painting's", which is a syntax error: babel refused the whole file,
+  // so none of its tests ran and the two offset pins below went stale unseen.
+  it("shows each new painting's landmark, for stated reasons", () => {
     // Re-picked 2026-09-14 when the owner replaced all six paintings. The old
     // exceptions (zone 4 at 0, zone 6 at 16) described pictures that no longer
     // exist. Now: the arch and the lane dome sit low in zones 1 and 2 (40),
@@ -69,15 +72,22 @@ describe('the offset that stands in for object-position', () => {
 
   it('slides it up by the offset percentage of the overflow', () => {
     const slack = COVER_H - 56;
-    expect(zoneVistaOffset(0, W).top).toBeCloseTo(-0.08 * slack, 5);
-    expect(zoneVistaOffset(5, W).top).toBeCloseTo(-0.16 * slack, 5);
+    // INVERTED 2026-09-15: zone 1 was 8 and zone 6 was 16 until 2f76403d
+    // re-picked every band for the owner's new paintings (2026-09-14), putting
+    // zone 1 at 40 and zone 6 at 24. The arithmetic under test is unchanged.
+    expect(zoneVistaOffset(0, W).top).toBeCloseTo(-0.40 * slack, 5);
+    expect(zoneVistaOffset(5, W).top).toBeCloseTo(-0.24 * slack, 5);
   });
 
-  it('leaves zone 4 flush with the top of the painting', () => {
-    // Zone 4 sits at 0, so its top offset must be exactly 0 and not a tiny
-    // negative from floating point: it is the one zone whose band is the very
-    // first rows of the picture.
-    expect(zoneVistaOffset(3, W).top).toBe(-0);
+  it('puts zone 4 on its water tower, no longer flush with the top', () => {
+    // INVERTED 2026-09-15. This pinned zone 4 at 0, exactly -0 rather than a
+    // tiny negative, because the old chai-stall painting had no skyline. The
+    // 2026-09-14 re-pick (2f76403d) moved zone 4 to 24, the water tower above
+    // the food lane's roofs, so no zone sits flush any more and zero is only
+    // ever the unknown-zone guard above.
+    const slack = COVER_H - 56;
+    expect(zoneVistaOffset(3, W).top).toBeCloseTo(-0.24 * slack, 5);
+    expect(ZONE_VISTA_Y).not.toContain(0);
   });
 
   it('never slides a picture that is shorter than its frame', () => {
