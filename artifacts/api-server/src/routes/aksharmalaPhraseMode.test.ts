@@ -153,6 +153,71 @@ test("a verdict carries the take the page was handed with the audio, and a repla
   assert.ok(retake.includes('delete rvCache[id];delete rvCache[id+":wav"];') && retake.includes("rvAudio(id);"));
 });
 
+test("the answer buttons stay disabled until the recording has actually played", () => {
+  // THE REVIEW'S FINDING 2 (2026-09-15): Sounds right worked while the take
+  // was still loading and after the page said this phone could not play it,
+  // because rvDraw never disabled it and rvBusy(false) enabled it outright. One
+  // approval approves. Text pins, like the rest of this file: they cannot play
+  // audio, but they fail on the shape of that bug coming back.
+  const script = PAGE.slice(PAGE.indexOf("var PH=(function(){"));
+  const ANSWERS = ["rvyes", "rvno", "rvwhysend"];
+  /** One function's text, from its name to the next top-level function of the page script. */
+  const fn = (name: string) => {
+    const start = script.indexOf(`function ${name}(`);
+    assert.ok(start >= 0, `the page has no ${name}`);
+    const end = script.indexOf("\n  function ", start + 1);
+    assert.ok(end > start, `could not find the end of ${name}`);
+    return script.slice(start, end);
+  };
+
+  // Disabled in the markup, so nothing is live before the first draw.
+  for (const id of ANSWERS) {
+    assert.match(PAGE, new RegExp(`<button [^>]*id="${id}"[^>]*\\bdisabled>`), `#${id} does not start disabled`);
+  }
+  assert.ok(PAGE.includes("Play the recording, then answer:"), "the page no longer says why the answers wait");
+
+  // One function sets their disabled state, from whether the take was heard.
+  const arm = fn("rvArm");
+  assert.ok(arm.includes("var shut=rvSending||!rvHeard;"));
+  assert.ok(arm.includes('["rvyes","rvno","rvwhysend"].forEach(function(id){$(id).disabled=shut;});'));
+  assert.equal(fn("rvBusy").trim(), "function rvBusy(b){rvSending=b;rvArm();}", "rvBusy must not set the answer buttons itself");
+
+  // THE CENSUS. Outside rvArm, every mention of an answer button is a listener
+  // or its aria-pressed, never a disabled write. rvBusy's old
+  // ["rvyes","rvno",...].forEach(...disabled=b) fails here.
+  const armStart = script.indexOf("function rvArm(");
+  const armEnd = armStart + arm.length;
+  for (const id of ANSWERS) {
+    const mentions = [...script.matchAll(new RegExp(`"${id}"`, "g"))].map((m) => m.index!);
+    assert.ok(mentions.length >= 2, `found ${mentions.length} mentions of ${id}; the census broke`);
+    for (const at of mentions) {
+      if (at > armStart && at < armEnd) continue;
+      const tail = script.slice(at, at + 48);
+      assert.match(tail, new RegExp(`^"${id}"\\)\\.(addEventListener|setAttribute)\\(`), `${id} is touched outside rvArm: ${tail}`);
+    }
+  }
+
+  // Heard is set in ONE place, only when the player's clock moved while it was
+  // playing, and never by a mere play request.
+  assert.equal(script.split("rvHeard=true").length - 1, 1, "rvHeard is set in more than one place");
+  const heardAt = script.indexOf("rvHeard=true");
+  const listenerAt = script.lastIndexOf('["timeupdate","ended"].forEach(', heardAt);
+  assert.ok(listenerAt >= 0 && heardAt - listenerAt < 300, "rvHeard=true is not inside the playback progress listener");
+  const listener = script.slice(listenerAt, heardAt);
+  assert.ok(listener.includes("a.currentTime>0") && listener.includes('(ev==="ended"||!a.paused)'));
+  assert.doesNotMatch(script, /addEventListener\("play",[^\n]*rvHeard/, "a play request is not a playback");
+
+  // And every way a take stops being the heard one puts the answers back to waiting.
+  for (const name of ["rvAudio", "rvSetAudio", "rvCannotPlay"]) {
+    assert.ok(fn(name).includes("rvHeard=false;rvArm();"), `${name} leaves the answers live`);
+  }
+  assert.ok(
+    fn("rvSetAudio").includes("a.onerror=function(){if(rvAudioFor!==id)return;rvReady=false;rvHeard=false;rvArm();"),
+    "a player error leaves the answers live",
+  );
+  assert.ok(fn("rvDraw").includes("rvAudio(q.clip.clipId);"), "a drawn clip no longer starts from unheard");
+});
+
 test("the page accepts every key the Nest can mint, and the language codes the router does", () => {
   const saved = process.env.SESSION_SECRET;
   process.env.SESSION_SECRET = "seam-test-secret";

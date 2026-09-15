@@ -390,16 +390,16 @@
     </div>
     <button class="btn" id="rvplaybtn" disabled>Loading the recording</button>
     <audio id="rvplay" controls hidden></audio>
-    <p class="say" style="margin-top:.8rem">Does the recording say this phrase correctly?</p>
+    <p class="say" style="margin-top:.8rem">Play the recording, then answer: does it say this phrase correctly?</p>
     <div class="row">
-      <button class="btn ghost small" id="rvyes" aria-pressed="false">Sounds right</button>
-      <button class="btn ghost small" id="rvno" aria-pressed="false">Not right</button>
+      <button class="btn ghost small" id="rvyes" aria-pressed="false" disabled>Sounds right</button>
+      <button class="btn ghost small" id="rvno" aria-pressed="false" disabled>Not right</button>
     </div>
     <p class="said" id="rvsaid"></p>
     <div id="rvwhywrap" hidden>
       <p style="margin:1rem 0 .6rem"><b>What is wrong with it?</b> Anything helps: a wrong word, a word cut off, or how you would say it.</p>
       <textarea id="rvwhy" rows="3" autocomplete="new-note" placeholder="For example: the last word is cut off"></textarea>
-      <button class="btn small" id="rvwhysend">Send and next</button>
+      <button class="btn small" id="rvwhysend" disabled>Send and next</button>
     </div>
     <p class="savenote" id="rvsavenote"></p>
     <div class="row">
@@ -862,7 +862,8 @@
       RVSKEY="bolo.aksharmala.review.session",PH_MAX_MS=20000;
   var phSet=null,phIdx=0,phWho="",phDone=[],phStream=null,phRec=null,phStartAt=0,
       phTimer=null,phMime="",phBlob=null,phB64="",phMs=0,phSaving=false,
-      rvData=null,rvQueue=[],rvIdx=0,rvCache={},rvSession="",rvAudioFor=0,rvReady=false,rvTake="";
+      rvData=null,rvQueue=[],rvIdx=0,rvCache={},rvSession="",rvAudioFor=0,rvReady=false,rvTake="",
+      rvHeard=false,rvSending=false;
 
   function phShow(which){
     ["s1","s2","s3","tracer","reader","phintro","phrec","rvcheck","phdone","pherror"].forEach(function(s){
@@ -1093,6 +1094,7 @@
   function rvAudio(id){
     var a=$("rvplay"),btn=$("rvplaybtn");
     rvReady=false;rvAudioFor=id;rvTake="";a.onerror=null;a.pause();a.removeAttribute("src");a.hidden=true;
+    rvHeard=false;rvArm();
     btn.disabled=true;btn.textContent="Loading the recording";
     rvFetchAudio(id,false);}
   // The clip as it was recorded first; a WAV copy made by the server when this
@@ -1119,11 +1121,13 @@
   function rvSetAudio(id,got,wav){
     if(rvAudioFor!==id)return;
     var a=$("rvplay"),btn=$("rvplaybtn");
-    a.onerror=function(){if(rvAudioFor!==id)return;rvReady=false;
+    // A take that fails part way through was not heard, even if it started:
+    // the answer waits for the copy that plays.
+    a.onerror=function(){if(rvAudioFor!==id)return;rvReady=false;rvHeard=false;rvArm();
       if(!wav){rvFetchAudio(id,true);return;}rvCannotPlay();};
-    a.src=got.url;rvTake=got.take;a.hidden=false;a.load();rvReady=true;
+    a.src=got.url;rvTake=got.take;rvHeard=false;rvArm();a.hidden=false;a.load();rvReady=true;
     btn.disabled=false;btn.textContent="Play the recording";}
-  function rvCannotPlay(){var btn=$("rvplaybtn");rvReady=false;
+  function rvCannotPlay(){var btn=$("rvplaybtn");rvReady=false;rvHeard=false;rvArm();
     btn.disabled=true;btn.textContent="This phone cannot play it";$("rvplay").hidden=true;
     note("rvsavenote","This recording will not play on this phone. Tap Next to leave it for someone else.","bad");}
   function rvPlayTap(){
@@ -1132,8 +1136,18 @@
     if(!a.paused){a.pause();return;}
     try{a.currentTime=0;}catch(e){}
     var p=a.play();if(p&&p.catch)p.catch(function(){});}
-  function rvBusy(b){["rvyes","rvno","rvwhysend","rvprev","rvnext"].forEach(function(id){$(id).disabled=b;});
-    if(!b)$("rvprev").disabled=rvIdx===0;}
+  // THE ANSWER BUTTONS WAIT FOR THE RECORDING TO PLAY (review 2026-09-15,
+  // finding 2). They were live while the take was still loading and after the
+  // page had said this phone cannot play it, and rvBusy(false) switched them
+  // back on unconditionally, so with the auto-advance a run of takes could be
+  // approved unheard. One approval approves, and an unheard or unplayable take
+  // is the one that must not get one. THIS IS THE ONLY PLACE their disabled
+  // state is set: every path that changes rvHeard or rvSending calls it.
+  // Send and next is an answer too, so it waits with them.
+  function rvArm(){var shut=rvSending||!rvHeard;
+    ["rvyes","rvno","rvwhysend"].forEach(function(id){$(id).disabled=shut;});
+    $("rvnext").disabled=rvSending;$("rvprev").disabled=rvSending||rvIdx===0;}
+  function rvBusy(b){rvSending=b;rvArm();}
   function rvSend(verdict,text){
     var q=rvQueue[rvIdx];who=phWho;
     rvBusy(true);note("rvsavenote","Saving...");
@@ -1197,6 +1211,16 @@
     $("rvplay").addEventListener("play",function(){$("rvplaybtn").textContent="Playing";});
     ["pause","ended"].forEach(function(ev){$("rvplay").addEventListener(ev,function(){
       if(rvReady)$("rvplaybtn").textContent="Play it again";});});
+    // HEARD means this source's clock moved while it was playing, read off the
+    // player when the event arrives, so a late event from the last clip cannot
+    // count for this one. Not "play": that fires for a request, including one
+    // about to fail on a take this phone cannot decode. Not a bare timeupdate:
+    // dragging the scrubber of a paused player moves the clock too. "ended" as
+    // well, for a take too short to see a timeupdate while it plays. Either
+    // control counts, the Play button or the player's own.
+    ["timeupdate","ended"].forEach(function(ev){$("rvplay").addEventListener(ev,function(){
+      var a=$("rvplay");
+      if(rvReady&&!rvHeard&&a.currentTime>0&&(ev==="ended"||!a.paused)){rvHeard=true;rvArm();}});});
     $("rvyes").addEventListener("click",function(){var at=rvIdx;$("rvwhywrap").hidden=true;
       rvSend("approved","").then(function(ok){if(ok)setTimeout(function(){if(rvIdx===at&&!$("rvcheck").hidden)rvNext();},700);});});
     // Not right is stored at once, before any explanation, so the verdict lands
