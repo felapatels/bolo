@@ -205,7 +205,10 @@ it("the keeper's opening line and Hear again are the elder, the learner's reply 
   await waitFor(() => expect(mockSynth.mock.calls.some(([{ data }]) => data.speaker === undefined)).toBe(true));
   const reply = mockSynth.mock.calls.map(([{ data }]) => data).find((d) => d.speaker === undefined)!;
   expect(replyTexts.has(reply.text)).toBe(true);
-  // Byte-identical to the pre-ruling coach request: no speaker, no languageCode.
-  expect(reply).toEqual({ text: reply.text, languageName: 'Hindi' });
+  // INVERTED 2026-09-15 (supervisor): this pinned the old coach body with no
+  // languageCode, which let an ElevenLabs server read every language in the
+  // default Hindi voice on mobile. The coach reply now sends the code, as web and
+  // practice do, and still no speaker.
+  expect(reply).toEqual({ text: reply.text, languageName: 'Hindi', languageCode: 'hi' });
   await waitFor(() => expect(mockPlay).toHaveBeenCalledWith(`coach:${reply.text}`, 'mp3', expect.any(Function)));
 });

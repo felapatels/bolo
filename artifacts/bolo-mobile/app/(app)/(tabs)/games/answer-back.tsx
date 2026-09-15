@@ -270,9 +270,10 @@ function AnswerBackRound({
    * under the 2026-09-13 voice roles rule: the bird is the coach, the elder is
    * always different). Every place Chacha-ji speaks passes 'elder': the opening
    * line, each re-ask and "Hear again". The learner's right reply after a miss
-   * stays 'coach', the model answer in the voice practice uses. The coach's
-   * request is byte-identical to what it was, so its server cache key is too;
-   * the elder's adds languageCode, which the server needs to pick his voice.
+   * stays 'coach', the model answer in the voice practice uses. Both requests
+   * carry languageCode (2026-09-15): the coach's used to omit it, so an
+   * ElevenLabs server picked the default Hindi voice with no language hint for
+   * every learner; the elder's needs it to pick his voice.
    * The speaker is in the local cache key because one phrase can be his line in
    * one exchange and the learner's reply in another.
    */
@@ -295,7 +296,7 @@ function AnswerBackRound({
                 data:
                   speaker === 'elder'
                     ? { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang, speaker: 'elder' }
-                    : { text: phrase.nativeScript, languageName: activeLanguage?.name },
+                    : { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang },
               }));
             audioCache.current.set(key, { audioBase64: res.audioBase64, format: res.format || 'mp3' });
             if (token !== playTokenRef.current || !aliveRef.current) return resolve();

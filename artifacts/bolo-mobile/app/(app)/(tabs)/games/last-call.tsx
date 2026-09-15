@@ -639,7 +639,10 @@ function LastCallRound({
             const key = `${phrase.id}:${ttsVoice}`;
             const res =
               audioCache.current.get(key) ??
-              (await synth.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } }));
+              // languageCode as practice and web send it (2026-09-15): without it an
+              // ElevenLabs server resolves the default voice with no language hint,
+              // so a Tamil learner heard Tamil read in the Hindi voice.
+              (await synth.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang } }));
             audioCache.current.set(key, { audioBase64: res.audioBase64, format: res.format || 'mp3' });
             if (token !== playTokenRef.current || !aliveRef.current) return resolve();
             setAudioPlaying(true);
