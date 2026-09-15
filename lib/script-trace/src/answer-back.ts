@@ -35,7 +35,8 @@
 //     An unspaced slash is one meaning ("sir/ma'am") and is left alone;
 //  3. each alternative split into CLAUSES on , . ! ?, with a bare form of
 //     address ("sir", "friend", "uncle") dropped, so "How are you, sir?" is
-//     one clause;
+//     one clause; an alternative addressed to the keeper's own title
+//     (KEEPER_OWN_TITLES) is never a PROMPT, though it may still be a reply;
 //  4. a PROMPT concept must match an alternative's LAST clause, because the
 //     line a keeper ends on is the line you answer ("Hello, how are you?" is a
 //     how-are-you, "How are you? I am fine." answers itself and is no prompt);
@@ -178,6 +179,28 @@ const ADDRESS_CLAUSES = new Set([
   'teacher', 'everyone', 'children', 'guest', 'grandma', 'grandpa', 'dear', 'my friend', 'ji',
 ]);
 
+/**
+ * REGION: what THIS app's English glosses call the keeper when a line is said
+ * TO him. India's keeper is Chacha-ji, an uncle.
+ *
+ * THE KEEPER-TITLE RULE (Europe parity review, 2026-09-15, review-parity-europe.md
+ * finding 1): a line addressed to the keeper's own title is never the keeper's
+ * line. The comma rule above drops ", grandma", so on Europe's Ukrainian stop 6
+ * "How are you, grandma?" read as how_are_you and the grandmother asked it of
+ * the learner in every round. It stays a valid REPLY (the learner saying it to
+ * her is exactly right), so only promptConceptsOf reads this.
+ *
+ * Evidence for India's entry, grep of lib/db/src/data/*.json 2026-09-15: the one
+ * gloss that addresses an uncle is Gujarati C1 greetings "How are you, uncle?"
+ * (curatedSentencesC1.json). No gloss says "chacha", "chacha-ji" or "kaka", and
+ * neither is in ADDRESS_CLAUSES, so such a line could never be read as a prompt
+ * anyway. Left out on purpose: "ji" and "sir", which address anyone, and the
+ * keeper saying "sir" to a learner is a separate question (finding 2).
+ * An entry must also be in ADDRESS_CLAUSES or it never reaches addressedTo;
+ * both clients' answer-back.test.ts pin that.
+ */
+export const KEEPER_OWN_TITLES: ReadonlySet<string> = new Set(['uncle']);
+
 /** Lowercase, straight apostrophes, letters/digits/apostrophe/slash/hyphen and single spaces only. */
 export function normaliseClause(text: string): string {
   return text
@@ -193,6 +216,8 @@ interface Alternative {
   clauses: string[];
   joined: string;
   hasQuestion: boolean;
+  /** The address clauses dropped from it, kept for the keeper-title rule (KEEPER_OWN_TITLES). */
+  addressedTo: string[];
 }
 
 /** An English gloss as alternatives of clauses. Exported for the pins. */
@@ -202,11 +227,13 @@ export function glossReading(english: string): Alternative[] {
     .split(/\s+\/\s+|;/)
     .map((alt) => {
       const hasQuestion = alt.includes('?');
-      const clauses = alt
+      const all = alt
         .split(/[,.!?]/)
         .map(normaliseClause)
-        .filter((c) => c.length > 0 && !ADDRESS_CLAUSES.has(c));
-      return { clauses, joined: clauses.join(' '), hasQuestion };
+        .filter((c) => c.length > 0);
+      const clauses = all.filter((c) => !ADDRESS_CLAUSES.has(c));
+      const addressedTo = all.filter((c) => ADDRESS_CLAUSES.has(c));
+      return { clauses, joined: clauses.join(' '), hasQuestion, addressedTo };
     })
     .filter((a) => a.clauses.length > 0);
 }
@@ -236,6 +263,13 @@ function allFormulae(alt: Alternative): boolean {
 export function promptConceptsOf(english: string): Set<AnswerBackConcept> {
   const out = new Set<AnswerBackConcept>();
   for (const alt of glossReading(english)) {
+    // The keeper-title rule (KEEPER_OWN_TITLES, Europe parity review 2026-09-15):
+    // a line said TO the keeper is never said BY the keeper. Here, where the
+    // keeper's role is read, rather than in pickAnswerBackRound or the round
+    // reducer: dropping it there would leave the map's exchange count
+    // (canPlayAnswerBack, AnswerBackProbe) counting a line no round deals, so a
+    // stop could qualify on 3 and play 2. replyConceptsOf is left alone on purpose.
+    if (alt.addressedTo.some((a) => KEEPER_OWN_TITLES.has(a))) continue;
     const joinedHit = ALL_CONCEPTS.filter((c) => conceptMatches(c, alt.joined));
     joinedHit.forEach((c) => out.add(c));
     if (joinedHit.length > 0 || !allFormulae(alt)) continue;

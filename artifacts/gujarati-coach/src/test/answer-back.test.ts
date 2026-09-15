@@ -20,6 +20,7 @@ import {
   canPlayAnswerBack,
   detectChosenCard,
   glossReading,
+  KEEPER_OWN_TITLES,
   pickAnswerBackRound,
   promptConceptsOf,
   replyConceptsOf,
@@ -207,6 +208,76 @@ describe('answerBackExchangesFor, real Hindi stops', () => {
 
   it('skips an exchange that cannot find two wrong cards', () => {
     expect(answerBackExchangesFor([ph('धन्यवाद', 'dhanyavaad', 'Thank you'), ph('आपका स्वागत है', 'aapka swagat hai', "You're welcome")])).toEqual([]);
+  });
+});
+
+describe('the keeper-title rule: a line said TO the keeper is never said BY the keeper', () => {
+  // Europe parity review, 2026-09-15 (review-parity-europe.md finding 1): the
+  // comma rule drops ", grandma", so Europe's Ukrainian stop 6 had the
+  // grandmother ask the learner "How are you, grandma?" in every round. India's
+  // keeper is Chacha-ji, and India's data has the same shape in Gujarati.
+  // Supervisor's ruling: it is never her line (his, here), but it stays a reply.
+
+  it('names at least one title, and every title is one the address rule actually drops', () => {
+    // A title the address set does not drop never reaches addressedTo, so it
+    // would sit in the table doing nothing.
+    expect(KEEPER_OWN_TITLES.size).toBeGreaterThan(0);
+    for (const title of KEEPER_OWN_TITLES) {
+      const [alt] = glossReading(`How are you, ${title}?`);
+      expect(alt!.clauses).toEqual(['how are you']);
+      expect(alt!.addressedTo).toEqual([title]);
+    }
+  });
+
+  it('an addressed line is never a keeper prompt, and a learner may still say it', () => {
+    expect(promptConceptsOf('How are you, uncle?').size).toBe(0);
+    expect(promptConceptsOf('How are you, sir?').has('how_are_you')).toBe(true);
+    expect(replyConceptsOf('How are you, uncle?').has('how_are_you')).toBe(true);
+    const group = [
+      ph('આભાર', 'aabhaar', 'Thank you'),
+      ph('તમારું સ્વાગત છે, અંકલ.', 'tamaaru swaagat chhe, ankal.', "You're welcome, uncle."),
+      ph('એક', 'ek', 'one'),
+      ph('બે', 'be', 'two'),
+    ];
+    const thanks = answerBackExchangesFor(group).find((e) => e.promptPhrase.english === 'Thank you')!;
+    expect(thanks.replyPhrase.english).toBe("You're welcome, uncle.");
+  });
+
+  // Gujarati greetings seed group 9 (the sentence stage's last), as
+  // gujaratiLessonsWithC1 seeds it and backfillLessonGroups partitions it. It
+  // holds curatedSentencesC1.json "How are you, uncle?", India's only gloss
+  // addressed to the keeper's title.
+  const GUJARATI_GROUP_9 = [
+    ph('સુપ્રભાત, દાદી.', 'suprabhaat, daadi.', 'Good morning, Grandma.'),
+    ph('શુભ સાંજ, સર.', 'shubh saanj, sar.', 'Good evening, sir.'),
+    ph('આભાર, મા.', 'aabhaar, maa.', 'Thank you, Mom.'),
+    ph('માફ કરજો, હું મોડો આવ્યો.', 'maaf karjo, huun modo aavyo.', 'Sorry, I came late.'),
+    ph('કેમ છો, અંકલ?', 'kem chho, ankal?', 'How are you, uncle?'),
+    ph('શુભ દિન, મિત્રો.', 'shubh din, mitro.', 'Good day, friends.'),
+    ph('ઘણા વખતે મળ્યા, તમે કેમ છો?', 'ghanaa vakhte malya, tame kem chho?', 'Long time no see, how are you?'),
+    ph('સાચવીને જજો, ફરી મળીએ.', 'saachvine jajo, fari malie.', 'Take care, see you again.'),
+    ph('મળતા રહેજો અને શુભેચ્છા.', 'malta rahejo ane shubhechchha.', 'Keep in touch and best wishes.'),
+    ph('શુભ સવાર, બાળકો.', 'shubh savaar, baalakone', 'Good morning, children.'),
+    ph('કૃપા કરીને બેસો, મહેમાન.', 'krupa kari-ne beso, mehmaan', 'Please sit down, guest.'),
+  ];
+
+  it('the Gujarati group that holds the line keeps playing Answer Back, and never deals it as the keeper\'s', () => {
+    const ex = answerBackExchangesFor(GUJARATI_GROUP_9);
+    expect(ex).toHaveLength(5);
+    expect(canPlayAnswerBack(GUJARATI_GROUP_9)).toBe(true);
+    expect(ex.some((e) => e.promptPhrase.english === 'How are you, uncle?')).toBe(false);
+  });
+
+  it('bites once the group can answer it: with "I am doing well." beside it, the uncle line is still no prompt', () => {
+    // Without the rule this group deals "How are you, uncle?" => "I am doing
+    // well." as the keeper's line, which is the Ukrainian stop 6 failure.
+    const group = [...GUJARATI_GROUP_9, ph('હું મજામાં છું.', 'hun majaa-maan chhun.', 'I am doing well.')];
+    const ex = answerBackExchangesFor(group);
+    expect(ex.some((e) => e.promptPhrase.english === 'How are you, uncle?')).toBe(false);
+    for (const round of [pickAnswerBackRound(ex), pickAnswerBackRound(ex, (xs) => [...xs].reverse())]) {
+      expect(round.some((e) => e.promptPhrase.english === 'How are you, uncle?')).toBe(false);
+    }
+    expect(canPlayAnswerBack(group)).toBe(true);
   });
 });
 
