@@ -176,6 +176,23 @@
     font-size: .88rem; color: hsl(var(--muted-fg)); }
   .weblink { display: inline-block; margin-top: 1rem; font-size: 1.05rem; font-weight: 700;
     color: hsl(var(--primary)); }
+
+  /* LESSON PHRASES (2026-09-15): the record and review modes. Same tokens, same
+     big-text rule as everything above. A chosen answer is marked with a tick
+     and a sentence, never by colour alone. */
+  .how { margin: .2rem 0 .4rem; padding-left: 1.4rem; }
+  .how li { margin: .4rem 0; }
+  .phrase { padding: 1.25rem 1.15rem 1.1rem; background: hsl(var(--card)); border: 2px solid hsl(var(--border));
+    border-radius: 18px; box-shadow: var(--shadow); text-align: center; margin-top: .3rem; }
+  .phrase .native { margin: 0; font-size: 2.3rem; line-height: 1.4; overflow-wrap: anywhere; }
+  .phrase .prom { margin: .35rem 0 0; font-size: 1.15rem; font-weight: 700; color: hsl(var(--muted-fg)); }
+  .phrase .pen { margin: .9rem 0 0; padding-top: .8rem; border-top: 1px solid hsl(var(--border));
+    font-size: 1rem; color: hsl(var(--muted-fg)); }
+  .phrase .take { margin: .7rem 0 0; font-size: .85rem; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: hsl(var(--muted-fg)); }
+  .btn.ghost[aria-pressed="true"] { border: 3px solid hsl(var(--primary)); background: hsl(var(--primary) / .09); }
+  .btn.ghost[aria-pressed="true"]::before { content: "\2713"; font-weight: 800; }
+  .said { margin: .7rem 0 0; text-align: center; font-weight: 700; min-height: 1.3em; }
 </style>
 
 <div class="wrap">
@@ -312,6 +329,100 @@
     </div>
   </section>
 
+  <!-- LESSON PHRASES (2026-09-15, owner-approved). Only a link carrying
+       ?phrases=<code> or ?review=<code> and a key ever shows these; everybody
+       else gets the letters wizard above, untouched. The copy is filled in by
+       the script, because it names the language the server says the key is
+       for. -->
+  <section id="phintro" hidden>
+    <p class="steplabel" id="phkicker"></p>
+    <p class="savenote ok" id="phwelcome" hidden></p>
+    <div class="hero">
+      <img src="/mascot/mascot-wave.png" alt="Bolo, a small blue and green bird, waving">
+      <h1 id="phtitle"></h1>
+    </div>
+    <p class="lede" id="phlede"></p>
+    <p class="note" id="phnote"></p>
+    <ol class="how" id="phhow"></ol>
+    <label class="steplabel" for="phwho" style="margin-top:1.2rem;display:block">What is your first name?</label>
+    <input id="phwho" type="text" autocomplete="given-name" placeholder="Your first name" maxlength="24" enterkeyhint="go">
+    <p class="say" id="phwhy" style="text-align:left;margin-top:.5rem"></p>
+    <button class="btn" id="phstart" disabled>Start</button>
+    <p class="savenote" id="phload"></p>
+  </section>
+
+  <section id="phrec" hidden>
+    <div class="topbar">
+      <span class="count" id="phcount"></span>
+      <button class="backlink" id="phstop">Stop</button>
+    </div>
+    <div class="bar"><i id="phprogress" style="width:0%"></i></div>
+    <div class="phrase">
+      <p class="native" id="phnative"></p>
+      <p class="prom" id="phrom"></p>
+      <p class="pen" id="phen"></p>
+    </div>
+    <p class="say" id="phsay" style="margin-top:.8rem"></p>
+    <div class="rec" id="phmeter" hidden><span class="recdot"></span><span class="elapsed" id="phelapsed">0:00</span></div>
+    <audio id="phplay" controls hidden></audio>
+    <div class="actions">
+      <button class="btn" id="phrecbtn">Record</button>
+      <button class="btn" id="phsave" hidden>Save and next</button>
+      <div class="row">
+        <button class="btn ghost small" id="phredo" hidden>Record again</button>
+        <button class="btn ghost small" id="phskip">Skip</button>
+      </div>
+      <p class="savenote" id="phsavenote"></p>
+    </div>
+  </section>
+
+  <section id="rvcheck" hidden>
+    <div class="topbar">
+      <span class="count" id="rvcount"></span>
+      <button class="backlink" id="rvstop">Stop</button>
+    </div>
+    <div class="bar"><i id="rvprogress" style="width:0%"></i></div>
+    <div class="phrase">
+      <p class="native" id="rvnative"></p>
+      <p class="prom" id="rvrom"></p>
+      <p class="pen" id="rven"></p>
+      <p class="take" id="rvtake" hidden></p>
+    </div>
+    <button class="btn" id="rvplaybtn" disabled>Loading the recording</button>
+    <audio id="rvplay" controls hidden></audio>
+    <p class="say" style="margin-top:.8rem">Does the recording say this phrase correctly?</p>
+    <div class="row">
+      <button class="btn ghost small" id="rvyes" aria-pressed="false">Sounds right</button>
+      <button class="btn ghost small" id="rvno" aria-pressed="false">Not right</button>
+    </div>
+    <p class="said" id="rvsaid"></p>
+    <div id="rvwhywrap" hidden>
+      <p style="margin:1rem 0 .6rem"><b>What is wrong with it?</b> Anything helps: a wrong word, a word cut off, or how you would say it.</p>
+      <textarea id="rvwhy" rows="3" autocomplete="new-note" placeholder="For example: the last word is cut off"></textarea>
+      <button class="btn small" id="rvwhysend">Send and next</button>
+    </div>
+    <p class="savenote" id="rvsavenote"></p>
+    <div class="row">
+      <button class="btn ghost small" id="rvprev">Back</button>
+      <button class="btn ghost small" id="rvnext">Next</button>
+    </div>
+  </section>
+
+  <section id="phdone" hidden>
+    <div class="hero">
+      <img src="/mascot/mascot-wave.png" alt="">
+      <h2 id="phdonetitle"></h2>
+    </div>
+    <p class="lede" id="phdonetext"></p>
+    <button class="btn" id="phagain" hidden></button>
+  </section>
+
+  <section id="pherror" hidden>
+    <h2 id="pherrtitle"></h2>
+    <p class="lede" id="pherrtext" style="margin-top:.8rem"></p>
+    <button class="btn" id="pherrretry" hidden>Try again</button>
+  </section>
+
   <footer>
     <p>Bolo teaches Hindi, Gujarati, Urdu, Tamil and eighteen more, for families who want the
       next generation to keep the language.</p>
@@ -413,9 +524,13 @@
   var $=function(id){return document.getElementById(id);};
 
   var SKEY="bolo.aksharmala.session";
-  var sessionId=(function(){try{var v=localStorage.getItem(SKEY);if(v)return v;}catch(e){}
-    var v="s"+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
-    try{localStorage.setItem(SKEY,v);}catch(e){}return v;})();
+  // A browser-made sitting id, kept under `key` so a return visit is the same
+  // sitting. A function since 2026-09-15 so the review mode can keep a sitting
+  // of its own (see LESSON PHRASES below); the id it makes is unchanged.
+  function sittingId(key,prefix){try{var v=localStorage.getItem(key);if(v)return v;}catch(e){}
+    var id=prefix+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
+    try{localStorage.setItem(key,id);}catch(e){}return id;}
+  var sessionId=sittingId(SKEY,"s");
 
   var scriptName=null,who="",roster=[],idx=0,strokes=[],livePts=null,saved=[],
       tracedCount=0,recordedOk=false,doneIds=[];
@@ -705,6 +820,395 @@
 
   $("cardtrace").addEventListener("click",function(){note("tracesave","");show("tracer");draw();});
   $("cardread").addEventListener("click",openReader);
+
+  /**
+   * LESSON PHRASES (2026-09-15). Two keyed modes on this same page, approved
+   * by the owner and starting with Bodo zone 1:
+   *
+   *   ?phrases=<code>&key=<key>  a native speaker says each lesson phrase, one
+   *                              clip each, with record again
+   *   ?review=<code>&key=<key>   a second speaker listens to each clip and
+   *                              says whether it is right
+   *
+   * WHY. The languages the recogniser cannot hear (Bodo, Manipuri) are scored
+   * against reference audio of every phrase in a lesson, and that reference is
+   * the app's synthetic voice until a native speaker records the lessons
+   * (api-server lib/referenceScoring.ts). A wrong reference would mark a
+   * learner wrong for saying it right, which is why a second speaker checks.
+   *
+   * THE PHRASES COME FROM THE SERVER, not from this file like the alphabets:
+   * their ids are database serials that differ between dev and production,
+   * and a clip must name the id of the database it was recorded against.
+   *
+   * THE KEY is minted on the Nest for one mode and one language. It is read
+   * from this page's own address and sent as X-Contribution-Key, never put in
+   * a query string. No contributor name ever comes back from the server.
+   *
+   * Everything here runs only when those parameters are present, and returns
+   * before the welcome-back block, so every other visit is unchanged.
+   */
+  var PH=(function(){
+    var q;try{q=new URLSearchParams(location.search);}catch(e){return null;}
+    var rec=q.get("phrases"),rev=q.get("review");
+    if(!rec&&!rev)return null;
+    var lang=rec||rev,key=q.get("key")||"",z=parseInt(q.get("zone")||"1",10);
+    // Only printable ASCII can travel in a header. A key mangled in a message
+    // app would otherwise make fetch throw, which reads as "no connection";
+    // blanking it says "this link is not working", which is the truth.
+    return {mode:rec?"record":"review",lang:/^[a-z_][a-z0-9_]{1,39}$/.test(lang)?lang:"",
+      key:/^[\x21-\x7e]{1,64}$/.test(key)?key:"",zone:z>0?z:1};
+  })();
+  var PHKEY="bolo.aksharmala.phrases.v1",RVKEY="bolo.aksharmala.review.v1",
+      RVSKEY="bolo.aksharmala.review.session",PH_MAX_MS=20000;
+  var phSet=null,phIdx=0,phWho="",phDone=[],phStream=null,phRec=null,phStartAt=0,
+      phTimer=null,phMime="",phBlob=null,phB64="",phMs=0,phSaving=false,
+      rvData=null,rvQueue=[],rvIdx=0,rvCache={},rvSession="",rvAudioFor=0,rvReady=false;
+
+  function phShow(which){
+    ["s1","s2","s3","tracer","reader","phintro","phrec","rvcheck","phdone","pherror"].forEach(function(s){
+      $(s).hidden=s!==which;});
+    window.scrollTo(0,0);}
+  function phApi(method,path,body){
+    var o={method:method,cache:"no-store",headers:{"X-Contribution-Key":PH.key}};
+    if(body!==undefined){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);}
+    return fetch(path,o).then(function(r){return r.text().then(function(t){
+      var j=null;try{j=JSON.parse(t);}catch(e){}
+      return {ok:r.ok,status:r.status,json:j||{}};});});}
+  function phText(id,text){$(id).textContent=text;}
+  // Built as nodes, never innerHTML: the language name comes from the server.
+  function phNote(bold,rest){var n=$("phnote"),b=document.createElement("b");n.textContent="";
+    b.textContent=bold;n.appendChild(b);n.appendChild(document.createTextNode(" "+rest));}
+  function phSteps(list){var ol=$("phhow");ol.textContent="";
+    list.forEach(function(s){var li=document.createElement("li");li.textContent=s;ol.appendChild(li);});}
+  function phFont(script){loadFont(script);return '"'+(FONTS[script]||"").replace(/\+/g," ")+'", serif';}
+
+  // One screen for every way a link can fail, worded for the person holding
+  // the phone, who cannot fix any of it and needs to know who to ask.
+  function phFail(res){
+    var code=res&&res.json?res.json.code:null,title,text,retry=false;
+    phCancelTake();phDropStream();rvReady=false;rvAudioFor=0;$("rvplay").pause();
+    if(code==="link_expired"){title="This link has run out";
+      text="These links stop working after about a month. Please ask the person who sent it to you for a new one.";}
+    else if(code==="link_invalid"||(res&&res.status===403)){title="This link is not working";
+      text="Part of it may have been lost when it was copied. Please ask the person who sent it to you to send it again.";}
+    else if(code==="no_phrases"){title="Nothing to record here yet";
+      text="There are no lesson phrases for this language yet. Thank you for opening the link.";}
+    else {title="We could not reach Bolo";text="Check that the phone is online, then try again.";retry=true;}
+    phText("pherrtitle",title);phText("pherrtext",text);$("pherrretry").hidden=!retry;
+    phShow("pherror");}
+
+  function phLoadRec(){try{var p=JSON.parse(localStorage.getItem(PHKEY)||"null");
+    return p&&p.lang===PH.lang&&p.zone===PH.zone?p:null;}catch(e){return null;}}
+  function phSaveRec(){try{localStorage.setItem(PHKEY,JSON.stringify(
+    {who:phWho,lang:PH.lang,zone:PH.zone,ids:phDone}));}catch(e){}}
+  function phLoadRev(){try{return JSON.parse(localStorage.getItem(RVKEY)||"null");}catch(e){return null;}}
+  function phSaveRev(){try{localStorage.setItem(RVKEY,JSON.stringify({who:phWho}));}catch(e){}}
+  function phDoneCount(){var c=0;if(phSet)phSet.phrases.forEach(function(p){if(phDone.indexOf(p.id)>=0)c++;});return c;}
+  function phFirstOpen(){for(var i=0;i<phSet.phrases.length;i++)if(phDone.indexOf(phSet.phrases[i].id)<0)return i;return -1;}
+  function phStartState(){$("phstart").disabled=!$("phwho").value.trim()||(PH.mode==="record"&&!phSet);}
+
+  function phIntroRecord(){
+    var name=phSet.language.name,n=phSet.phrases.length,c=phDoneCount(),w=$("phwelcome"),
+        lo=Math.max(1,Math.round(n*12.5/60)),hi=Math.max(lo+1,Math.round(n*19/60));
+    document.title="Say the "+name+" lessons for Bolo";
+    phText("phkicker",name+" lesson phrases");
+    phText("phtitle","Will you say our "+name+" lessons out loud?");
+    phText("phlede","Bolo teaches children to speak "+name+". To know whether a child said a phrase well, "+
+      "it needs to hear how a real "+name+" speaker says it. Today all it has is a computer voice.");
+    phNote(n+(n===1?" short phrase":" short phrases")+", about "+lo+" to "+hi+" minutes.",
+      "Stop whenever you like: every phrase you save is kept.");
+    phSteps(["Read the phrase on the screen.","Tap Record and say it the way you would say it at home.",
+      "Tap Stop. Listen back if you like, then tap Save and next."]);
+    if(c>0){var nm=$("phwho").value.trim();w.hidden=false;
+      w.textContent="Welcome back"+(nm?", "+nm:"")+". You have already saved "+c+" of "+n+
+        ", and they are safe. Carry on where you stopped.";}}
+  function phIntroReview(){
+    document.title="Check recordings for Bolo";
+    phText("phkicker","Checking recordings");
+    phText("phtitle","Will you check some recordings for Bolo?");
+    phText("phlede","Another speaker recorded the phrases Bolo teaches, one at a time. Before Bolo uses any "+
+      "of them, a second person who speaks the language needs to listen and say whether each one is right.");
+    phNote("A wrong recording would teach children the wrong thing.",
+      "So if anything sounds off, a wrong word, a word cut off, or a mumble, please say Not right.");
+    phSteps(["Tap Play the recording and listen.","If it says the phrase correctly, tap Sounds right.",
+      "If anything is wrong, tap Not right, and tell us what if you can."]);
+    phText("phwhy","We keep your first name with your answers, so we can take them out if you ever ask.");}
+
+  function phBegin(){
+    phWho=$("phwho").value.trim();if(!phWho)return;
+    if(PH.mode==="record"){if(!phSet)return;phSaveRec();
+      var i=phFirstOpen();if(i<0){phFinish();return;}
+      phIdx=i;phShow("phrec");phDraw();}
+    else {phSaveRev();rvLoad();}}
+
+  /* ---- record: one phrase, one take, Save and next ---- */
+  function phDraw(){
+    var p=phSet.phrases[phIdx],n=phSet.phrases.length,lang=phSet.language,
+        done=phDone.indexOf(p.id)>=0,nat=$("phnative");
+    phText("phcount","Phrase "+(phIdx+1)+" of "+n);
+    $("phprogress").style.width=(phDoneCount()/n)*100+"%";
+    nat.textContent=p.nativeScript;nat.style.fontFamily=phFont(lang.script);nat.dir=lang.rtl?"rtl":"ltr";
+    phText("phrom",p.romanized);phText("phen","In English: "+p.english);
+    phText("phskip",done?"Next":"Skip");
+    phResetTake(done?"Saved already. Record it again to replace it, or tap Next.":
+      "Say it the way you would say it at home.");}
+  function phResetTake(msg){
+    var a=$("phplay");phBlob=null;phB64="";phMs=0;
+    a.pause();a.removeAttribute("src");a.hidden=true;
+    $("phmeter").hidden=true;phText("phelapsed","0:00");
+    $("phrecbtn").hidden=false;$("phrecbtn").disabled=false;phText("phrecbtn","Record");
+    $("phsave").hidden=true;$("phsave").disabled=false;$("phredo").hidden=true;$("phredo").disabled=false;
+    phText("phsay",msg);note("phsavenote","");}
+  // Stops a take in progress and throws it away. Letting go of phRec is what
+  // discards it: each take's stop handler checks it is still the current take,
+  // so an old take stopping late can never redraw the next phrase.
+  function phCancelTake(){clearInterval(phTimer);
+    var rec=phRec;phRec=null;
+    if(rec&&rec.state==="recording"){try{rec.stop();}catch(e){}}}
+  // ONE microphone stream for the sitting, not one per phrase: forty-eight
+  // permission prompts would end the sitting by phrase three on some phones.
+  function phGetStream(){
+    var live=phStream&&phStream.getAudioTracks().some(function(t){return t.readyState==="live";});
+    if(live)return Promise.resolve(phStream);
+    return navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){phStream=s;return s;});}
+  function phDropStream(){if(phStream){phStream.getTracks().forEach(function(t){t.stop();});phStream=null;}}
+  function phRecordTap(){
+    if(phRec&&phRec.state==="recording"){phRec.stop();return;}
+    if(typeof MediaRecorder==="undefined"||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      note("phsavenote","This browser cannot record here. Please open the link in Chrome or Safari.","bad");return;}
+    $("phrecbtn").disabled=true;note("phsavenote","");
+    phGetStream().then(function(stream){
+      var want=pickMime(),rec,chunks=[];
+      try{rec=want?new MediaRecorder(stream,{mimeType:want}):new MediaRecorder(stream);}
+      catch(e){rec=new MediaRecorder(stream);}
+      phRec=rec;phMime=rec.mimeType||want||"audio/webm";
+      rec.ondataavailable=function(e){if(e.data&&e.data.size)chunks.push(e.data);};
+      rec.onstop=function(){phStopped(rec,chunks);};
+      rec.start();phStartAt=Date.now();
+      $("phrecbtn").disabled=false;phText("phrecbtn","Stop");
+      $("phmeter").hidden=false;phText("phelapsed","0:00");
+      phText("phsay","Recording. Tap Stop when you have said it.");
+      // A forgotten take stops itself: one phrase is a few seconds, and the
+      // server refuses anything near a minute.
+      phTimer=setInterval(function(){var ms=Date.now()-phStartAt;phText("phelapsed",fmt(ms));
+        if(ms>=PH_MAX_MS&&phRec&&phRec.state==="recording")phRec.stop();},250);
+    }).catch(function(){$("phrecbtn").disabled=false;
+      note("phsavenote","Your phone would not let us use the microphone. Allow it for this page, then tap Record again.","bad");});}
+  function phStopped(rec,chunks){
+    if(rec!==phRec)return;
+    clearInterval(phTimer);
+    var blob=new Blob(chunks,{type:phMime});
+    phMs=Date.now()-phStartAt;phRec=null;$("phmeter").hidden=true;
+    if(!blob.size){
+      // An empty take is how a tired shared stream fails on some phones, so
+      // the next Record asks for a fresh one.
+      phDropStream();phResetTake("Nothing was recorded. Tap Record and say it again.");return;}
+    phBlob=blob;
+    $("phrecbtn").hidden=true;$("phsave").hidden=false;$("phredo").hidden=false;
+    phText("phsay","Listen back if you like, then tap Save and next.");
+    // A data URL, as in the passage recorder above: Safari will not reliably
+    // play a blob: URL from its own MediaRecorder.
+    blobToDataUrl(blob).then(function(url){
+      if(phBlob!==blob)return;
+      var a=$("phplay");phB64=url.split(",")[1]||"";
+      a.onerror=function(){a.hidden=true;};a.src=url;a.hidden=false;a.load();
+    }).catch(function(){$("phplay").hidden=true;});}
+  function phSaveTake(){
+    if(phSaving||!phBlob)return;
+    var p=phSet.phrases[phIdx];
+    var send=function(b64){
+      if(!b64){note("phsavenote","That recording could not be read. Tap Record again.","bad");return;}
+      phSaving=true;$("phsave").disabled=true;$("phredo").disabled=true;$("phskip").disabled=true;
+      note("phsavenote","Saving...");who=phWho;
+      phApi("POST","/api/script-trace/phrase-voice",{sessionId:sessionId,contributor:safeName(),
+        language:PH.lang,zone:PH.zone,phraseId:p.id,audioBase64:b64,mimeType:phMime,
+        durationMs:Math.min(60000,Math.max(1,Math.round(phMs)))
+      }).then(function(res){
+        phSaving=false;$("phredo").disabled=false;$("phskip").disabled=false;
+        if(res.status===403||res.status===410){phFail(res);return;}
+        if(!res.ok){$("phsave").disabled=false;
+          note("phsavenote",res.status===400?"That recording was empty or too long. Tap Record again.":
+            "That did not save. Tap Save and next again in a moment.","bad");return;}
+        if(phDone.indexOf(p.id)<0)phDone.push(p.id);
+        phSaveRec();note("phsavenote","Saved.","ok");
+        setTimeout(function(){if(!$("phrec").hidden&&phSet.phrases[phIdx]===p)phNext();},400);
+      }).catch(function(){phSaving=false;$("phsave").disabled=false;$("phredo").disabled=false;$("phskip").disabled=false;
+        note("phsavenote","That did not save. Check the phone is online, then tap Save and next again.","bad");});};
+    if(phB64)send(phB64);
+    else blobToDataUrl(phBlob).then(function(u){phB64=u.split(",")[1]||"";send(phB64);},function(){send("");});}
+  function phNext(){phCancelTake();
+    if(phIdx>=phSet.phrases.length-1){phFinish();return;}
+    phIdx++;phDraw();window.scrollTo(0,0);}
+  function phFinish(){
+    phCancelTake();phDropStream();
+    var n=phSet.phrases.length,c=phDoneCount(),left=n-c,name=phSet.language.name,again=$("phagain");
+    if(c>0){phText("phdonetitle","Thank you, "+phWho);
+      phText("phdonetext",(c===n?"You have saved all "+n+" "+name+" phrases.":
+        "You have saved "+c+" of "+n+" "+name+" phrases, and every one is kept.")+
+        " Another "+name+" speaker will listen to each one before Bolo uses it.");}
+    else {phText("phdonetitle","Nothing saved yet");
+      phText("phdonetext","That is fine. You can come back to this link whenever you are ready.");}
+    again.hidden=left===0;
+    again.textContent=left===1?"Record the last phrase":"Record the "+left+" still to do";
+    phShow("phdone");}
+
+  /* ---- review: listen, then Sounds right or Not right ---- */
+  function rvLoad(){
+    who=phWho;$("phstart").disabled=true;note("phload","Loading the recordings...");
+    phApi("GET","/api/script-trace/phrase-clips?language="+encodeURIComponent(PH.lang)+"&zone="+PH.zone+
+      "&sessionId="+encodeURIComponent(rvSession)+"&reviewer="+encodeURIComponent(safeName())
+    ).then(function(res){
+      $("phstart").disabled=false;note("phload","");
+      if(!res.ok||!res.json.items){phFail(res);return;}
+      rvData=res.json;rvQueue=[];
+      rvData.items.forEach(function(it){it.clips.forEach(function(c,i){
+        rvQueue.push({item:it,clip:c,take:i+1,takes:it.clips.length});});});
+      document.title="Check "+rvData.language.name+" recordings for Bolo";
+      var i=rvFirstOpen();
+      if(i<0){rvFinish();return;}
+      rvIdx=i;phShow("rvcheck");rvDraw();
+    }).catch(function(){$("phstart").disabled=false;phFail(null);});}
+  function rvFirstOpen(){for(var i=0;i<rvQueue.length;i++)if(!rvQueue[i].clip.myVerdict)return i;return -1;}
+  function rvCheckedCount(){var c=0;rvQueue.forEach(function(q){if(q.clip.myVerdict)c++;});return c;}
+  function rvDraw(){
+    var q=rvQueue[rvIdx],it=q.item,n=rvQueue.length,lang=rvData.language,nat=$("rvnative");
+    phText("rvcount",lang.name+", recording "+(rvIdx+1)+" of "+n);
+    $("rvprogress").style.width=(rvCheckedCount()/n)*100+"%";
+    nat.textContent=it.nativeScript;nat.style.fontFamily=phFont(lang.script);nat.dir=lang.rtl?"rtl":"ltr";
+    phText("rvrom",it.romanized);phText("rven","In English: "+it.english);
+    $("rvtake").hidden=q.takes<2;phText("rvtake","Take "+q.take+" of "+q.takes);
+    rvMark(q.clip.myVerdict);
+    $("rvwhywrap").hidden=q.clip.myVerdict!=="rejected";$("rvwhy").value=q.clip.myNote||"";
+    $("rvprev").disabled=rvIdx===0;phText("rvnext",rvIdx===n-1?"Finish":"Next");
+    note("rvsavenote","");
+    rvAudio(q.clip.clipId);}
+  function rvMark(v){
+    $("rvyes").setAttribute("aria-pressed",String(v==="approved"));
+    $("rvno").setAttribute("aria-pressed",String(v==="rejected"));
+    phText("rvsaid",v==="approved"?"You said it sounds right.":v==="rejected"?"You said it is not right.":"");}
+  function rvAudio(id){
+    var a=$("rvplay"),btn=$("rvplaybtn");
+    rvReady=false;rvAudioFor=id;a.pause();a.removeAttribute("src");a.hidden=true;
+    btn.disabled=true;btn.textContent="Loading the recording";
+    rvFetchAudio(id,false);}
+  // The clip as it was recorded first; a WAV copy made by the server when this
+  // phone cannot play that format, which is mostly an iPhone handed a webm.
+  function rvFetchAudio(id,wav){
+    var k=id+(wav?":wav":"");
+    if(rvCache[k]){rvSetAudio(id,rvCache[k],wav);return;}
+    phApi("GET","/api/script-trace/phrase-clips/"+id+"/audio?language="+encodeURIComponent(PH.lang)+(wav?"&format=wav":"")
+    ).then(function(res){
+      if(rvAudioFor!==id)return;
+      if(res.status===403||res.status===410){phFail(res);return;}
+      if(!res.ok||!res.json.audioBase64){if(!wav){rvFetchAudio(id,true);return;}rvCannotPlay();return;}
+      var mime=res.json.mimeType||"audio/mp4",url="data:"+mime+";base64,"+res.json.audioBase64,a=$("rvplay");
+      rvCache[k]=url;
+      if(!wav&&a.canPlayType&&a.canPlayType(mime.split(";")[0])===""){rvFetchAudio(id,true);return;}
+      rvSetAudio(id,url,wav);
+    }).catch(function(){if(rvAudioFor!==id)return;
+      var btn=$("rvplaybtn");btn.disabled=false;btn.textContent="Tap to try loading it again";});}
+  function rvSetAudio(id,url,wav){
+    if(rvAudioFor!==id)return;
+    var a=$("rvplay"),btn=$("rvplaybtn");
+    a.onerror=function(){if(rvAudioFor!==id)return;rvReady=false;
+      if(!wav){rvFetchAudio(id,true);return;}rvCannotPlay();};
+    a.src=url;a.hidden=false;a.load();rvReady=true;
+    btn.disabled=false;btn.textContent="Play the recording";}
+  function rvCannotPlay(){var btn=$("rvplaybtn");rvReady=false;
+    btn.disabled=true;btn.textContent="This phone cannot play it";$("rvplay").hidden=true;
+    note("rvsavenote","This recording will not play on this phone. Tap Next to leave it for someone else.","bad");}
+  function rvPlayTap(){
+    var a=$("rvplay");
+    if(!rvReady){if(rvAudioFor)rvAudio(rvAudioFor);return;}
+    if(!a.paused){a.pause();return;}
+    try{a.currentTime=0;}catch(e){}
+    var p=a.play();if(p&&p.catch)p.catch(function(){});}
+  function rvBusy(b){["rvyes","rvno","rvwhysend","rvprev","rvnext"].forEach(function(id){$(id).disabled=b;});
+    if(!b)$("rvprev").disabled=rvIdx===0;}
+  function rvSend(verdict,text){
+    var q=rvQueue[rvIdx];who=phWho;
+    rvBusy(true);note("rvsavenote","Saving...");
+    return phApi("POST","/api/script-trace/phrase-verdict",{sessionId:rvSession,reviewer:safeName(),
+      language:PH.lang,clipId:q.clip.clipId,verdict:verdict,note:text||""}
+    ).then(function(res){rvBusy(false);
+      if(res.status===403||res.status===410){phFail(res);return false;}
+      if(res.status===409){note("rvsavenote","This is your own recording, so a different speaker needs to check it. Tap Next.","bad");return false;}
+      if(!res.ok){note("rvsavenote","That did not save. Tap your answer again in a moment.","bad");return false;}
+      q.clip.myVerdict=verdict;q.clip.myNote=text||"";rvMark(verdict);
+      $("rvprogress").style.width=(rvCheckedCount()/rvQueue.length)*100+"%";
+      note("rvsavenote","Saved.","ok");return true;
+    }).catch(function(){rvBusy(false);
+      note("rvsavenote","That did not save. Check the phone is online, then tap your answer again.","bad");return false;});}
+  function rvNext(){if(rvIdx>=rvQueue.length-1){rvFinish();return;}rvIdx++;rvDraw();window.scrollTo(0,0);}
+  function rvFinish(){
+    rvReady=false;rvAudioFor=0;$("rvplay").pause();
+    var n=rvQueue.length,c=rvCheckedCount(),left=n-c,name=rvData.language.name,
+        own=rvData.ownClipsHidden||0,bad=0,again=$("phagain");
+    rvQueue.forEach(function(q){if(q.clip.myVerdict==="rejected")bad++;});
+    var ownNote=own?" Recordings made under your own name are left out, because a different speaker needs to check those.":"";
+    if(!n){phText("phdonetitle","Nothing to check yet");
+      phText("phdonetext","No "+name+" recordings are waiting for a check. When somebody records the phrases, "+
+        "they will appear on this link."+ownNote);}
+    else if(!c){phText("phdonetitle","Nothing checked yet");
+      phText("phdonetext",n+(n===1?" recording is":" recordings are")+" waiting. Come back to this link whenever you are ready."+ownNote);}
+    else {phText("phdonetitle","Thank you, "+phWho);
+      phText("phdonetext",(c===n?"You have checked all "+n+" recordings.":"You have checked "+c+" of "+n+" recordings.")+
+        " Every answer is saved."+(bad?" The ones you marked not right will not be used.":"")+ownNote);}
+    again.hidden=!n;
+    again.textContent=left>0?(left===1?"Check the last recording":"Check the "+left+" still waiting"):"Go through them again";
+    phShow("phdone");}
+  function phAgain(){
+    if(PH.mode==="record"){var i=phFirstOpen();if(i<0)return;phIdx=i;phShow("phrec");phDraw();return;}
+    var j=rvFirstOpen();rvIdx=j<0?0:j;phShow("rvcheck");rvDraw();}
+
+  function phBoot(){
+    var saved;
+    $("phwho").addEventListener("input",phStartState);
+    $("phwho").addEventListener("keydown",function(e){if(e.key==="Enter"&&!$("phstart").disabled)phBegin();});
+    $("phstart").addEventListener("click",phBegin);
+    $("phrecbtn").addEventListener("click",phRecordTap);
+    $("phsave").addEventListener("click",phSaveTake);
+    $("phredo").addEventListener("click",function(){phCancelTake();phResetTake("Say it again whenever you are ready.");});
+    $("phskip").addEventListener("click",phNext);
+    $("phstop").addEventListener("click",phFinish);
+    $("rvplaybtn").addEventListener("click",rvPlayTap);
+    $("rvplay").addEventListener("play",function(){$("rvplaybtn").textContent="Playing";});
+    ["pause","ended"].forEach(function(ev){$("rvplay").addEventListener(ev,function(){
+      if(rvReady)$("rvplaybtn").textContent="Play it again";});});
+    $("rvyes").addEventListener("click",function(){var at=rvIdx;$("rvwhywrap").hidden=true;
+      rvSend("approved","").then(function(ok){if(ok)setTimeout(function(){if(rvIdx===at&&!$("rvcheck").hidden)rvNext();},700);});});
+    // Not right is stored at once, before any explanation, so the verdict lands
+    // even if they never type a word; Send stores it again with the note.
+    $("rvno").addEventListener("click",function(){
+      rvSend("rejected",$("rvwhy").value.trim()).then(function(ok){if(ok){$("rvwhywrap").hidden=false;$("rvwhy").focus();}});});
+    $("rvwhysend").addEventListener("click",function(){var at=rvIdx;
+      rvSend("rejected",$("rvwhy").value.trim()).then(function(ok){if(ok)setTimeout(function(){if(rvIdx===at&&!$("rvcheck").hidden)rvNext();},500);});});
+    $("rvprev").addEventListener("click",function(){if(rvIdx>0){rvIdx--;rvDraw();}});
+    $("rvnext").addEventListener("click",rvNext);
+    $("rvstop").addEventListener("click",rvFinish);
+    $("phagain").addEventListener("click",phAgain);
+    $("pherrretry").addEventListener("click",function(){location.reload();});
+
+    phShow("phintro");
+    if(!PH.lang||!PH.key){phFail({status:403,json:{code:"link_invalid"}});return;}
+    if(PH.mode==="record"){
+      saved=phLoadRec();
+      if(saved){phDone=saved.ids||[];if(saved.who)$("phwho").value=saved.who;}
+      phText("phkicker","Lesson phrases");phText("phtitle","Will you say our lessons out loud?");
+      phText("phwhy","We keep your first name with your recordings, so we can take them out if you ever ask.");
+      note("phload","Loading the phrases...");phStartState();
+      phApi("GET","/api/script-trace/lesson-phrases?language="+encodeURIComponent(PH.lang)+"&zone="+PH.zone
+      ).then(function(res){
+        if(!res.ok||!res.json.phrases){phFail(res);return;}
+        phSet=res.json;note("phload","");phIntroRecord();phStartState();
+      }).catch(function(){phFail(null);});
+    } else {
+      rvSession=sittingId(RVSKEY,"r");
+      saved=phLoadRev();if(saved&&saved.who)$("phwho").value=saved.who;
+      phIntroReview();phStartState();
+    }}
+
+  if(PH){phBoot();return;}
 
   /**
    * WELCOME BACK. Runs last, after the script buttons exist, so it can press

@@ -37,6 +37,10 @@ const HEAD = [
   // Unlisted, not secret. noindex keeps it out of search WITHOUT naming the
   // path in a public robots.txt, which would do the opposite of hiding it.
   '<meta name="robots" content="noindex, nofollow">',
+  // The phrase modes carry a key in the address bar (2026-09-15). same-origin
+  // sends no Referer at all to Google Fonts or the App Store link, so the key
+  // never leaves this origin in a header the page did not choose to send.
+  '<meta name="referrer" content="same-origin">',
   '<meta name="description" content="Trace your alphabet so Bolo can teach the stroke order.">',
   '<meta name="theme-color" content="#FBF1DF" media="(prefers-color-scheme: light)">',
   '<meta name="theme-color" content="#171008" media="(prefers-color-scheme: dark)">',

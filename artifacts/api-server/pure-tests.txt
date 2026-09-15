@@ -62,6 +62,7 @@ src/lib/wardrobeDraftGate.test.ts
 src/lib/wordSubstitution.test.ts
 src/middlewares/rateLimit.test.ts
 src/middlewares/unreadableTokenGuard.test.ts
+src/routes/aksharmalaPhraseMode.test.ts
 src/routes/chachaCall.test.ts
 src/routes/nest.drill-metrics.test.ts
 src/routes/nest.page.test.ts
