@@ -22,8 +22,8 @@ import { useReducedMotion } from 'react-native-reanimated';
 import {
   STOP_SPLASH_ENTER_MS,
   STOP_SPLASH_EXIT_MS,
-  STOP_SPLASH_HOLD_MS,
   endStopSplash,
+  stopSplashHoldMs,
   stopSplashFor,
   useStopSplashZone,
 } from '@/lib/stopSplash';
@@ -56,9 +56,9 @@ function StopSplashFilm({ zone }: { zone: number }) {
   // decode must not trap the learner behind the overlay. Same failsafe reasoning
   // as SPLASH_MAX_HOLD_MS on the boot film.
   React.useEffect(() => {
-    const t = setTimeout(() => setExiting(true), STOP_SPLASH_HOLD_MS);
+    const t = setTimeout(() => setExiting(true), stopSplashHoldMs(zone));
     return () => clearTimeout(t);
-  }, []);
+  }, [zone]);
 
   // The entrance. Reduced motion still gets the overlay, just instantly: the
   // film is content rather than decoration, so it must not be skipped, only

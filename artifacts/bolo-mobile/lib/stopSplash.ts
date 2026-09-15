@@ -50,7 +50,18 @@ import { useSyncExternalStore } from 'react';
  * a film navigates instantly rather than failing. That path is still live and
  * is what a seventh zone would land on.
  */
+/**
+ * THE JOURNEY ARRIVAL, a film that belongs to no zone. Owner, 2026-09-14: "a
+ * new splash to play when coming from the boarding pass" (~/Downloads/India new
+ * art/India Journey Splash.mp4). A camera descends from above the rooftops into
+ * zone 1's bazaar street, so it is the door INTO the journey, not a stop's
+ * transition, and it is keyed 0 because no category id is ever 0. 1080x1920,
+ * 5.1s, no audio, crf 28 (SSIM 0.96 against the delivered file).
+ */
+export const JOURNEY_ARRIVAL_SPLASH = 0;
+
 const FILMS: Record<number, number> = {
+  [JOURNEY_ARRIVAL_SPLASH]: require('../assets/journey/journey-arrival.mp4') as number,
   1: require('../assets/journey/stop-zone-1.mp4') as number,
   2: require('../assets/journey/stop-zone-2.mp4') as number,
   3: require('../assets/journey/stop-zone-3.mp4') as number,
@@ -93,6 +104,18 @@ export const STOP_SPLASH_HOLD_MS = 1400;
 export const STOP_SPLASH_EXIT_MS = 420;
 
 /**
+ * The arrival film is watched, not covered for: it holds for almost its whole
+ * 5.1s descent (220 in + 4300 held + 420 out) instead of a stop's 1400. A tap
+ * still skips it, the same as a stop film.
+ */
+export const JOURNEY_ARRIVAL_HOLD_MS = 4300;
+
+/** How long the overlay holds for the film that is up. */
+export function stopSplashHoldMs(zoneId: number): number {
+  return zoneId === JOURNEY_ARRIVAL_SPLASH ? JOURNEY_ARRIVAL_HOLD_MS : STOP_SPLASH_HOLD_MS;
+}
+
+/**
  * A module store rather than a context, because the trigger is inside the
  * navigator and the overlay is above it. A provider spanning both would have to
  * wrap the Stack, and the one thing this overlay must not do is re-render the
@@ -125,8 +148,18 @@ function emit(): void {
  */
 export function playStopSplash(zoneId: number): void {
   if (stopSplashFor(zoneId) === null) return;
+  // THE ARRIVAL HAS PRIORITY. The journey mounts under it and asks for its own
+  // zone film as soon as its zone resolves; its guard only stands down for the
+  // SAME zone id, and the arrival is id 0. Dropping the request here keeps the
+  // descent playing without the journey screen needing to know about it.
+  if (zone === JOURNEY_ARRIVAL_SPLASH && zoneId !== JOURNEY_ARRIVAL_SPLASH) return;
   zone = zoneId;
   emit();
+}
+
+/** The boarding pass's door into the journey. Mobile twin of web's. */
+export function playJourneyArrivalSplash(): void {
+  playStopSplash(JOURNEY_ARRIVAL_SPLASH);
 }
 
 /**

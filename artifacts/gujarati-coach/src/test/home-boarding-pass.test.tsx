@@ -30,12 +30,19 @@ const h = vi.hoisted(() => ({
   playTearSfx: vi.fn(),
   webHaptic: vi.fn(),
   playStopSplash: vi.fn(),
+  playJourneyArrivalSplash: vi.fn(),
+  forgetJourneyReturn: vi.fn(),
 }));
 
 // Build 21: the pass starts the journey's arrival film at the tear. The real
 // store is a no-op on jsdom's wide viewport, so the call is spied here.
+// Since 2026-09-14 home calls playJourneyArrivalSplash (the journey arrival
+// film) and forgetJourneyReturn (Home is a door in, not a return). This mock
+// lacked both, so every test here threw on import of the page.
 vi.mock("@/lib/stop-splash", () => ({
   playStopSplash: h.playStopSplash,
+  playJourneyArrivalSplash: h.playJourneyArrivalSplash,
+  forgetJourneyReturn: h.forgetJourneyReturn,
   currentStopSplashZone: () => null,
 }));
 
@@ -179,6 +186,8 @@ beforeEach(() => {
   h.playTearSfx.mockClear();
   h.webHaptic.mockClear();
   h.playStopSplash.mockClear();
+  h.playJourneyArrivalSplash.mockClear();
+  h.forgetJourneyReturn.mockClear();
 });
 
 // THE ARRIVAL FILM STARTS AT THE TEAR (build 21, owner: "the click from
@@ -190,13 +199,17 @@ beforeEach(() => {
 // journey sees it up and stands down (journey.tsx). No current stop, no
 // film from here: the journey keeps its own arrival.
 describe("home boarding pass starts the arrival film at the tear (build 21)", () => {
-  test("activation with a current stop starts zone 1's film before navigating", async () => {
+  // INVERTED 2026-09-14: these pinned playStopSplash(1), the CURRENT ZONE'S
+  // film. The owner asked for "a new splash to play when coming from the
+  // boarding pass", so the pass now plays the journey arrival film
+  // (playJourneyArrivalSplash) whatever the zone, and never a zone film.
+  test("activation starts the journey arrival film before navigating", async () => {
     h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
     const { history } = renderHome();
     await userEvent.setup().click(screen.getByText("Resume").closest("a") as HTMLElement);
     // Fired at activation, in the tear's beat, not at the 500ms navigation.
-    expect(h.playStopSplash).toHaveBeenCalledTimes(1);
-    expect(h.playStopSplash).toHaveBeenCalledWith(1);
+    expect(h.playJourneyArrivalSplash).toHaveBeenCalledTimes(1);
+    expect(h.playStopSplash).not.toHaveBeenCalled();
     expect(history).not.toContain("/journey");
     await waitFor(() => expect(history).toContain("/journey"));
   });
@@ -206,15 +219,23 @@ describe("home boarding pass starts the arrival film at the tear (build 21)", ()
     h.groups = [grp({ status: "in_progress", masteredCount: 2, attemptedCount: 3 })];
     const { history } = renderHome();
     await userEvent.setup().click(screen.getByText("Resume").closest("a") as HTMLElement);
-    expect(h.playStopSplash).toHaveBeenCalledWith(1);
+    expect(h.playJourneyArrivalSplash).toHaveBeenCalledTimes(1);
     expect(history).toContain("/journey");
   });
 
-  test("with no current stop the pass starts no film: the journey keeps its own arrival", async () => {
+  // INVERTED 2026-09-14: with no current stop the pass used to start no film,
+  // because the zone film needed a zone to name. The arrival film needs none.
+  test("with no current stop the pass still plays the arrival film", async () => {
     h.groups = [];
     renderHome();
     await userEvent.setup().click(screen.getByText("Start").closest("a") as HTMLElement);
+    expect(h.playJourneyArrivalSplash).toHaveBeenCalledTimes(1);
     expect(h.playStopSplash).not.toHaveBeenCalled();
+  });
+
+  test("Home forgets any journey return note, so the next map mount is an arrival", () => {
+    renderHome();
+    expect(h.forgetJourneyReturn).toHaveBeenCalled();
   });
 });
 

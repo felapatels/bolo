@@ -28,24 +28,25 @@ describe("which band of the painting each postcard shows", () => {
   test("the six offsets are exactly this table", () => {
     // Exact-shape, the STALL_PLACEMENT idiom: mobile asserts the same six, so
     // a value edited on one platform fails on the other.
-    expect(ZONE_VISTA_Y).toEqual([8, 8, 8, 0, 8, 16]);
+    // Re-picked by eye for the new art, 2026-09-14 (was [8, 8, 8, 0, 8, 16]).
+    expect(ZONE_VISTA_Y).toEqual([40, 40, 8, 24, 8, 24]);
   });
 
-  test("four zones sit on the skyline and two do not, for stated reasons", () => {
-    // Zone 4's chai-stall street is roofed by awnings and lantern strings from
-    // its first row, so the skyline band lands inside an arcade and reads as
-    // mush at 56px. Zone 6's palace domes only clear the band that far down,
-    // and the terminus should look like one.
-    expect(zoneVistaY(3)).toBe(0);
-    expect(zoneVistaY(5)).toBe(16);
-    for (const skyline of [0, 1, 2, 4]) {
-      expect(zoneVistaY(skyline)).toBe(8);
-    }
+  test("shows each new painting's landmark, for stated reasons", () => {
+    // Re-picked 2026-09-14 when the owner replaced all six paintings. The old
+    // exceptions (zone 4 at 0, zone 6 at 16) described pictures that no longer
+    // exist. Now: the arch and the lane dome sit low in zones 1 and 2 (40),
+    // the clock face and the bazaar arches sit high in zones 3 and 5 (8), and
+    // the water tower and the fireworks over the domes sit between (24).
+    for (const low of [0, 1]) expect(zoneVistaY(low)).toBe(40);
+    for (const high of [2, 4]) expect(zoneVistaY(high)).toBe(8);
+    for (const mid of [3, 5]) expect(zoneVistaY(mid)).toBe(24);
   });
 
   test("an unknown zone falls back to the skyline rather than to zero", () => {
-    // Zero is a real, chosen value for zone 4, so it must not double as the
-    // "no idea" answer: a seventh zone should look like the other five.
+    // Zero is not a chosen value since the 2026-09-14 re-pick, but it still must
+    // not be the "no idea" answer: a band at the very top of an unknown
+    // painting is sky, and the skyline default is the safer guess.
     expect(zoneVistaY(99)).toBe(8);
   });
 

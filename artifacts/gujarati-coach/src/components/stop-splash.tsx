@@ -18,9 +18,9 @@ import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
   STOP_SPLASH_EXIT_MS,
-  STOP_SPLASH_HOLD_MS,
   endStopSplash,
   stopSplashFor,
+  stopSplashHoldMs,
   useStopSplashZone,
 } from "@/lib/stop-splash";
 
@@ -41,7 +41,7 @@ function StopSplashFilm({ zone }: { zone: number }) {
   // load must not trap the learner behind the overlay. Same failsafe reasoning
   // as the boot film's maximum hold.
   useEffect(() => {
-    const t = window.setTimeout(() => setExiting(true), STOP_SPLASH_HOLD_MS);
+    const t = window.setTimeout(() => setExiting(true), stopSplashHoldMs(zone));
     return () => window.clearTimeout(t);
   }, []);
 

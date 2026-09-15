@@ -36,9 +36,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import { PressableScale } from '@/components/PressableScale';
-import { JOURNEY_ZONES, getJourneyLine, getRailBrand } from '@/lib/journeyLines';
+import { getJourneyLine, getRailBrand } from '@/lib/journeyLines';
 import { useJourneyProgress } from '@/lib/useJourneyProgress';
-import { playStopSplash } from '@/lib/stopSplash';
+import { playJourneyArrivalSplash } from '@/lib/stopSplash';
 import { useLoopProgress } from '@/lib/useLoopProgress';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -390,22 +390,22 @@ export function JourneyPassCard({
   // overlay lives at the root above the stack, so started here it covers the
   // navigation and the map build, and home dissolves straight into the
   // scene. The journey sees the film already up for its zone and stands
-  // down (currentStopSplashZone). Journey 1's zone ids are the six in
-  // JOURNEY_ZONES; with no current stop there is no zone to name and the
-  // journey keeps its own arrival.
-  const arrivalZoneId = journey.current
-    ? (JOURNEY_ZONES[journey.current.zoneIndex]?.id ?? null)
-    : null;
+  // down (currentStopSplashZone).
+  //
+  // SINCE 2026-09-14 THE PASS PLAYS THE JOURNEY ARRIVAL, not the current zone's
+  // stop film (owner: "a new splash to play when coming from the boarding
+  // pass"). It is the same overlay and the same timing at the tear; only the
+  // film changed, and it plays with or without a current stop.
   const handleActivate = () => {
     if (tearingRef.current) return;
     if (reduceMotion) {
       // No tear to wait for: the film and the navigation come at once.
-      if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
+      playJourneyArrivalSplash();
       onPressRef.current();
       return;
     }
     schedule(() => {
-      if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
+      playJourneyArrivalSplash();
     }, TEAR_SPLASH_DELAY_MS);
     // R4: the recorded paper-tear SFX fires at the exact tear start, in the
     // same beat as PressableScale's press haptic. Fire-and-forget: it never

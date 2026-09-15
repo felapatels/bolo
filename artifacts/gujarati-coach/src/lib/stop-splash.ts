@@ -34,7 +34,16 @@ import { useSyncExternalStore } from "react";
  * stop in an unfilmed zone navigates instantly rather than failing. That is the
  * path a seventh zone would land on.
  */
+/**
+ * THE JOURNEY ARRIVAL, a film that belongs to no zone (owner, 2026-09-14: "a
+ * new splash to play when coming from the boarding pass"). A camera descends
+ * into zone 1's bazaar street; keyed 0 because no zone id is ever 0. Mobile
+ * twin: JOURNEY_ARRIVAL_SPLASH in lib/stopSplash.ts, same file.
+ */
+export const JOURNEY_ARRIVAL_SPLASH = 0;
+
 const FILMS: Record<number, string> = {
+  [JOURNEY_ARRIVAL_SPLASH]: `${import.meta.env.BASE_URL}journey/journey-arrival.mp4`,
   1: `${import.meta.env.BASE_URL}journey/stop-zone-1.mp4`,
   2: `${import.meta.env.BASE_URL}journey/stop-zone-2.mp4`,
   3: `${import.meta.env.BASE_URL}journey/stop-zone-3.mp4`,
@@ -53,6 +62,14 @@ export const STOP_SPLASH_HOLD_MS = 1200;
 
 /** The fade from the film to the stop page. */
 export const STOP_SPLASH_EXIT_MS = 260;
+
+/** The arrival film is watched, not covered for: most of its 5.1s descent. */
+export const JOURNEY_ARRIVAL_HOLD_MS = 4400;
+
+/** How long the overlay holds for the film that is up. */
+export function stopSplashHoldMs(zoneId: number): number {
+  return zoneId === JOURNEY_ARRIVAL_SPLASH ? JOURNEY_ARRIVAL_HOLD_MS : STOP_SPLASH_HOLD_MS;
+}
 
 /**
  * A module store rather than a context, because the trigger is inside the
@@ -117,8 +134,16 @@ function viewportIsNarrow(): boolean {
 export function playStopSplash(zoneId: number): void {
   if (stopSplashFor(zoneId) === null) return;
   if (!viewportIsNarrow()) return;
+  // THE ARRIVAL HAS PRIORITY: the journey mounts under it and asks for its own
+  // zone film, and its guard only stands down for the SAME id. Mobile twin.
+  if (zone === JOURNEY_ARRIVAL_SPLASH && zoneId !== JOURNEY_ARRIVAL_SPLASH) return;
   zone = zoneId;
   emit();
+}
+
+/** The boarding pass's door into the journey. Mobile twin of the same name. */
+export function playJourneyArrivalSplash(): void {
+  playStopSplash(JOURNEY_ARRIVAL_SPLASH);
 }
 
 /**
@@ -130,6 +155,41 @@ export function playStopSplash(zoneId: number): void {
  */
 export function currentStopSplashZone(): number | null {
   return zone;
+}
+
+/**
+ * BACK TO THE MAP IS NOT A NEW ARRIVAL (owner, 2026-09-14, on the phone: "old
+ * splash plays when i leave the Letters stop").
+ *
+ * The phone pops back to the journey screen it already has, and that screen
+ * plays its arrival film once per mount, so coming back from a stop, a game or
+ * a paywall never replays it. The web has no such stack: every return mounts a
+ * fresh journey page, and the film played on every one. So the page notes when
+ * the learner really leaves it (noteJourneyLeft, from its unmount) and its next
+ * mount reads the note instead of playing (takeJourneyReturn).
+ *
+ * THE DOORS THAT ARE A NEW ARRIVAL FORGET THE NOTE (forgetJourneyReturn), which
+ * are the ones that push a fresh journey on the phone: Home, whose boarding pass
+ * and View Map both lead in, and switching language from the picker. A reload
+ * or a deep link starts with no note at all, since this lives in memory.
+ */
+let journeyLeft = false;
+
+/** The journey page was left for another page. */
+export function noteJourneyLeft(): void {
+  journeyLeft = true;
+}
+
+/** True, once, when this journey mount is a return rather than an arrival. */
+export function takeJourneyReturn(): boolean {
+  const was = journeyLeft;
+  journeyLeft = false;
+  return was;
+}
+
+/** The next journey mount is an arrival: play its film. */
+export function forgetJourneyReturn(): void {
+  journeyLeft = false;
 }
 
 /** Called by the overlay when its fade finishes, or when a click skips it. */

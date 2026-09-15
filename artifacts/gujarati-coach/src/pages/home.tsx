@@ -34,8 +34,8 @@ import { useIsDesktop } from "@/hooks/use-mobile";
 import { useElementSize } from "@/hooks/use-element-size";
 import { getBadgeIcon } from "@/lib/badge-icons";
 import { useLanguage, useNativeText } from "@/lib/language-context";
-import { JOURNEY_ZONES, getRailBrand, getJourneyLine } from "@/lib/journeyLines";
-import { playStopSplash } from "@/lib/stop-splash";
+import { getRailBrand, getJourneyLine } from "@/lib/journeyLines";
+import { forgetJourneyReturn, playJourneyArrivalSplash } from "@/lib/stop-splash";
 import { useJourneyProgress } from "@/lib/useJourneyProgress";
 import { TrainEngine } from "@/components/train-svg";
 import { STEAM_CANVAS_SHARE, TRAIN_CHIMNEY, TrainSteam } from "@/components/train-steam";
@@ -491,6 +491,10 @@ export default function Home() {
   );
   // Pre-warm the AudioContext for the tear SFX so the first play has zero lag.
   useEffect(() => { preloadTearAudio(); }, []);
+  // Home is a door INTO the journey, not a stop the learner returns from, so the
+  // map's next mount is an arrival and plays its film (lib/stop-splash
+  // forgetJourneyReturn). Without this, stop, Home, View Map read as a return.
+  useEffect(() => { forgetJourneyReturn(); }, []);
   // Pass activation: analytics, then the stub tear, then the journey.
   // Navigation is NEVER blocked: reduced motion returns early so the Link
   // navigates natively and instantly, and any animation-path failure falls
@@ -511,7 +515,10 @@ export default function Home() {
     // scene; the journey sees it up and stands down. A no-op on a wide
     // viewport, where the film never plays. Mobile twin: JourneyPassCard's
     // handleActivate.
-    if (arrivalZoneId != null) playStopSplash(arrivalZoneId);
+    // Since 2026-09-14 the pass plays the JOURNEY ARRIVAL, a descent into zone
+    // 1's street, not the current zone's stop film (owner: "a new splash to
+    // play when coming from the boarding pass").
+    playJourneyArrivalSplash();
     if (reduceMotion) return; // instant native Link navigation
     try {
       e.preventDefault();
@@ -551,12 +558,6 @@ export default function Home() {
   const journeyLine = getJourneyLine(activeLang);
   const railBrand = getRailBrand(activeLang);
   const journey = useJourneyProgress(activeLang, journeyLine.zones);
-  // The zone whose film the pass starts at the tear (handlePassActivate).
-  // Journey 1's zone ids are the six in JOURNEY_ZONES; with no current stop
-  // there is no zone to name and the journey keeps its own arrival.
-  const arrivalZoneId = journey.current
-    ? (JOURNEY_ZONES[journey.current.zoneIndex]?.id ?? null)
-    : null;
   // The board's content box, measured, so the whole face can scale with it.
   // See homeBoardScale.
   const passContent = useElementSize<HTMLDivElement>();

@@ -21,12 +21,12 @@
 
 /** The paintings, in fare-zone order, keyed by 0-based zone ordinal. */
 export const ZONE_BACKDROPS: readonly string[] = [
-  `${import.meta.env.BASE_URL}journey/zone-1.jpg`, // gateway arch, a town waking up
-  `${import.meta.env.BASE_URL}journey/zone-2.jpg`, // family lane, balconies and carrom
-  `${import.meta.env.BASE_URL}journey/zone-3.jpg`, // clock tower over a market square
-  `${import.meta.env.BASE_URL}journey/zone-4.jpg`, // chai stalls and food carts
-  `${import.meta.env.BASE_URL}journey/zone-5.jpg`, // covered bazaar
-  `${import.meta.env.BASE_URL}journey/zone-6.jpg`, // the festival palace finale
+  `${import.meta.env.BASE_URL}journey/zone-1.jpg`, // sunrise bazaar street to the gateway arch (new art 2026-09-14)
+  `${import.meta.env.BASE_URL}journey/zone-2.jpg`, // family lane, carrom and a grandmother on the step
+  `${import.meta.env.BASE_URL}journey/zone-3.jpg`, // clock tower at the end of a market square
+  `${import.meta.env.BASE_URL}journey/zone-4.jpg`, // food lane, chai and fritters, late afternoon
+  `${import.meta.env.BASE_URL}journey/zone-5.jpg`, // covered bazaar under stone arches, lamplight
+  `${import.meta.env.BASE_URL}journey/zone-6.jpg`, // festival night and fireworks at the three-domed palace
 ];
 
 /**
@@ -40,12 +40,12 @@ export const ZONE_BACKDROPS: readonly string[] = [
  * reason a colour bridge works here at all.
  */
 export const ZONE_FOOT_TONES: readonly string[] = [
-  "#8B5C50",
-  "#926F62",
-  "#905B4C",
-  "#7F5049",
-  "#A47966",
-  "#9E6346",
+  "#A17C60",
+  "#E4B77F",
+  "#C09A71",
+  "#AA856A",
+  "#785A46",
+  "#9C745A",
 ];
 
 /** The painting for a fare zone, or null past the end of the set. */
@@ -80,8 +80,23 @@ export function zoneBackdrop(zoneIndex: number): string | null {
  * ZONE 6 SITS AT 16 BECAUSE THE TERMINUS SHOULD LOOK LIKE ONE. The palace's
  * three domes only clear the band's bottom edge that far down; at 8 the
  * fireworks are lovely and the palace is a clipped hint.
+ *
+* RE-PICKED 2026-09-14 FOR THE NEW ART, THE SAME WAY: all six candidate bands
+ * (0, 8, 16, 24, 32, 40) cut at 350x56 from each new painting and compared as a
+ * set. The owner replaced the dense festival-night paintings with a hand-inked
+ * travel-book set that walks through one day, so the old reasons below no
+ * longer describe any picture:
+ *   zone 1 at 40: the gateway arch and its garlands, under the sunrise
+ *   zone 2 at 40: balconies with the rooftop dome and water tank
+ *   zone 3 at 8:  the clock face on its tower
+ *   zone 4 at 24: the water tower above the food lane's roofs
+ *   zone 5 at 8:  the repeating stone arches of the covered bazaar
+ *   zone 6 at 24: fireworks over the palace's three domes
+ * The paintings are 860x1359 (ZONE_VISTA.artW/artH), which is also what the
+ * line above saying 1280x2276 should have said; they are cut from each zone
+ * film's first frame.
  */
-export const ZONE_VISTA_Y: readonly number[] = [8, 8, 8, 0, 8, 16];
+export const ZONE_VISTA_Y: readonly number[] = [40, 40, 8, 24, 8, 24];
 
 /** The postcard's picture side, and the fallback when a zone has no painting. */
 export const ZONE_VISTA = {

@@ -28,12 +28,12 @@
 
 /** The paintings, in fare-zone order. */
 export const ZONE_BACKDROPS: readonly number[] = [
-  require('../assets/journey/zone-1.jpg') as number, // gateway arch, a town waking up
-  require('../assets/journey/zone-2.jpg') as number, // family lane, balconies and carrom
-  require('../assets/journey/zone-3.jpg') as number, // clock tower over a market square
-  require('../assets/journey/zone-4.jpg') as number, // chai stalls and food carts
-  require('../assets/journey/zone-5.jpg') as number, // covered bazaar
-  require('../assets/journey/zone-6.jpg') as number, // the festival palace finale
+  require('../assets/journey/zone-1.jpg') as number, // sunrise bazaar street to the gateway arch (new art 2026-09-14)
+  require('../assets/journey/zone-2.jpg') as number, // family lane, carrom and a grandmother on the step
+  require('../assets/journey/zone-3.jpg') as number, // clock tower at the end of a market square
+  require('../assets/journey/zone-4.jpg') as number, // food lane, chai and fritters, late afternoon
+  require('../assets/journey/zone-5.jpg') as number, // covered bazaar under stone arches, lamplight
+  require('../assets/journey/zone-6.jpg') as number, // festival night and fireworks at the three-domed palace
 ];
 
 /**
@@ -47,12 +47,12 @@ export const ZONE_BACKDROPS: readonly number[] = [
  * reason a colour bridge works here at all.
  */
 export const ZONE_FOOT_TONES: readonly string[] = [
-  '#8B5C50',
-  '#926F62',
-  '#905B4C',
-  '#7F5049',
-  '#A47966',
-  '#9E6346',
+  '#A17C60',
+  '#E4B77F',
+  '#C09A71',
+  '#AA856A',
+  '#785A46',
+  '#9C745A',
 ];
 
 /** The painting for a fare zone, or null past the end of the set. */
@@ -87,8 +87,23 @@ export function zoneBackdrop(zoneIndex: number): number | null {
  * ZONE 6 SITS AT 16 BECAUSE THE TERMINUS SHOULD LOOK LIKE ONE. The palace's
  * three domes only clear the band's bottom edge that far down; at 8 the
  * fireworks are lovely and the palace is a clipped hint.
+ *
+* RE-PICKED 2026-09-14 FOR THE NEW ART, THE SAME WAY: all six candidate bands
+ * (0, 8, 16, 24, 32, 40) cut at 350x56 from each new painting and compared as a
+ * set. The owner replaced the dense festival-night paintings with a hand-inked
+ * travel-book set that walks through one day, so the old reasons below no
+ * longer describe any picture:
+ *   zone 1 at 40: the gateway arch and its garlands, under the sunrise
+ *   zone 2 at 40: balconies with the rooftop dome and water tank
+ *   zone 3 at 8:  the clock face on its tower
+ *   zone 4 at 24: the water tower above the food lane's roofs
+ *   zone 5 at 8:  the repeating stone arches of the covered bazaar
+ *   zone 6 at 24: fireworks over the palace's three domes
+ * The paintings are 860x1359 (ZONE_VISTA.artW/artH), which is also what the
+ * line above saying 1280x2276 should have said; they are cut from each zone
+ * film's first frame.
  */
-export const ZONE_VISTA_Y: readonly number[] = [8, 8, 8, 0, 8, 16];
+export const ZONE_VISTA_Y: readonly number[] = [40, 40, 8, 24, 8, 24];
 
 /** The postcard's picture side, and the fallback when a zone has no painting. */
 export const ZONE_VISTA = {
@@ -390,12 +405,15 @@ export function wideBackdrop(zoneIndex: number): number {
  * PORTRAIT, so these are the PHONE's backdrops. The films are 9:16; the iPad's
  * paintings are 16:9 and stay still until 16:9 films exist.
  *
- * Trimmed before encoding: three of the six opened on a completely different
- * street for two seconds before dissolving into their real scene, which no
- * scene detector found because the change is a dissolve rather than a cut. They
- * were cut by eye at 2.5s. 720 wide, 24fps, no audio, about 1MB each against
- * the 6 to 11MB they arrived at, which is the difference between a feature and
- * 45MB of bundle.
+ * REPLACED 2026-09-14 with the owner's new hand-inked set (source files in
+ * ~/Downloads/India new art). Each is 1080x1920, 24fps, no audio, crf 26, with
+ * its LAST SECOND DISSOLVED INTO ITS FIRST, because the layer hard-loops
+ * (`p.loop = true`) and a raw generation snaps back to frame one. The wrap is
+ * measured against each film's own motion at 64x64 grey, not against zero:
+ * every seam sits within its film's normal frame-to-frame range. Lengths follow
+ * the sources (9, 4, 7, 7, 7, 7s). Zone 3's two small scribbled wall plaques
+ * beside the fountain are painted out with fixed delogo patches (the camera is
+ * locked, so the patch never drifts). About 0.6 to 2.7MB each.
  */
 const ZONE_FILMS: readonly number[] = [
   require('../assets/journey/zone-film/zone-1.mp4') as number,
@@ -461,12 +479,12 @@ export const WIDE_BACKDROP_ASPECT_H = 9 / 16;
  * somebody pasted one.
  */
 export const ZONE_FILM_TONES: readonly string[] = [
-  '#B89383',
-  '#C4A18B',
-  '#A38C75',
-  '#8A6E5D',
-  '#B59175',
-  '#9A7B70',
+  '#A48969',
+  '#BE9F78',
+  '#C5AB89',
+  '#9D8670',
+  '#6D5342',
+  '#7F6357',
 ];
 
 /** The ground under a zone's film, falling back to the splash ground. */
