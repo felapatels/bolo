@@ -245,7 +245,15 @@ STRIPE_CHAI_PACK_MEDIUM_PRICE_ID = "price_1U3OckQGRH9PxNfstmlQVapG"
 STRIPE_CHAI_PACK_SMALL_PRICE_ID = "price_1U3OcjQGRH9PxNfstkTTUcM4"
 
 [userenv.development]
-TTS_PREWARM_CHAR_BUDGET = "200000"
+# THE DEV SERVER PRE-WARMS NOTHING, since 2026-09-15 (ledger X110). This was
+# "200000", set 2026-07-27 when phrase audio was cheap gpt-4o-mini-tts. Since
+# cc007c2f put eleven languages on ElevenLabs, every dev boot paid ElevenLabs to
+# re-make the phrase library into the DEV tts_cache, which no learner hears:
+# Sentry caught the dev Repl doing it for 40 minutes after a Shell pull. Zero
+# is charBudget()'s documented "no synthesis"; dev playback still synthesizes a
+# phrase the first time someone plays it. Production has no entry and keeps
+# ttsPrewarm.ts's default.
+TTS_PREWARM_CHAR_BUDGET = "0"
 EXPO_PUBLIC_POSTHOG_KEY = "phc_rVRdQdrVqY8WCSSuN5LmDCJmbNP3jcev6Fj38rizwHnZ"
 EXPO_PUBLIC_SENTRY_DSN = "https://e2cb7c3de332d7b155a2685061c4de8c@o4511813816352768.ingest.us.sentry.io/4511813833850880"
 SENTRY_DSN = "https://66f503a1d368e6f14ade9d5207d0d88b@o4511813816352768.ingest.us.sentry.io/4511813826117632"
