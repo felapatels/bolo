@@ -6,8 +6,15 @@
  * suite gives: no binaries, runs anywhere. Each word is two vowels in sequence,
  * the smallest sound with a spectral trajectory, which is what the comparer
  * needs (a held vowel is invisible to it after mean normalisation).
+ *
+ * WHY speechCapability ARRIVES BY DYNAMIC IMPORT UNDER A DATABASE MOCK
+ * (2026-09-15). It imports @workspace/db, whose index throws when DATABASE_URL
+ * is unset, and this file is in pure-tests.txt, which runs with no database.
+ * Imported statically, the file failed to load and none of its tests ran, and
+ * the pure run's summary does not say so (the X77 shape). Found by Bolo East
+ * porting this file. gatesOnScoreFor is pure, so the mock's db is never read.
  */
-import test from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 
 import {
@@ -18,7 +25,11 @@ import {
   REFERENCE_SCORED_LANGUAGES,
 } from "./referenceScoring";
 import { compareToReference, compareToReferences } from "./pronunciationCompare";
-import { gatesOnScoreFor } from "./speechCapability";
+import { createDbMockExports } from "../test/dbMock";
+
+mock.module("@workspace/db", { namedExports: createDbMockExports({}) });
+
+const { gatesOnScoreFor } = await import("./speechCapability");
 
 function wav(samples: Int16Array, sampleRate = 16000): Buffer {
   const data = Buffer.alloc(samples.length * 2);
