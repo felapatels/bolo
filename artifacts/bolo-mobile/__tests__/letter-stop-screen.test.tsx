@@ -283,7 +283,17 @@ describe('the letter stop screen', () => {
     mockState.isPlus = false;
     mockState.params = { journey: '1', zone: '2' };
     render(<LetterStopScreen />);
-    expect(mockState.replace).toHaveBeenCalledWith('/(app)/paywall');
+    // INVERTED 2026-09-15: this pinned a bare '/(app)/paywall'. The owner's
+    // ordered stop purchase ruling (2026-09-11, 365d47fe,
+    // docs/handoffs/2026-09-11-ordered-stop-purchases.md: "any Zone 1 stop is
+    // free, all later stop types can be bought") sends a learner who neither
+    // has All-Access nor owns this stop to the paywall's purchase for THIS
+    // letter stop, so the replace now names it. Still a replace, still the
+    // paywall, still only past zone 1.
+    expect(mockState.replace).toHaveBeenCalledWith({
+      pathname: '/(app)/paywall',
+      params: { reason: 'journey_stop', lang: 'hi', stopKind: 'letter', journey: '1', zone: '2' },
+    });
   });
 
   it('says so rather than rendering an empty stop when the link carries no zone', () => {

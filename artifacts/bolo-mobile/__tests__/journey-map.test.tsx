@@ -383,11 +383,30 @@ describe('journey map — station state rendering', () => {
     expect(screen.getByText('EXPRESS')).toBeOnTheScreen(); // tested_out stamp
     expect(screen.getByText(/In progress/)).toBeOnTheScreen();
     expect(screen.getByText('3/8 mastered')).toBeOnTheScreen();
-    // The ALL-ACCESS chip renders ONLY where the server serves the stop
-    // plan-locked; a served-unlocked sentence stop (Plus caller, or the Hindi
-    // Zone 1 carve-out) shows no entitlement chip. Exactly one chip here: the
-    // planLocked sentence stop in zone 4, not the open one in zone 3.
-    expect(screen.getAllByText('ALL-ACCESS').length).toBe(1);
+    // INVERTED 2026-09-15 (suites triage; ledger X112). This pinned exactly ONE
+    // chip, on the rule "the ALL-ACCESS chip renders ONLY where the server
+    // serves the stop plan-locked", so the open sentence stop in zone 3 wore
+    // none. The owner's ordered stop purchase ruling of 2026-09-11 (365d47fe,
+    // docs/handoffs/2026-09-11-ordered-stop-purchases.md) replaced that rule:
+    // "Zones 2-6 and their stop cards show the existing brass All-Access badge
+    // ... including already owned/subscribed stops", and zone 1 wears none.
+    // journey.tsx says so at the plate ("ALL-ACCESS on Zones 2-6 regardless of
+    // ownership"). It shipped with no suites run, so this went stale that day.
+    //
+    // India's count is 25, not the 15 Europe and Africa pinned: each zone 2 to
+    // 6 here draws its one graded stop plus the tracing, story AND letter rows
+    // (the letter stop is India's own), so 5 boards + 5 zones x 4 rows.
+    expect(screen.queryAllByTestId(/^stop-all-access-1-/)).toHaveLength(0);
+    expect(screen.queryByTestId('zone-all-access-1')).toBeNull();
+    for (const zone of [2, 3, 4, 5, 6]) {
+      expect(screen.getByTestId(`zone-all-access-${zone}`)).toBeOnTheScreen();
+      expect(screen.getAllByTestId(new RegExp(`^stop-all-access-${zone}-`))).toHaveLength(4);
+    }
+    // The open sentence stop in zone 3 wears it now, as the plan-locked one in
+    // zone 4 always did.
+    expect(screen.getByTestId('stop-all-access-3-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('stop-all-access-4-1')).toBeOnTheScreen();
+    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(25);
     expect(screen.getByText(/Now boarding/)).toBeOnTheScreen(); // Plus sentence stop is open
     // TWO, NOT THREE, from 2026-08-25. A plan-locked stop is served a
     // plan-visible count of ZERO, so "Locked · 0 phrases" was never
@@ -1563,12 +1582,31 @@ describe('journey map — the tracing stop', () => {
     // and now the letter taste, three free offers in one zone.
     // ALL-ACCESS 1 -> 2 -> 3 for zone 2's own three spliced rows, all
     // plan-locked, all carrying the chip.
-    expect(screen.getAllByText('FREE TASTE').length).toBe(3);
+    //
+    // INVERTED 2026-09-15 (suites triage): FREE TASTE 3 -> 0. The owner's
+    // ordered stop purchase ruling of 2026-09-11 (365d47fe): "Journey 1 Zone 1
+    // remains free in every language on the Free plan, including full
+    // story/tracing stops". rowStations clears planLocked and teaserStation on
+    // zone 1's tracing, story and letter rows (`i === 0`), so none is a taste
+    // any more. The fixture's phrase stops carry no taste either.
+    expect(screen.queryAllByText('FREE TASTE')).toHaveLength(0);
     // 2 -> 4 (chat 11): the plate went from sentence/trace/story-only to
     // EVERY plan-locked stop, on the owner's instruction ("Zone 3 and onward
     // every stop should have this badge"), so the two plan-locked WORD stops
     // in this fixture wear it too. 4 -> 5 for zone 2's letter row.
-    expect(screen.getAllByText('ALL-ACCESS').length).toBe(5);
+    // 5 -> 9, INVERTED 2026-09-15 (suites triage). The same ruling moved the
+    // plate from "plan-locked" to "in zones 2 to 6, on every board and stop
+    // card": zone 1's plan-locked word stop wears none now; zone 2's board and
+    // its four rows (graded, tracing, story, letter) wear one each; and zones 3
+    // to 6, empty in this fixture, draw no rows but still draw a board, and
+    // each board wears one. 5 + 4 = 9.
+    expect(screen.queryAllByTestId(/^stop-all-access-1-/)).toHaveLength(0);
+    expect(screen.queryByTestId('zone-all-access-1')).toBeNull();
+    expect(screen.getAllByTestId(/^stop-all-access-2-/)).toHaveLength(4);
+    for (const zone of [2, 3, 4, 5, 6]) {
+      expect(screen.getByTestId(`zone-all-access-${zone}`)).toBeOnTheScreen();
+    }
+    expect(screen.getAllByText('ALL-ACCESS').length).toBe(9);
     fireEvent.press(screen.getByLabelText(/Stop 2 of 5: Trace/));
     expect(mockState.push).toHaveBeenCalledWith({
       pathname: '/(app)/(tabs)/games/script-trace',

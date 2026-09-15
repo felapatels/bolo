@@ -325,14 +325,33 @@ describe('journey map — showroom mode (locked language)', () => {
     // badges should be on stops 2 and 3 zone 1 of all languages except Hindi
     // for Free learners", and stop 4 is a taste on the same ruling, which the
     // server route enforces at journey 1 zone 1 in every language.
-    expect(screen.getAllByText('FREE TASTE')).toHaveLength(4);
+    //
+    // INVERTED 2026-09-15 (suites triage; ledger X112): ONE CHIP, not four. The
+    // owner's ordered stop purchase ruling of 2026-09-11 (365d47fe,
+    // docs/handoffs/2026-09-11-ordered-stop-purchases.md: "Journey 1 Zone 1
+    // remains free in every language on the Free plan, including full
+    // story/tracing stops") made zone 1's tracing, story and letter rows free in
+    // full, so rowStations clears planLocked and teaserStation on them
+    // (`i === 0`). Only the server's phrase taste on stop 1 keeps its chip.
+    expect(screen.getAllByText('FREE TASTE')).toHaveLength(1);
     // FIFTEEN ALL-ACCESS PLATES, none of them in zone 1: the five later zones
     // each draw a tracing, a story and a letter row in the showroom (owner,
     // build 23: "Every zone for every language should have a script trace and
     // a story stop"), and those rows are All-Access, which is what the plate
     // says. Was 10 with two rows a zone, and queryByText(...).toBeNull()
     // before that, when later zones drew no rows at all.
-    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(15);
+    //
+    // INVERTED 2026-09-15 (suites triage): TWENTY-FIVE. The same ruling put the
+    // plate on "Zones 2-6 and their stop cards ... including already
+    // owned/subscribed stops", graded or not, and on every zone 2 to 6 board.
+    // So each later zone's graded stop wears one beside its three spliced rows,
+    // and its board wears one: 5 boards + 5 zones x 4 rows. Zone 1 wears none.
+    expect(screen.queryAllByTestId(/^stop-all-access-1-/)).toHaveLength(0);
+    for (const zone of [2, 3, 4, 5, 6]) {
+      expect(screen.getByTestId(`zone-all-access-${zone}`)).toBeOnTheScreen();
+      expect(screen.getAllByTestId(new RegExp(`^stop-all-access-${zone}-`))).toHaveLength(4);
+    }
+    expect(screen.getAllByText('ALL-ACCESS')).toHaveLength(25);
     // EVERY ZONE'S BOARD IS IN THE TREE NOW, one per zone, because the boards
     // are hand-pinned overlays rather than one swapping card: each tracks its
     // own place, sticks at the top, and is pushed off by the next. So the
@@ -387,7 +406,27 @@ describe('journey map — showroom mode (locked language)', () => {
     // stop plus the tracing, story and letter rows, drawn in every zone since
     // build 23); take the first. Was "of 3" with two spliced rows and "of 1"
     // while later zones drew none.
-    fireEvent.press(screen.getAllByLabelText('Stop 1 of 4: Locked')[0]);
+    //
+    // INVERTED 2026-09-15 (suites triage). This pressed a later zone's locked
+    // stop and expected the exhausted dialog with no navigation. Since the
+    // owner's ordered stop purchase ruling of 2026-09-11 ("any Zone 1 stop is
+    // free, all later stop types can be bought"; 365d47fe), a learner without
+    // All-Access who does not own a zone 2 to 6 stop is sent to that stop's own
+    // purchase on the paywall before any dialog, showroom included. So the tap
+    // pushes the journey_stop paywall for zone 2 and opens no dialog. Matched
+    // by prefix because the row's label carries its play kind since the voice
+    // games (68f2ca7c).
+    fireEvent.press(screen.getAllByLabelText(/^Stop 1 of 4: Locked/)[0]);
+    expect(mockState.push).toHaveBeenCalledWith({
+      pathname: '/(app)/paywall',
+      params: expect.objectContaining({ reason: 'journey_stop', lang: 'ta', zone: '2' }),
+    });
+    expect(screen.queryByText("You've tried this line!")).toBeNull();
+    mockState.push.mockClear();
+
+    // The exhausted copy is still the dialog's, reached from zone 1's locked
+    // phrase stop (row 5), which no stop purchase gates.
+    fireEvent.press(screen.getByLabelText('Stop 5 of 5: Locked'));
     expect(screen.getByText("You've tried this line!")).toBeOnTheScreen();
     expect(mockState.push).not.toHaveBeenCalled();
 
