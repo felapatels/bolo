@@ -263,9 +263,21 @@ function AnswerBackRound({
     setAudioPlaying(false);
   }, []);
 
-  /** Last Call's playPhrase, unchanged: resolves when done, failed or stopped. */
+  /**
+   * Last Call's playPhrase, plus WHO speaks: resolves when done, failed or stopped.
+   *
+   * THE KEEPER'S LINE IS THE ELDER'S VOICE (owner ruling 2026-09-15, option A,
+   * under the 2026-09-13 voice roles rule: the bird is the coach, the elder is
+   * always different). Every place Chacha-ji speaks passes 'elder': the opening
+   * line, each re-ask and "Hear again". The learner's right reply after a miss
+   * stays 'coach', the model answer in the voice practice uses. The coach's
+   * request is byte-identical to what it was, so its server cache key is too;
+   * the elder's adds languageCode, which the server needs to pick his voice.
+   * The speaker is in the local cache key because one phrase can be his line in
+   * one exchange and the learner's reply in another.
+   */
   const playPhrase = React.useCallback(
-    (phrase: Phrase): Promise<void> =>
+    (phrase: Phrase, speaker: 'coach' | 'elder'): Promise<void> =>
       new Promise((resolve) => {
         if (!soundOnRef.current) {
           resolve();
@@ -275,10 +287,16 @@ function AnswerBackRound({
         const token = playTokenRef.current;
         void (async () => {
           try {
-            const key = `${phrase.id}:${ttsVoice}`;
+            // The learner's saved voice re-voices the coach only; the elder is one man.
+            const key = speaker === 'elder' ? `${phrase.id}:elder` : `${phrase.id}:${ttsVoice}`;
             const res =
               audioCache.current.get(key) ??
-              (await synth.mutateAsync({ data: { text: phrase.nativeScript, languageName: activeLanguage?.name } }));
+              (await synth.mutateAsync({
+                data:
+                  speaker === 'elder'
+                    ? { text: phrase.nativeScript, languageName: activeLanguage?.name, languageCode: activeLang, speaker: 'elder' }
+                    : { text: phrase.nativeScript, languageName: activeLanguage?.name },
+              }));
             audioCache.current.set(key, { audioBase64: res.audioBase64, format: res.format || 'mp3' });
             if (token !== playTokenRef.current || !aliveRef.current) return resolve();
             setAudioPlaying(true);
@@ -300,7 +318,7 @@ function AnswerBackRound({
           }
         })();
       }),
-    [activeLanguage?.name, stopPlayback, synth, ttsVoice],
+    [activeLang, activeLanguage?.name, stopPlayback, synth, ttsVoice],
   );
 
   // ── Recorder, scorer and the attempts path ──────────────────────────────
@@ -360,7 +378,7 @@ function AnswerBackRound({
   // ── The keeper says the line: on every new line and every re-ask ─────────
   React.useEffect(() => {
     if (state.status !== 'asking' || !exchange) return;
-    void playPhrase(exchange.promptPhrase);
+    void playPhrase(exchange.promptPhrase, 'elder');
     // askSeq is the trigger; a speak_cancel returns to asking without a new
     // askSeq, so the keeper does not repeat himself over a failed recorder.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -464,7 +482,7 @@ function AnswerBackRound({
         playCue('wrong');
         const started = Date.now();
         // Hear the right reply before trying again (or before the next line).
-        await playPhrase(ex.replyPhrase);
+        await playPhrase(ex.replyPhrase, 'coach');
         await beat(Math.max(400, MISS_BEAT_MS - (Date.now() - started)));
       } else {
         // nocatch or a scoring timeout: a system miss, no warning haptic and
@@ -665,7 +683,7 @@ function AnswerBackRound({
                   <Pressable
                     onPress={() => {
                       hapticLight();
-                      void playPhrase(exchange.promptPhrase);
+                      void playPhrase(exchange.promptPhrase, 'elder');
                     }}
                     disabled={!soundOn || state.status !== 'asking'}
                     accessibilityRole="button"
