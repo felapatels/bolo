@@ -105,28 +105,44 @@ describe("a tracing stop opens its own session", () => {
     expect(screen.getByText("Choose a chapter to practice")).toBeInTheDocument();
   });
 
-  test("a Free learner tastes three characters of zone 1, in any language", () => {
+  // INVERTED 2026-09-15 (suites triage; ledger X112). This pinned a THREE
+  // character taste with a "Free taste" label. The owner's ordered stop
+  // purchase ruling of 2026-09-11 (365d47fe, docs/handoffs/2026-09-11-ordered-
+  // stop-purchases.md: "Journey 1 Zone 1 remains free in every language on the
+  // Free plan, including full story/tracing stops") made the whole of zone 1's
+  // tracing stop free; the page says so at `tasting = false`. A Free learner
+  // now gets every character of it, exactly as a paying learner does below.
+  // traceTeaserCharacters is still checked, because the helper still exists.
+  test("a Free learner gets the whole of zone 1's tracing stop, in any language", () => {
     h.isPlus = false;
     const taste = traceTeaserCharacters("gu");
     expect(taste).toHaveLength(TRACE_TEASER_LIMIT);
+    const stop = traceStopFor("gu", 1, 1)!;
+    expect(stop.characters.length).toBeGreaterThan(TRACE_TEASER_LIMIT);
     renderAt("/games/script-trace?journey=1&zone=1");
     // Not the paywall, which is where every non-Plus learner used to land.
     expect(document.body.textContent).not.toContain("Choose a chapter");
-    expect(document.body.textContent).toContain(`1 / ${TRACE_TEASER_LIMIT}`);
-    expect(document.body.textContent).toContain("Free taste");
-    expect(document.body.textContent).toContain(taste[0]!.label);
+    expect(document.body.textContent).toContain(`1 / ${stop.characters.length}`);
+    expect(document.body.textContent).not.toContain("Free taste");
+    expect(document.body.textContent).toContain(stop.characters[0]!.label);
   });
 
-  test("a Free learner gets no further than the taste", () => {
+  // INVERTED 2026-09-15 (suites triage): later stops still land on the
+  // upgrade page, but a stop now lands on ITS OWN purchase there. The same
+  // 2026-09-11 ruling (365d47fe: "all later stop types can be bought",
+  // in journey order) redirects through journeyStopUpgradeHref, so the URL
+  // names the stop. Only the bare chapter menu, which is no stop, still goes to
+  // the plain "/upgrade".
+  test("a Free learner gets no further than zone 1", () => {
     h.isPlus = false;
     // Later zones stay paid, and so does the chapter menu.
-    for (const path of [
-      "/games/script-trace?journey=1&zone=3",
-      "/games/script-trace?journey=2&zone=1",
-      "/games/script-trace",
-    ]) {
+    for (const [path, expected] of [
+      ["/games/script-trace?journey=1&zone=3", "/upgrade?reason=journey_stop&lang=gu&stopKind=trace&journey=1&zone=3"],
+      ["/games/script-trace?journey=2&zone=1", "/upgrade?reason=journey_stop&lang=gu&stopKind=trace&journey=2&zone=1"],
+      ["/games/script-trace", "/upgrade"],
+    ] as const) {
       const { loc, unmount } = renderAt(path);
-      expect(loc.history[loc.history.length - 1], path).toBe("/upgrade");
+      expect(loc.history[loc.history.length - 1], path).toBe(expected);
       unmount();
     }
   });

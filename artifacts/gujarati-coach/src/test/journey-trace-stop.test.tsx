@@ -232,7 +232,14 @@ describe("the tracing stop as the journey map draws it", () => {
     // "of 12" for the same reason as above: the story and letter stops are
     // rows too. On the label since build 18: the chalkboard prints no number.
     expect(card.getAttribute("aria-label")).toMatch(/^Stop 2 of 12:/);
-    expect(within(card).getByText("Free taste")).toBeInTheDocument();
+    // INVERTED 2026-09-15 (suites triage; ledger X112): no "Free taste" chip.
+    // The owner's ordered stop purchase ruling of 2026-09-11 (365d47fe,
+    // docs/handoffs/2026-09-11-ordered-stop-purchases.md: "Journey 1 Zone 1
+    // remains free in every language on the Free plan, including full
+    // story/tracing stops") made zone 1's tracing stop free in full, so it is
+    // no longer a taste and says nothing about one. It is still open: a link.
+    expect(within(card).queryByText("Free taste")).toBeNull();
+    expect(card.tagName).toBe("A");
 
     // Every later zone is All-Access, and is a button (the lock dialog), not a
     // link. An honest lock beats a card that opens onto the paywall.
