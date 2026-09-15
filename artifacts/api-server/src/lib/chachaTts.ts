@@ -2,8 +2,7 @@ import { Buffer } from "node:buffer";
 import { openai } from "@workspace/integrations-openai-ai-server/audio";
 import {
   CHACHA_TTS_INSTRUCTIONS,
-  CHACHA_TTS_MODEL,
-  CHACHA_TTS_VOICE,
+  uncleSynthesisIdentity,
 } from "./chachaStrings";
 
 /**
@@ -18,12 +17,20 @@ import {
  * cost this repo: the route and the prewarm each synthesizing with their own
  * idea of the model, voice or instructions is exactly how a cache key and the
  * clip behind it drift apart.
+ *
+ * THE LANGUAGE ARGUMENT, 2026-09-15 (Answer Back's elder voice, owner ruling
+ * option A). The identity now comes from uncleSynthesisIdentity, the forks'
+ * resolver, so the elder phrase route calls this with the same signature in all
+ * six repos. In India every language resolves to the same OpenAI identity as
+ * before, so the stall, the call and the prewarm, which pass no language, make
+ * the byte-identical request they always made.
  */
-export async function synthesizeChachaLine(text: string): Promise<Buffer> {
+export async function synthesizeChachaLine(text: string, languageCode = "hi"): Promise<Buffer> {
+  const identity = uncleSynthesisIdentity(languageCode);
   const response = await openai.audio.speech.create({
-    model: CHACHA_TTS_MODEL,
+    model: identity.model,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    voice: CHACHA_TTS_VOICE as any,
+    voice: identity.voice as any,
     input: text,
     instructions: CHACHA_TTS_INSTRUCTIONS,
     response_format: "mp3",

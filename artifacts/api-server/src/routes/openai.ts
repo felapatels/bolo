@@ -129,6 +129,8 @@ import {
   CHACHA_TTS_MODEL,
   CHACHA_TTS_VOICE,
   chachaLineCacheKey,
+  elderPhraseCacheKey,
+  uncleSynthesisIdentity,
   type ChachaLineKey,
 } from "../lib/chachaStrings";
 import { synthesizeChachaLine } from "../lib/chachaTts";
@@ -340,6 +342,97 @@ router.get("/openai/tts/voices", async (req: Request, res: Response): Promise<vo
   res.json({ voices: VOICE_CATALOG, current });
 });
 
+/**
+ * A lesson phrase in the ELDER's voice: POST /openai/tts with speaker "elder".
+ *
+ * WHY A BRANCH OF /openai/tts AND NOT A ROUTE OF ITS OWN. The owner approved a
+ * field on the existing request, so every guard in front of the phrase route
+ * (auth, consent, rate limit, validation) covers the elder with no new
+ * registration to forget, and a client changes one property, not an endpoint.
+ *
+ * WHAT HE SPEAKS WITH: synthesizeChachaLine(text, languageCode), the one
+ * function his stall and call lines already go through, whose identity comes
+ * from uncleSynthesisIdentity. Keyed by elderPhraseCacheKey, which shares
+ * nothing with the coach's phrase keys or his fixed line keys.
+ *
+ * VERIFIED LIKE A COACH PHRASE. His stall and call lines skip verification,
+ * because they are flavour: a dropped word costs nothing. This is not flavour.
+ * It is the prompt the learner has to understand and answer, heard once and
+ * never written on screen (audio only, owner brief), so a take that drops a
+ * word asks a different question for every learner after the first. It goes
+ * through verifyServedTakeInBackground after the cache write, exactly as the
+ * coach path does: the triggering learner may hear one bad take, the row is
+ * gone before anyone else does.
+ *
+ * NO COACH FALLBACK when synthesis fails. Falling back to the phrase voice
+ * would be the defect this exists to remove, silently. A 502 plays nothing,
+ * and the screen's "Hear again" asks again.
+ */
+async function serveElderPhrase(
+  req: Request,
+  res: Response,
+  { text, languageCode }: { text: string; languageCode?: string },
+): Promise<void> {
+  const lang = languageCode?.trim().toLowerCase();
+  if (!lang) {
+    // His voice and his cache key are per language; without one there is no
+    // honest choice of either (the spec's own words on speaker).
+    res.status(400).json({ error: "speaker elder needs languageCode" });
+    return;
+  }
+  const identity = uncleSynthesisIdentity(lang);
+  const cacheKey = elderPhraseCacheKey(text, lang);
+  const t0 = Date.now();
+  const logFields = {
+    provider: identity.provider,
+    model: identity.model,
+    voice: identity.voice,
+    language: lang,
+    chars: text.length,
+  };
+
+  try {
+    const cached = await db.query.ttsCacheTable.findFirst({
+      where: eq(ttsCacheTable.cacheKey, cacheKey),
+    });
+    if (cached) {
+      req.log.info({ ...logFields, hit: true, ms: Date.now() - t0 }, "[elder-phrase-tts]");
+      res.json({ audioBase64: cached.audioBase64, format: cached.format });
+      return;
+    }
+  } catch (err) {
+    req.log.warn({ err }, "Elder phrase cache read failed, synthesizing fresh");
+  }
+
+  try {
+    const buffer = await synthesizeChachaLine(text, lang);
+    if (buffer.length === 0) throw new Error("elder synthesis returned empty audio");
+    const audioBase64 = buffer.toString("base64");
+    db.insert(ttsCacheTable)
+      .values({ cacheKey, audioBase64, format: CHACHA_AUDIO_FORMAT })
+      .onConflictDoNothing()
+      .execute()
+      .then(() =>
+        verifyServedTakeInBackground({
+          cacheKey,
+          audio: buffer,
+          text,
+          languageCode: lang,
+          log: req.log,
+        }),
+      )
+      .catch((err) => req.log.warn({ err }, "Elder phrase cache write failed"));
+    // A fork whose elder is on ElevenLabs spends its quota here; keep the
+    // monitor informed there as the coach path does. India's elder never is.
+    if (identity.provider === "elevenlabs") void elevenLabsQuotaMonitor.maybeCheck();
+    req.log.info({ ...logFields, hit: false, ms: Date.now() - t0 }, "[elder-phrase-tts]");
+    res.json({ audioBase64, format: CHACHA_AUDIO_FORMAT });
+  } catch (err) {
+    req.log.error({ err, ...logFields }, "Elder phrase TTS failed");
+    res.status(502).json({ error: "Could not generate speech" });
+  }
+}
+
 // POST /openai/tts — speak a phrase aloud in the selected language.
 router.post("/openai/tts", async (req: Request, res: Response): Promise<void> => {
   const parsed = SynthesizeSpeechBody.safeParse(req.body);
@@ -347,8 +440,23 @@ router.post("/openai/tts", async (req: Request, res: Response): Promise<void> =>
     res.status(400).json({ error: "Invalid speech payload" });
     return;
   }
-  const { text, voice, languageName, languageCode, previewVoiceId, script } =
+  const { text, voice, languageName, languageCode, previewVoiceId, script, speaker } =
     parsed.data;
+
+  // THE ELDER SPEAKS IN HIS OWN VOICE (owner ruling 2026-09-15, option A, under
+  // the 2026-09-13 voice roles rule). Answer Back's keeper line is a lesson
+  // phrase, but it is the elder saying it, and everything below this branch
+  // resolves the COACH: the phrase identity, the learner's Plus voice, the
+  // voice audition. So an elder request leaves here, BEFORE any of that, and
+  // after everything that must still hold for him: auth, the AI consent guard
+  // and the rate limit are router-level middleware in front of this handler,
+  // and the zod parse above has already refused an unknown speaker. A fork
+  // with a no-synthesiser refusal keeps it ABOVE this line.
+  if (speaker === "elder") {
+    await serveElderPhrase(req, res, { text, languageCode });
+    return;
+  }
+
   const chosen: Voice =
     voice && (VOICES as readonly string[]).includes(voice)
       ? (voice as Voice)

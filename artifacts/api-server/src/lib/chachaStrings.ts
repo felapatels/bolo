@@ -163,3 +163,59 @@ export function chachaLineCacheKey(lineKey: ChachaLineKey): string {
     CHACHA_TTS_INSTRUCTIONS_DIGEST,
   );
 }
+
+/**
+ * The synthesis identity the elder speaks with in a language.
+ *
+ * THE FORKS' SHAPE, GIVEN TO INDIA 2026-09-15 for Answer Back's elder voice
+ * (owner ruling, option A). Each fork already has this function, backed by a
+ * per-language ElevenLabs map; the elder phrase path resolves through it so the
+ * same route code ports to them unchanged.
+ *
+ * IN INDIA IT RETURNS THE SAME IDENTITY FOR EVERY LANGUAGE, on purpose. His
+ * call is half gpt-audio, which ElevenLabs cannot supply, so the owner kept him
+ * on `echo` (2026-09-13, "a", the long note on CHACHA_TTS_VOICE). His canned
+ * call lines already speak every learner language through this identity
+ * (chachaCallLines.ts), so a learner hears the same man at the stall, on his
+ * call, and in Answer Back. The language parameter exists for the forks' shape,
+ * not for a choice India makes.
+ */
+export function uncleSynthesisIdentity(_languageCode: string): {
+  provider: string;
+  model: string;
+  voice: string;
+} {
+  return { provider: CHACHA_TTS_PROVIDER, model: CHACHA_TTS_MODEL, voice: CHACHA_TTS_VOICE };
+}
+
+/**
+ * Version tag of the elder PHRASE namespace. Bump it if the way an elder phrase
+ * is synthesized changes in a way the identity segments below cannot see.
+ */
+export const ELDER_PHRASE_CACHE_KEY_VERSION = "v1";
+
+/**
+ * Cache key for a lesson phrase spoken BY THE ELDER (Answer Back's keeper line,
+ * `speaker: "elder"` on POST /openai/tts), stored in tts_cache.
+ *
+ * ITS OWN NAMESPACE, and each segment is there for a reason:
+ *  - the `bolo-elder-phrase-` prefix cannot equal a coach phrase key (a bare
+ *    64-character SHA-256 hex, ttsCache.ts), a stall line key (`bolo-chacha-v1::`)
+ *    or a call line key (`bolo-chacha-call-v3::`), so no row of any other kind
+ *    can ever be served as his, or his as theirs;
+ *  - provider, model and voice come from uncleSynthesisIdentity, so moving the
+ *    elder to a new voice orphans his old takes rather than serving them;
+ *  - the instructions digest does the same for a change of direction;
+ *  - the language, because the forks give each language its own elder voice,
+ *    and one text can be two languages' words (Hindi and Marathi share script);
+ *  - a SHA-256 of the text last, so any phrase fits and the key stays bounded.
+ *
+ * The playback route is the only writer. Nothing prewarms these (ttsPrewarm.ts
+ * is untouched): the elder only speaks keeper lines, a first play synthesizes.
+ */
+export function elderPhraseCacheKey(text: string, languageCode: string): string {
+  const lang = languageCode.trim().toLowerCase() || "und";
+  const id = uncleSynthesisIdentity(lang);
+  const textDigest = createHash("sha256").update(text).digest("hex");
+  return `bolo-elder-phrase-${ELDER_PHRASE_CACHE_KEY_VERSION}::${id.provider}::${id.model}::${id.voice}::${CHACHA_TTS_INSTRUCTIONS_DIGEST}::${lang}::${textDigest}`;
+}
