@@ -51,6 +51,7 @@ src/routes/openai.pronunciation.noise.test.ts
 src/routes/openai.pronunciation.sibling-cache.test.ts
 src/routes/openai.pronunciation.undecodable.test.ts
 src/routes/openai.tts-cache.test.ts
+src/routes/openai.tts-elder.test.ts
 src/routes/outfits.test.ts
 src/routes/phraseReports.test.ts
 src/routes/revenuecat.test.ts
