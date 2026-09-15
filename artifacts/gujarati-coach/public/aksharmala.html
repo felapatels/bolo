@@ -974,6 +974,7 @@
     $("phmeter").hidden=true;phText("phelapsed","0:00");
     $("phrecbtn").hidden=false;$("phrecbtn").disabled=false;phText("phrecbtn","Record");
     $("phsave").hidden=true;$("phsave").disabled=false;$("phredo").hidden=true;$("phredo").disabled=false;
+    $("phskip").disabled=false;
     phText("phsay",msg);note("phsavenote","");}
   // Stops a take in progress and throws it away. Letting go of phRec is what
   // discards it: each take's stop handler checks it is still the current take,
@@ -1040,13 +1041,16 @@
         language:PH.lang,zone:PH.zone,phraseId:p.id,audioBase64:b64,mimeType:phMime,
         durationMs:Math.min(60000,Math.max(1,Math.round(phMs)))
       }).then(function(res){
-        phSaving=false;$("phredo").disabled=false;$("phskip").disabled=false;
+        phSaving=false;
         if(res.status===403||res.status===410){phFail(res);return;}
-        if(!res.ok){$("phsave").disabled=false;
+        if(!res.ok){$("phsave").disabled=false;$("phredo").disabled=false;$("phskip").disabled=false;
           note("phsavenote",res.status===400?"That recording was empty or too long. Tap Record again.":
             "That did not save. Tap Save and next again in a moment.","bad");return;}
         if(phDone.indexOf(p.id)<0)phDone.push(p.id);
         phSaveRec();note("phsavenote","Saved.","ok");
+        // The buttons stay disabled through this pause and are re-armed by the
+        // next phrase's draw, so a tap on Record again cannot be overtaken by
+        // the advance.
         setTimeout(function(){if(!$("phrec").hidden&&phSet.phrases[phIdx]===p)phNext();},400);
       }).catch(function(){phSaving=false;$("phsave").disabled=false;$("phredo").disabled=false;$("phskip").disabled=false;
         note("phsavenote","That did not save. Check the phone is online, then tap Save and next again.","bad");});};
@@ -1104,7 +1108,7 @@
     phText("rvsaid",v==="approved"?"You said it sounds right.":v==="rejected"?"You said it is not right.":"");}
   function rvAudio(id){
     var a=$("rvplay"),btn=$("rvplaybtn");
-    rvReady=false;rvAudioFor=id;a.pause();a.removeAttribute("src");a.hidden=true;
+    rvReady=false;rvAudioFor=id;a.onerror=null;a.pause();a.removeAttribute("src");a.hidden=true;
     btn.disabled=true;btn.textContent="Loading the recording";
     rvFetchAudio(id,false);}
   // The clip as it was recorded first; a WAV copy made by the server when this
