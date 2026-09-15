@@ -174,7 +174,10 @@ export default function PaywallScreen() {
   // purchasable; it can never force a tier the store can't sell.
   // ?reason=daily_lesson_limit is forwarded by paywallHrefForDenial so we can
   // surface a contextual trial banner when the learner arrived from the cap.
-  const params = useLocalSearchParams<{ lang?: string; reason?: string; stopKind?: string; journey?: string; zone?: string; lessonGroupId?: string }>();
+  const params = useLocalSearchParams<{ lang?: string; reason?: string; stopKind?: string; journey?: string; zone?: string; lessonGroupId?: string; play?: string; stop?: string }>();
+  // A lesson stop the map plays as a game says so, so the bought stop opens as
+  // that game rather than practice (JourneyStopPurchase `play`).
+  const stopPlay = params.play === 'last_call' || params.play === 'answer_back' ? params.play : undefined;
   const requestedLang = typeof params.lang === 'string' ? params.lang : null;
   const stopKind = params.stopKind;
   const journey = Number(params.journey);
@@ -407,7 +410,13 @@ export default function PaywallScreen() {
             : 'Learn Hindi and the language you choose, no daily cap.'}
         </Text>
 
-        {stopTarget && <JourneyStopPurchase target={stopTarget} />}
+        {stopTarget && (
+          <JourneyStopPurchase
+            target={stopTarget}
+            play={stopPlay}
+            stopLabel={typeof params.stop === 'string' ? params.stop : undefined}
+          />
+        )}
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
         {isDailyLimitDenial && tier === 'all_access' && (

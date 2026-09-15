@@ -3473,7 +3473,10 @@ export default function JourneyScreen() {
             const onPress = () => {
               hapticLight();
               if (s.zoneIndex >= 1 && !isPlus && !purchased) {
-                router.push({ pathname: '/(app)/paywall', params: { reason: 'journey_stop', lang: activeLang, stopKind: stopTarget.kind, journey: String(stopTarget.journey), zone: String(stopTarget.zone), ...(stopTarget.lessonGroupId ? { lessonGroupId: String(stopTarget.lessonGroupId) } : {}) } });
+                router.push({ pathname: '/(app)/paywall', params: { reason: 'journey_stop', lang: activeLang, stopKind: stopTarget.kind, journey: String(stopTarget.journey), zone: String(stopTarget.zone), ...(stopTarget.lessonGroupId ? { lessonGroupId: String(stopTarget.lessonGroupId) } : {}),
+                  // The third door (2026-09-15): a bought row the map plays as
+                  // a game opens as that game, not practice.
+                  ...(s.play === 'last_call' || s.play === 'answer_back' ? { play: s.play, stop: stopLabel } : {}) } });
                 return;
               }
               if (s.story) {

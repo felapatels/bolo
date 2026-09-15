@@ -5,10 +5,18 @@ import { useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError, useGetJourneyStopUnlocks, useGetTokens, useListCategories, useUnlockJourneyStop, type JourneyStopTarget } from '@workspace/api-client-react';
 import { ChaiWalletSheet } from '@/components/chai-wallet';
-import { ownsJourneyStop, rememberJourneyStop, journeyStopUpgradeHref } from '@/lib/journey-stop-access';
+import { ownsJourneyStop, rememberJourneyStop, journeyStopUpgradeHref, type JourneyStopPlay } from '@/lib/journey-stop-access';
 
-/** Server-priced permanent ownership beside the existing subscription choices. */
-export function JourneyStopPurchase({ target }: { target: JourneyStopTarget }) {
+/**
+ * Server-priced permanent ownership beside the existing subscription choices.
+ *
+ * `play` is set when the map plays this lesson stop as a game (2026-09-15, the
+ * third door): the bought stop opens as Answer Back, which settles best fit on
+ * the group's phrases and hands a thin group to Last Call, instead of practice.
+ * Mobile twin: components/JourneyStopPurchase.tsx, which says why both kinds
+ * enter through Answer Back.
+ */
+export function JourneyStopPurchase({ target, play }: { target: JourneyStopTarget; play?: JourneyStopPlay }) {
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const offer = useGetJourneyStopUnlocks({ languageCode: target.languageCode });
@@ -23,7 +31,9 @@ export function JourneyStopPurchase({ target }: { target: JourneyStopTarget }) {
   const enough = cost != null && balance != null && balance >= cost;
   const openStop = () => {
     if (target.kind === 'lesson' && categoryId == null) { setError('The lesson could not be loaded. Please try again.'); return; }
-    navigate(target.kind === 'lesson'
+    navigate(target.kind === 'lesson' && play
+    ? `/games/answer-back?group=${target.lessonGroupId}&cat=${categoryId}${play.stop ? `&stop=${encodeURIComponent(play.stop)}` : ''}`
+    : target.kind === 'lesson'
     ? `/practice/${categoryId}?group=${target.lessonGroupId}`
     : `/games/${target.kind === 'story' ? 'storybook' : target.kind === 'letter' ? 'letter-stop' : 'script-trace'}?journey=${target.journey}&zone=${target.zone}`);
   };
@@ -49,7 +59,7 @@ export function JourneyStopPurchase({ target }: { target: JourneyStopTarget }) {
     {(owned || cost != null) && <button data-testid="use-currency-unlock" disabled={purchase.isPending || (target.kind === 'lesson' && categoryId == null) || (!owned && (!enough || !order.canBuy))} onClick={() => owned ? openStop() : purchase.mutate({ data: target })} className="w-full rounded-xl bg-primary p-3 font-bold text-primary-foreground disabled:opacity-50">{owned ? 'Open stop' : purchase.isPending ? 'Unlocking…' : `Unlock for ${cost} Chai`}</button>}
     {!owned && <>
       <p className="text-sm text-muted-foreground">Unlock this stop permanently with Chai, or subscribe below to open every zone.</p>
-      <button data-testid="buy-currency-for-stop" onClick={() => { rememberJourneyStop(target); setWalletOpen(true); }} className="w-full rounded-xl border p-3 font-bold">Buy Chai</button>
+      <button data-testid="buy-currency-for-stop" onClick={() => { rememberJourneyStop(target, play); setWalletOpen(true); }} className="w-full rounded-xl border p-3 font-bold">Buy Chai</button>
     </>}
     {error && <p role="alert" className="text-destructive">{error}</p>}
     {walletOpen && <ChaiWalletSheet open onOpenChange={open => { setWalletOpen(open); if (!open) void wallet.refetch(); }} />}

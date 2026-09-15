@@ -1,5 +1,5 @@
 import { JourneyStopPurchase } from '@/components/journey-stop-purchase';
-import { journeyStopFromSearch } from '@/lib/journey-stop-access';
+import { journeyStopFromSearch, journeyStopPlayFromSearch } from '@/lib/journey-stop-access';
 import { useEffect, useMemo, useState } from "react";
 import { Link, Redirect, useLocation, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -166,6 +166,8 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
   // learner arrived from the cap. Legacy ?plan=one_language links (the tier is
   // no longer sold on web) land on the All-Access card.
   const stopTarget = journeyStopFromSearch(search);
+  // A lesson stop the map plays as a game opens as that game once bought.
+  const stopPlay = journeyStopPlayFromSearch(search);
   const intent = useMemo(() => {
     const params = new URLSearchParams(search);
     const plan = params.get("plan");
@@ -304,7 +306,7 @@ function Paywall({ lapsed }: { lapsed: boolean }) {
           )}
         </motion.div>
 
-        {stopTarget && <JourneyStopPurchase target={stopTarget} />}
+        {stopTarget && <JourneyStopPurchase target={stopTarget} play={stopPlay} />}
 
         {/* Trial banner — shown when the learner arrived after hitting the daily cap */}
         {intent.reason === "daily_lesson_limit" && (

@@ -3504,7 +3504,7 @@ export default function Journey() {
                                   gradedStopHref(zone.id, s.id, stopLabel)
                         }
                         onLocked={() =>
-                          needsPurchase ? navigate(journeyStopUpgradeHref(stopTarget)) : setLock({
+                          needsPurchase ? navigate(journeyStopUpgradeHref(stopTarget, s.play === "last_call" || s.play === "answer_back" ? { play: s.play, stop: stopLabel } : undefined)) : setLock({
                             kind: showroom
                               ? "language"
                               : sentenceGated
