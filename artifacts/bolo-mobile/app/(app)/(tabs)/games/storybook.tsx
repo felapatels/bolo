@@ -73,6 +73,10 @@ import { useColors } from '@/hooks/useColors';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+// THE ONLY IMPORTER OF StoryShareButton, and it must stay that way: that file
+// carries react-native-view-shot and expo-sharing, and native modules stay off
+// the launch path in this app (CLAUDE.md, expo-video and expo-image).
+import { StoryShareButton } from '@/components/games/StoryShareButton';
 import { loadGameAudioPref, saveGameAudioPref } from '@/lib/gameAudioPref';
 
 type StoryPhrase = {
@@ -665,6 +669,27 @@ export default function StorybookScreen() {
       {!isLoading && finished && (
         <View style={s.gap} testID="storybook-book">
           <Text style={[s.h2, { color: colors.foreground }]}>Your book</Text>
+          {/* READ IT AGAIN IS AT THE TOP, with the share beside it (owner,
+              2026-09-16: "the play again button, put it on the top of that
+              summary screen"). It was the last thing on this screen, under
+              the strip and the upsell. The upsell stays AFTER the strip: the
+              strip is still the argument. Web twin: story-book-actions. */}
+          <View style={s.actions} testID="storybook-book-actions">
+            <Pressable
+              testID="storybook-again"
+              onPress={readAgain}
+              style={[s.cta, s.actionHalf, { backgroundColor: colors.primary }]}
+            >
+              <Text style={s.ctaText}>Read it again</Text>
+            </Pressable>
+            <StoryShareButton
+              style={s.actionHalf}
+              book={book}
+              entries={entries}
+              phrasesByConcept={phrasesByConcept}
+              scriptStyle={nativeTextStyle(activeLanguage)}
+            />
+          </View>
           {(() => {
             const ending = storyEnding(book, entries);
             return ending ? (
@@ -724,9 +749,6 @@ export default function StorybookScreen() {
               </Pressable>
             </View>
           )}
-          <Pressable onPress={readAgain} style={[s.cta, { backgroundColor: colors.primary }]}>
-            <Text style={s.ctaText}>Read it again</Text>
-          </Pressable>
         </View>
       )}
 
@@ -1008,6 +1030,8 @@ const s = StyleSheet.create({
   },
   muteText: { fontFamily: AppFonts.bold, fontSize: 13 },
   cta: { borderRadius: 16, paddingVertical: 13, alignItems: 'center' },
+  actions: { flexDirection: 'row', gap: 10 },
+  actionHalf: { flex: 1 },
   // `nextOnArt` lived here until 2026-09-15 and went with the button it styled.
   // A style for a control that no longer exists is an invitation to put the
   // control back.

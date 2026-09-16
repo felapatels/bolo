@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 // The story payload the screen sees. `undefined` is the loading state, which is
 // what every test here opened on before the Next button got its own case.
@@ -47,6 +48,21 @@ jest.mock('expo-video', () => {
     }),
   };
 });
+
+// THE SHARE'S TWO NATIVE MODULES (2026-09-16), mocked because neither has a
+// native side under jest. The picture itself cannot be judged here; what can is
+// that the layout waits on its stills, leaves a failed one out, captures a PNG
+// tmpfile and hands it to the share sheet, and backs off when there is none.
+const mockCaptureRef = jest.fn();
+jest.mock('react-native-view-shot', () => ({
+  captureRef: (...args: unknown[]) => mockCaptureRef(...args),
+}));
+const mockShareAvailable = jest.fn();
+const mockShareAsync = jest.fn();
+jest.mock('expo-sharing', () => ({
+  isAvailableAsync: () => mockShareAvailable(),
+  shareAsync: (...args: unknown[]) => mockShareAsync(...args),
+}));
 
 jest.mock('react-native-svg', () => {
   const React = require('react');
@@ -96,6 +112,8 @@ import EmergencyScreen from '@/app/(app)/(tabs)/games/emergency';
 import StorybookScreen from '@/app/(app)/(tabs)/games/storybook';
 import {
   bookConcepts,
+  storyEnding,
+  STORY_SHARE_CTA,
   outcomeStillId,
   storyBookFor,
   STORY_PUNCHLINE_MS,
@@ -372,6 +390,148 @@ describe('the storybook advances on the pick itself', () => {
     expect(
       within(panels[0]!).getByTestId('storybook-book-still-missing').props.accessibilityLabel,
     ).toBe(BOOK.scenes[0]!.choices.find((c) => !c.fits)!.outcome!.situation);
+  });
+
+  /** Every node with a testID under `root`, in render order. */
+  function testIdsInOrder(root: ReturnType<typeof screen.getByTestId>): string[] {
+    return root
+      .findAll((n) => typeof n.props.testID === 'string' && typeof n.type === 'string')
+      .map((n) => n.props.testID as string);
+  }
+
+  test('Read it again and Share your story sit at the TOP of the finished book, above the ending', async () => {
+    // NEW 2026-09-16, the owner: "the play again button, put it on the top of
+    // that summary screen". Read it again was the last thing on this screen,
+    // under the strip and the upsell. No earlier pin held that order, so
+    // nothing was inverted; this pins the new one.
+    mockStoryData = { limited: true, phrases: WHOLE_BOOK };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    for (const scene of BOOK.scenes) pick(scene.choices[0]!.concept);
+    const book = screen.getByTestId('storybook-book');
+    const actions = within(book).getByTestId('storybook-book-actions');
+    expect(within(actions).getByText('Read it again')).toBeTruthy();
+    expect(within(actions).getByText(STORY_SHARE_CTA)).toBeTruthy();
+    const order = testIdsInOrder(book);
+    expect(order.indexOf('storybook-book-actions')).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf('storybook-book-actions')).toBeLessThan(order.indexOf('storybook-ending'));
+    // The upsell keeps its place after the strip.
+    expect(order.lastIndexOf('storybook-book-entry')).toBeLessThan(order.indexOf('storybook-upsell'));
+    // And Read it again still starts the book over from up there.
+    fireEvent.press(within(actions).getByTestId('storybook-again'));
+    expect(await screen.findByTestId('storybook-frame')).toBeOnTheScreen();
+  });
+
+  describe('Share your story', () => {
+    // THE LAYOUT IS HIDDEN FROM THE ACCESSIBILITY TREE on purpose (it is off
+    // screen and only exists for the capture), so every query into it asks
+    // for hidden elements, and so does every check that it is gone.
+    const HIDDEN = { includeHiddenElements: true };
+    const domain = process.env.EXPO_PUBLIC_DOMAIN;
+    beforeEach(() => {
+      mockCaptureRef.mockReset();
+      mockShareAvailable.mockReset();
+      mockShareAsync.mockReset();
+      process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example';
+    });
+    afterEach(() => {
+      process.env.EXPO_PUBLIC_DOMAIN = domain;
+    });
+
+    async function finishBook() {
+      mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+      render(<StorybookScreen />);
+      await screen.findByTestId('storybook-frame');
+      for (const scene of BOOK.scenes) pick(scene.choices.find((c) => !c.fits)!.concept);
+      return screen.getByTestId('storybook-book');
+    }
+
+    test('lays the book out off screen, waits on every still, leaves a failed one out, then shares a PNG', async () => {
+      mockShareAvailable.mockResolvedValue(true);
+      mockCaptureRef.mockResolvedValue('file:///tmp/story.png');
+      mockShareAsync.mockResolvedValue(undefined);
+      await finishBook();
+      fireEvent.press(screen.getByTestId('storybook-share'));
+
+      const card = await screen.findByTestId('story-share-card', HIDDEN);
+      expect(within(card).getByText(BOOK.title, HIDDEN)).toBeTruthy();
+      expect(within(card).getByText('Bolo!', HIDDEN)).toBeTruthy();
+      expect(within(card).getByText('bolo.example', HIDDEN)).toBeTruthy();
+      const stills = within(card).getAllByTestId('story-share-still', HIDDEN);
+      // The ending, then one per beat, in the order they were caused.
+      const entries = BOOK.scenes.map((sc) => {
+        const c = sc.choices.find((x) => !x.fits)!;
+        return { sceneId: sc.id, concept: c.concept, fitted: false };
+      });
+      expect(stills.map((st) => st.props.source.uri)).toEqual([
+        expect.stringContaining(`/story/${storyEnding(BOOK, entries)!.stillId}.webp`),
+        ...entries.map((e) => expect.stringContaining(`/story/${outcomeStillId(e.sceneId, e.concept)}.webp`)),
+      ]);
+      const panels = within(card).getAllByTestId('story-share-panel', HIDDEN);
+      entries.forEach((e, i) => {
+        expect(within(panels[i]!).getByText(`native:${e.concept}`, HIDDEN)).toBeTruthy();
+        expect(within(panels[i]!).getByText(`english:${e.concept}`, HIDDEN)).toBeTruthy();
+      });
+
+      // Busy, and nothing captured while any still is still loading.
+      expect(screen.getByTestId('storybook-share-busy')).toBeOnTheScreen();
+      stills.slice(0, -1).forEach((st) => fireEvent(st, 'load'));
+      await act(async () => { await new Promise((r) => setTimeout(r, 200)); });
+      expect(mockCaptureRef).not.toHaveBeenCalled();
+
+      // The last one fails: it is taken out, never captured as a box.
+      const failedUri = stills[stills.length - 1]!.props.source.uri;
+      fireEvent(stills[stills.length - 1]!, 'error');
+      expect(
+        within(screen.getByTestId('story-share-card', HIDDEN))
+          .getAllByTestId('story-share-still', HIDDEN)
+          .map((st) => st.props.source.uri),
+      ).not.toContain(failedUri);
+      // Its line stays.
+      const last = entries[entries.length - 1]!;
+      expect(within(screen.getByTestId('story-share-card', HIDDEN)).getByText(`native:${last.concept}`, HIDDEN)).toBeTruthy();
+
+      await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+      expect(mockCaptureRef).toHaveBeenCalledTimes(1);
+      expect(mockCaptureRef.mock.calls[0]![1]).toEqual(
+        expect.objectContaining({ format: 'png', result: 'tmpfile' }),
+      );
+      expect(mockShareAsync).toHaveBeenCalledWith(
+        'file:///tmp/story.png',
+        expect.objectContaining({ mimeType: 'image/png', UTI: 'public.png' }),
+      );
+      // The layout exists only while sharing.
+      expect(screen.queryByTestId('story-share-card', HIDDEN)).toBeNull();
+      expect(screen.queryByTestId('storybook-share-busy')).toBeNull();
+    });
+
+    test('a device with no share sheet is told so, and nothing is captured', async () => {
+      mockShareAvailable.mockResolvedValue(false);
+      const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+      await finishBook();
+      await act(async () => {
+        fireEvent.press(screen.getByTestId('storybook-share'));
+      });
+      expect(alert).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('story-share-card', HIDDEN)).toBeNull();
+      expect(mockCaptureRef).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('storybook-share-busy')).toBeNull();
+      alert.mockRestore();
+    });
+
+    test('a capture that fails gives the button back and throws nothing', async () => {
+      mockShareAvailable.mockResolvedValue(true);
+      mockCaptureRef.mockRejectedValue(new Error('no snapshot'));
+      await finishBook();
+      fireEvent.press(screen.getByTestId('storybook-share'));
+      const card = await screen.findByTestId('story-share-card', HIDDEN);
+      within(card).getAllByTestId('story-share-still', HIDDEN).forEach((st) => fireEvent(st, 'load'));
+      await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
+      expect(mockCaptureRef).toHaveBeenCalledTimes(1);
+      expect(mockShareAsync).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('story-share-card', HIDDEN)).toBeNull();
+      expect(screen.getByTestId('storybook-book')).toBeOnTheScreen();
+    });
   });
 
   /**

@@ -23,7 +23,8 @@
       "requireFullScreen": true,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "Allow Bolo! to save your story pictures to your photos."
       }
     },
     "android": {
