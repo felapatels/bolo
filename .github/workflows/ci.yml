@@ -200,4 +200,22 @@ jobs:
       - run: pnpm run typecheck:libs
       - run: pnpm --filter @workspace/db run migrate
       - run: pnpm --filter @workspace/db run seed
+      # THE SERVER BUILDS LESSON GROUPS AT BOOT, NOT THE SEED (index.ts startup
+      # pipeline steps 3 and 4), so a migrated and seeded database has none and
+      # two api suites fail for that alone. That was the "CI / api-db Failed"
+      # email arriving every push (2026-09-16). The same two steps the Mac's
+      # pre-publish runner uses (bolo-supervisor run-suites.sh, Africa triage
+      # 2026-09-15).
+      - name: Lesson group backfill
+        working-directory: artifacts/api-server
+        run: |
+          cat > "$RUNNER_TEMP/backfill.mts" <<TS
+          import { ensureLessonGroupScopeTriggers } from "$GITHUB_WORKSPACE/artifacts/api-server/src/scripts/ensureLessonGroupScopeTriggers";
+          import { runBackfillLessonGroups } from "$GITHUB_WORKSPACE/artifacts/api-server/src/scripts/backfillLessonGroups";
+          await ensureLessonGroupScopeTriggers();
+          await runBackfillLessonGroups();
+          console.log("lesson group backfill done");
+          process.exit(0);
+          TS
+          node --import tsx "$RUNNER_TEMP/backfill.mts"
       - run: pnpm --filter @workspace/api-server run test
