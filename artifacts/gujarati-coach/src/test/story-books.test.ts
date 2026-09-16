@@ -230,7 +230,166 @@ describe("the concept aliases", () => {
   });
 
   test("a concept with no alias is just itself", () => {
+    // STILL THE LITERAL LIST, and now deliberately NOT the whole answer.
+    // conceptSpellings enumerates the aliases; the matching RULES added on
+    // 2026-09-15 cannot be enumerated (no finite list derives "rice, a meal"
+    // from "rice"), so matchesConcept is what decides a lookup and the server
+    // stopped prefiltering its query on this list the same day.
     expect(conceptSpellings("water")).toEqual(["water"]);
+    expect(matchesConcept("water", "the water")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The matching RULES, added 2026-09-15 after a census of all six repos' seed
+// content. The old literal list was written against India's gloss wording;
+// every fork inherited it and words the same ideas differently, so a concept
+// the corpus plainly teaches read as ABSENT and the storybook skipped a scene
+// the language could have drawn. Each case below names the fork whose content
+// motivated the rule, and each rejection names the near-miss it refuses.
+describe("the matching rules, and what they refuse", () => {
+  test("a clause of a two-gloss row names the concept", () => {
+    // Africa (5 langs), SEA (6) and LATAM (1) all card the apology with a
+    // COMMA where the literal list only held the slash form. That one comma
+    // cost Africa 30 scene-language pairs.
+    expect(matchesConcept("sorry", "Sorry, excuse me")).toBe(true);
+    // East writes every one of its ten languages this way.
+    expect(matchesConcept("rice", 'Rice, and also "a meal"')).toBe(true);
+    expect(matchesConcept("rice", "Rice, and also a meal")).toBe(true);
+    // Africa: ha, yo, zu. " or " is a separator; " and " is not.
+    expect(matchesConcept("rice", "rice or a meal")).toBe(true);
+    expect(matchesConcept("grandson", "grandson, or nephew")).toBe(true);
+    // India: Malayalam's plate, Dogri's bowl, Sanskrit's rice.
+    expect(matchesConcept("plate", "plate / dish")).toBe(true);
+    expect(matchesConcept("bowl", "cup / bowl")).toBe(true);
+    expect(matchesConcept("rice", "food; rice")).toBe(true);
+    // THE OTHER HALF OF THE kal ROW, which was already an alias for tomorrow
+    // and had never resolved yesterday. Worth 8 pairs in India's seed, and
+    // safe because no scene names tomorrow and yesterday together.
+    expect(matchesConcept("yesterday", "tomorrow / yesterday")).toBe(true);
+    expect(matchesConcept("tomorrow", "tomorrow / yesterday")).toBe(true);
+  });
+
+  test("a bracketed qualifier says which one, not which thing", () => {
+    // East, all ten languages, and SEA and LATAM alongside them.
+    expect(matchesConcept("father-in-law", "father-in-law (wife's father)")).toBe(true);
+    expect(matchesConcept("grandfather", "grandfather (mother's father)")).toBe(true);
+    // SEA: Thai's register pair, Khmer's speaker-gender pair.
+    expect(matchesConcept("sorry", "Sorry (polite)")).toBe(true);
+    expect(matchesConcept("yes", "Yes (said by men)")).toBe(true);
+  });
+
+  test("an article points at the thing without naming another", () => {
+    // Europe, and French is most of the reason: it cards its nouns with the
+    // article attached where the other twenty-one card them bare.
+    expect(matchesConcept("bowl", "a bowl")).toBe(true);
+    expect(matchesConcept("spoon", "a spoon")).toBe(true);
+    expect(matchesConcept("rice", "some rice")).toBe(true);
+    expect(matchesConcept("night", "The night")).toBe(true);
+    expect(matchesConcept("grandfather", "my grandfather")).toBe(true);
+    expect(matchesConcept("family", "my family")).toBe(true);
+  });
+
+  test("a trailing register tag says who is speaking, not what", () => {
+    // Europe: bg, it and lt tag the register rather than writing it twice.
+    expect(matchesConcept("hello", "Hello politely")).toBe(true);
+    expect(matchesConcept("please", "please formal")).toBe(true);
+    expect(matchesConcept("sorry", "sorry male")).toBe(true);
+    expect(matchesConcept("good morning", "Good morning madam")).toBe(true);
+    expect(matchesConcept("thank you", "thank you kindly")).toBe(true);
+    // SEA (km) and Africa (sw) both label the greeting as a greeting.
+    expect(matchesConcept("good morning", "Good morning greeting")).toBe(true);
+    // ONE tag, not a tail of them: an intensified phrase is a different phrase.
+    expect(matchesConcept("thank you", "thank you very much man")).toBe(false);
+  });
+
+  test("the rules compose, because the corpus stacks them", () => {
+    expect(matchesConcept("good morning", "Good morning, grandma")).toBe(true);
+    expect(matchesConcept("spoon", "The spoon polite")).toBe(true);
+    expect(matchesConcept("good news", "Good news!")).toBe(true);
+  });
+
+  // THE REFUSALS. Every one of these is a real row in a real fork's seed that
+  // a looser rule would have swallowed, and each would have put two of one
+  // board's three lines on the same phrase, or the wrong line on the board.
+  test("a shared word is not a match", () => {
+    expect(matchesConcept("rice", "price")).toBe(false);
+    expect(matchesConcept("rice", "prices")).toBe(false);
+    expect(matchesConcept("father", "grandfather")).toBe(false);
+    // The hyphen is not a clause separator, which is the whole reason
+    // father-in-law does not resolve `father`. table-3 and thali-2 both rely
+    // on it.
+    expect(matchesConcept("father", "father-in-law")).toBe(false);
+    expect(matchesConcept("son", "son-in-law")).toBe(false);
+  });
+
+  test("a narrowing compound names a different thing", () => {
+    // SEA, Africa and East all card "fried rice", and it is not the rice the
+    // thali scene hands over. No general rule separates a qualifier that
+    // narrows from a compound that replaces, so none is attempted.
+    expect(matchesConcept("rice", "fried rice")).toBe(false);
+    expect(matchesConcept("rice", "rice porridge")).toBe(false);
+    expect(matchesConcept("rice", "coconut rice")).toBe(false);
+    // Serbian's row says so in its own hint: кашка is the diminutive, a
+    // teaspoon. "small bowl" IS allowed, as a named literal, because a katori
+    // is the vessel the thali scene uses. Reading the row is what tells them
+    // apart, which is why one is a literal and neither is a rule.
+    expect(matchesConcept("spoon", "Spoon small")).toBe(false);
+    expect(matchesConcept("bowl", "Small bowl")).toBe(true);
+  });
+
+  test("two ideas never collapse onto one concept", () => {
+    // photo-3 puts good night and good morning on one board, and yard-3 uses
+    // `night` to answer when you are leaving. Three distinct lines.
+    expect(matchesConcept("night", "good night")).toBe(false);
+    expect(matchesConcept("night", "at night")).toBe(false);
+    expect(matchesConcept("good night", "good morning")).toBe(false);
+    // door-5 and thali-5 use `welcome` as the ARRIVAL greeting: their outcomes
+    // swing the gate open again and sit down to eat with you. The reply to
+    // thanks is a different line, and Europe seeds it in nine languages.
+    expect(matchesConcept("welcome", "you are welcome")).toBe(false);
+    expect(matchesConcept("welcome", "you're welcome")).toBe(false);
+    // Adding a subject and a verb makes a sentence, and the 2026-08-30 note
+    // already refuses sentences as aliases. This is the conservative call and
+    // it costs Europe's j1z5-courtyard in Bulgarian, which is reported rather
+    // than quietly recovered.
+    expect(matchesConcept("sorry", "I am sorry")).toBe(false);
+  });
+
+  test("hello answers to Hi, the way goodbye already answered to Bye", () => {
+    // Eight of Europe's twenty-two card the greeting only as "Hi": Polish
+    // "Cześć", Bosnian "Ćao", Croatian "Bok", Czech "Ahoj", Estonian "Tere",
+    // Hungarian "Szia", Latvian "Sveiki", Lithuanian "Labas".
+    expect(matchesConcept("hello", "Hi")).toBe(true);
+    expect(matchesConcept("goodbye", "Bye")).toBe(true);
+    // Not every short greeting, though: these are separate rows and separate
+    // ideas, and yard-5 puts hello and goodbye on one board.
+    expect(matchesConcept("hello", "Bye")).toBe(false);
+    expect(matchesConcept("goodbye", "Hi")).toBe(false);
+    expect(matchesConcept("hello", "Good day")).toBe(false);
+  });
+
+  test("the fork wordings that motivated each rule", () => {
+    // One case per fork, named, so a fork that renarrows a rule sees whose
+    // content it broke.
+    // INDIA, Gujarati: the katori, and the kal row's other half.
+    expect(matchesConcept("bowl", "Small bowl")).toBe(true);
+    expect(matchesConcept("yesterday", "tomorrow / yesterday")).toBe(true);
+    // SEA, Thai: 30 pairs to one comma, and rice in eight of ten languages.
+    expect(matchesConcept("sorry", "Sorry, excuse me")).toBe(true);
+    expect(matchesConcept("rice", 'Rice, and also "a meal"')).toBe(true);
+    // EAST, all ten: the bracketed relation.
+    expect(matchesConcept("grandfather", "Grandfather (father's father)")).toBe(true);
+    // AFRICA: the side qualifier with no bracket, and the knife by its job.
+    expect(matchesConcept("grandfather", "Grandfather fathers side")).toBe(true);
+    expect(matchesConcept("grandfather", "Grandfather fatherside")).toBe(true);
+    expect(matchesConcept("knife", "Table knife")).toBe(true);
+    expect(matchesConcept("grandson", "grandson or nephew")).toBe(true);
+    // EUROPE, French: the article, which is its whole holding of five concepts.
+    expect(matchesConcept("plate", "a plate")).toBe(true);
+    expect(matchesConcept("salt", "some salt")).toBe(true);
+    // LATAM: the exclamation mark, in five of six languages.
+    expect(matchesConcept("good news", "Good news!")).toBe(true);
   });
 });
 

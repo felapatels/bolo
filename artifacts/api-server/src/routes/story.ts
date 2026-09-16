@@ -1,10 +1,9 @@
 import { hasJourneyStopUnlock } from "../lib/journeyStopUnlock";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db, phrasesTable } from "@workspace/db";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   bookConcepts,
-  conceptSpellings,
   matchesConcept,
   storyBookFor,
   STORY_TEASER_SCENES,
@@ -63,8 +62,23 @@ async function loadConceptPhrases(
   concepts: string[],
 ): Promise<StoryPhrase[]> {
   if (concepts.length === 0) return [];
-  const spellings = [...new Set(concepts.flatMap((c) => conceptSpellings(c)))];
 
+  // NO SQL PREFILTER ON THE SPELLINGS, since 2026-09-15, and dropping it is the
+  // half of the alias work that reaches production.
+  //
+  // This used to add `inArray(lower(btrim(english)), conceptSpellings(...))`,
+  // which can only find a row whose English is EXACTLY one of a finite list.
+  // matchesConcept now also accepts the shapes the seed content really writes
+  // ("Sorry, excuse me", "Rice, and also a meal", "a spoon", "sorry (polite)"),
+  // and no finite list derives those from the concept. Left in place, the
+  // prefilter would have thrown those rows away before matchesConcept ever saw
+  // them and the whole change would have been a no-op against a database.
+  //
+  // The cost is reading one language's phrase stage instead of a handful of
+  // rows: India's production carries 10,339 phrases across 22 languages, so
+  // this is a few hundred rows, once per book open, already indexed by the
+  // language filter. matchesConcept is now the ONE definition of a match,
+  // which is what the comment on it has always claimed.
   const rows = await db
     .select({
       id: phrasesTable.id,
@@ -79,7 +93,6 @@ async function loadConceptPhrases(
       and(
         eq(phrasesTable.languageCode, languageCode),
         eq(phrasesTable.stage, "phrase"),
-        inArray(sql`lower(btrim(${phrasesTable.english}))`, spellings),
       ),
     );
 
