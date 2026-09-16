@@ -9,6 +9,7 @@ import {
   availableScenes,
   bookIsFinished,
   chooseScene,
+  endingKind,
   firstPlayableScene,
   fittingChoice,
   mediaFor,
@@ -404,5 +405,54 @@ describe("a saved ledger says whether the book ended", () => {
         { sceneId: FAMILY_SCENES[0]!.id, concept: "aeroplane", fitted: true },
       ]),
     ).toBe(false);
+  });
+});
+
+// ─── The ending remembers how the book was played ────────────────────────────
+//
+// Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"): the game
+// is played for the jokes, so the ending counts the lines said at the wrong
+// moment rather than ignoring them.
+describe("the ending a read earns", () => {
+  const said = (...fits: boolean[]) =>
+    fits.map((fitted, i) => ({ sceneId: `s-${i}`, concept: `c-${i}`, fitted }));
+
+  test("no misfit at all is the perfect ending", () => {
+    expect(endingKind(said(true, true, true, true, true))).toBe("perfect");
+    // An empty ledger has said nothing wrong. Nothing renders an ending for
+    // one, but the rule must still answer rather than throw.
+    expect(endingKind([])).toBe("perfect");
+  });
+
+  test("misfits on at most half the beats played is chaos, and an exact half counts", () => {
+    expect(endingKind(said(false, true, true, true, true))).toBe("chaos");
+    expect(endingKind(said(false, false, true, true, true))).toBe("chaos");
+    // wrong * 2 <= played: 2 of 4 is exactly half, and half is still chaos.
+    expect(endingKind(said(false, false, true, true))).toBe("chaos");
+  });
+
+  test("more than half is the disaster", () => {
+    expect(endingKind(said(false, false, false, true, true))).toBe("disaster");
+    expect(endingKind(said(false, false, false, false, false))).toBe("disaster");
+    expect(endingKind(said(false))).toBe("disaster");
+  });
+
+  test("it counts the beats PLAYED, not the book's length", () => {
+    // A thin corpus ends a book short (2026-09-15). Two misfits in a three-beat
+    // read is most of it; the same two against five authored scenes would not
+    // be, and a rule reading the book's length would call it chaos.
+    expect(endingKind(said(false, false, true))).toBe("disaster");
+  });
+
+  test("a whole read of the misfitting lines, through the real engine, is the disaster", () => {
+    const misfit = playablePath(FAMILY_SCENES, FAMILY_START_ID, "gu", has, (r) =>
+      r.scene.choices.find((c) => !c.fits)!.concept,
+    );
+    expect(misfit.length).toBe(FAMILY_SCENES.length);
+    expect(endingKind(misfit)).toBe("disaster");
+    const fitting = playablePath(FAMILY_SCENES, FAMILY_START_ID, "gu", has, (r) =>
+      fittingChoice(r.scene)!.concept,
+    );
+    expect(endingKind(fitting)).toBe("perfect");
   });
 });

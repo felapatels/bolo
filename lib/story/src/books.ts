@@ -6,6 +6,7 @@ import {
   COURTYARD_START_ID,
   FAMILY_SCENES,
   FAMILY_START_ID,
+  GREETINGS_ENDINGS,
   GREETINGS_SCENES,
   GREETINGS_START_ID,
   PHOTOGRAPH_SCENES,
@@ -13,7 +14,13 @@ import {
   THALI_SCENES,
   THALI_START_ID,
 } from "./scenes";
-import type { Scene } from "./types";
+import { endingKind } from "./engine";
+import type {
+  LedgerEntry,
+  Scene,
+  StoryEndingKind,
+  StoryEndings,
+} from "./types";
 
 /**
  * A book is a scene graph pinned to one fare zone.
@@ -34,6 +41,15 @@ export type StoryBook = {
   title: string;
   scenes: readonly Scene[];
   startId: string;
+  /**
+   * The three ending pictures, OPTIONAL until a book's art exists.
+   *
+   * Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"). Only
+   * book 1 carries them so far. A book without them renders no ending picture
+   * at all rather than requesting stills that were never drawn, which is the
+   * grey hole a missing asset leaves on a phone.
+   */
+  endings?: StoryEndings;
 };
 
 /**
@@ -77,6 +93,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "A visit next door",
     scenes: GREETINGS_SCENES,
     startId: GREETINGS_START_ID,
+    endings: GREETINGS_ENDINGS,
   },
   {
     id: "j1z2-family",
@@ -372,4 +389,63 @@ export function outcomeStillId(sceneId: string, concept: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   return `${sceneId}--${slug}`;
+}
+
+/**
+ * How long a punchline holds the frame after a pick, in milliseconds.
+ *
+ * THE MAD-LIB RULING, owner 2026-09-16 ("it seems boring"). A pick shows that
+ * line's outcome still FULL SIZE, speaks the line, and then the story moves on
+ * by itself; there is no Next button, because the owner removed one on
+ * 2026-09-15. A tap on the picture ends the beat early.
+ *
+ * Here rather than in either client because web and mobile are hand-maintained
+ * twins, and a beat that is 2.5 seconds on one and 3 on the other is the drift
+ * this library exists to prevent. Long enough to take a picture in and laugh,
+ * short enough that a learner playing it straight is not kept waiting.
+ */
+export const STORY_PUNCHLINE_MS = 2500;
+
+/**
+ * The prefix every scene id in a book shares: "door" for door-1 to door-5.
+ *
+ * DERIVED FROM THE START ID rather than stored, because a stored copy is a
+ * second place to rename. story-books.test.ts pins that every scene of every
+ * book carries its book's prefix, so the derivation cannot quietly disagree
+ * with the ids.
+ */
+export function bookScenePrefix(book: StoryBook): string {
+  return book.startId.replace(/-\d+$/, "");
+}
+
+/**
+ * The asset id for one of a book's ending stills: `door--end-chaos`.
+ *
+ * The double dash is outcomeStillId's separator, reused so an ending sorts
+ * beside its book's outcomes in the story directory and can never collide with
+ * a scene id, which is `<prefix>-<n>`.
+ */
+export function endingStillId(prefix: string, kind: StoryEndingKind): string {
+  return `${prefix}--end-${kind}`;
+}
+
+/**
+ * The ending picture a finished read shows, or null when this book has no
+ * ending art yet.
+ *
+ * ONE ANSWER FOR BOTH CLIENTS (2026-09-16). Web and mobile are hand-maintained
+ * twins, and the ending is a rule (endingKind), a filename (endingStillId) and
+ * a brief; three things for each twin to get subtly different.
+ */
+export function storyEnding(
+  book: StoryBook,
+  entries: readonly LedgerEntry[],
+): { kind: StoryEndingKind; stillId: string; situation: string } | null {
+  if (!book.endings) return null;
+  const kind = endingKind(entries);
+  return {
+    kind,
+    stillId: endingStillId(bookScenePrefix(book), kind),
+    situation: book.endings[kind].situation,
+  };
 }

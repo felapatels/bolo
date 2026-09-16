@@ -9,6 +9,11 @@
 import { describe, test, expect } from "vitest";
 import {
   bookConcepts,
+  bookScenePrefix,
+  endingStillId,
+  GREETINGS_ENDINGS,
+  outcomeStillId,
+  storyEnding,
   bookCoverage,
   CONCEPT_COVERAGE,
   MIN_CONCEPT_COVERAGE,
@@ -493,5 +498,104 @@ describe("where the story stop sits", () => {
       expect(storyStopIndexIn(8, 1, zone, null)).toBeGreaterThan(0);
       expect(storyStopIndexIn(8, 1, zone, 1)).toBeGreaterThan(0);
     }
+  });
+});
+
+// ─── Endings, and the words that match book 1's new art ──────────────────────
+//
+// Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"). Every
+// assertion here guards a filename or a brief, and both fail SILENTLY in the
+// app: a wrong id is an image that never loads, and the page is built so that
+// a missing image leaves nothing behind.
+describe("ending pictures", () => {
+  test("every book's scene ids share the prefix its ending stills are named from", () => {
+    const prefixes = STORY_BOOKS.map((b) => bookScenePrefix(b));
+    expect(prefixes).toEqual(["door", "table", "chai", "thali", "yard", "photo"]);
+    for (const book of STORY_BOOKS) {
+      const prefix = bookScenePrefix(book);
+      for (const scene of book.scenes) {
+        expect(scene.id, `${book.id} ${scene.id}`).toMatch(new RegExp(`^${prefix}-\\d+$`));
+      }
+    }
+  });
+
+  test("an ending still is named <prefix>--end-<kind> and never collides with a scene or outcome", () => {
+    expect(endingStillId("door", "perfect")).toBe("door--end-perfect");
+    expect(endingStillId("door", "chaos")).toBe("door--end-chaos");
+    expect(endingStillId("door", "disaster")).toBe("door--end-disaster");
+    const taken = new Set(
+      STORY_BOOKS.flatMap((b) =>
+        b.scenes.flatMap((sc) => [
+          sc.id,
+          ...sc.choices.map((c) => outcomeStillId(sc.id, c.concept)),
+        ]),
+      ),
+    );
+    for (const book of STORY_BOOKS) {
+      for (const kind of ["perfect", "chaos", "disaster"] as const) {
+        expect(taken.has(endingStillId(bookScenePrefix(book), kind))).toBe(false);
+      }
+    }
+  });
+
+  test("only book 1 has ending art so far, and the others answer null rather than a picture", () => {
+    // OPTIONAL PER BOOK on purpose: a book whose endings were never drawn must
+    // not request three stills that do not exist.
+    const withEndings = STORY_BOOKS.filter((b) => b.endings).map((b) => b.id);
+    expect(withEndings).toEqual(["j1z1-greetings"]);
+    const entry = { sceneId: "table-1", concept: "water", fitted: true };
+    for (const book of STORY_BOOKS.filter((b) => !b.endings)) {
+      expect(storyEnding(book, [entry])).toBeNull();
+    }
+  });
+
+  test("book 1's ending follows the read", () => {
+    const book = storyBookFor(1, 1)!;
+    const read = (...fits: boolean[]) =>
+      fits.map((fitted, i) => ({ sceneId: `door-${i + 1}`, concept: "x", fitted }));
+    expect(storyEnding(book, read(true, true, true, true, true))).toEqual({
+      kind: "perfect",
+      stillId: "door--end-perfect",
+      situation: GREETINGS_ENDINGS.perfect.situation,
+    });
+    expect(storyEnding(book, read(false, true, false, true, true))?.stillId).toBe(
+      "door--end-chaos",
+    );
+    expect(storyEnding(book, read(false, false, false, true, true))?.stillId).toBe(
+      "door--end-disaster",
+    );
+    // Three different pictures need three different briefs, or the alt text
+    // says the same thing over three different jokes.
+    const briefs = Object.values(GREETINGS_ENDINGS).map((e) => e.situation);
+    expect(new Set(briefs).size).toBe(3);
+  });
+});
+
+describe("book 1's words match its new art (2026-09-16)", () => {
+  // ONLY THE WORDS MOVED. The concepts were checked against every language's
+  // corpus, so this pins the whole graph as it stood before the rewrite: a
+  // change to any concept, fit or next here is a change to which languages can
+  // play this book, and must be made on purpose.
+  test("concepts, fits and next are exactly what they were", () => {
+    const book = storyBookFor(1, 1)!;
+    const graph = book.scenes.map((sc) => [
+      sc.id,
+      sc.choices.map((c) => `${c.concept}|${c.fits}|${c.next}`),
+    ]);
+    expect(graph).toEqual([
+      ["door-1", ["good morning|true|door-2", "goodbye|false|door-2", "how much is this?|false|door-2"]],
+      ["door-2", ["yes|true|door-3", "tomorrow|false|door-3", "congratulations|false|door-3"]],
+      ["door-3", ["water|true|door-4", "how much is this?|false|door-4", "fork|false|door-4"]],
+      ["door-4", ["thank you|true|door-5", "sorry|false|door-5", "father-in-law|false|door-5"]],
+      ["door-5", ["good night|true|null", "good morning|false|null", "welcome|false|null"]],
+    ]);
+  });
+
+  test("door-3's setup has not started pouring", () => {
+    // The "water" outcome IS the pour, so a setup already pouring leaves that
+    // punchline nothing to show.
+    const door3 = storyBookFor(1, 1)!.scenes.find((sc) => sc.id === "door-3")!;
+    expect(door3.situation).toMatch(/NOT pouring yet/);
+    expect(door3.situation).not.toMatch(/\bpours\b/i);
   });
 });

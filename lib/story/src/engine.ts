@@ -4,6 +4,7 @@ import type {
   Scene,
   SceneChoice,
   SceneMedia,
+  StoryEndingKind,
 } from "./types";
 
 /**
@@ -211,6 +212,36 @@ export function bookIsFinished(
   const scene = scenes.find((s) => s.id === last.sceneId);
   const choice = scene?.choices.find((c) => c.concept === last.concept);
   return choice ? choice.next === null : false;
+}
+
+/**
+ * Which ending a read earned, from the ledger alone.
+ *
+ *   no line that did not fit            perfect
+ *   misfits at most half the beats      chaos
+ *   more than half                      disaster
+ *
+ * THE MAD-LIB RULING, owner 2026-09-16 ("it seems boring"). The game is meant
+ * to be played for the jokes: pick the line that does not fit and something
+ * funny happens. An ending that ignores how often the learner did that tells
+ * them the jokes were a detour. So the ending remembers, and the funniest
+ * picture goes to the reader who went looking for trouble.
+ *
+ * COUNTED AGAINST THE BEATS PLAYED, never the book's length. A book skips the
+ * scenes a thin corpus cannot carry (2026-09-15), so two misfits in a
+ * three-beat read are most of it, while two in the book's five scenes would
+ * not be. `wrong * 2 <= played` keeps it in integers so an exact half is
+ * chaos, not disaster.
+ *
+ * LANGUAGE-FREE, like bookIsFinished: `fitted` is written into each entry when
+ * the line is chosen, so a restored book picks the same ending it ended on.
+ */
+export function endingKind(entries: readonly LedgerEntry[]): StoryEndingKind {
+  const played = entries.length;
+  const wrong = entries.filter((e) => !e.fitted).length;
+  if (wrong === 0) return "perfect";
+  if (wrong * 2 <= played) return "chaos";
+  return "disaster";
 }
 
 /**

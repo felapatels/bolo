@@ -116,6 +116,23 @@ export type SceneOutcome = {
   situation: string;
 };
 
+/**
+ * Which of a book's three ending pictures a read earned.
+ *
+ * Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"). A book
+ * that ends the same way however it was played throws away the one thing the
+ * ledger knows, which is how many lines the learner said at the wrong moment.
+ * The rule that picks one is endingKind in engine.ts.
+ */
+export type StoryEndingKind = "perfect" | "chaos" | "disaster";
+
+/**
+ * A book's ending pictures, one brief per kind. Same shape as SceneOutcome,
+ * for the same reason: the brief is what the art was drawn from AND the alt
+ * text, never prose shown to the learner.
+ */
+export type StoryEndings = Readonly<Record<StoryEndingKind, SceneOutcome>>;
+
 /** A moment, its renderings, and where each answer takes you. */
 export type Scene = {
   id: string;

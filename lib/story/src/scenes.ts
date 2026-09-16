@@ -1,4 +1,4 @@
-import type { Scene } from "./types";
+import type { Scene, StoryEndings } from "./types";
 
 /**
  * The six storybooks, one per journey 1 fare zone.
@@ -36,11 +36,25 @@ import type { Scene } from "./types";
  * clip, Tier 3 a filmed speaker in one language. Nothing in the engine cares
  * which exists; it takes the richest it can use and falls back.
  */
+/**
+ * BOOK 1'S WORDS WERE REWRITTEN TO MATCH NEW ART on 2026-09-16, and ONLY the
+ * words. The owner found the storybook boring ("it seems boring") and ruled
+ * that it should play like a mad lib: pick a line that does not fit and
+ * something funny happens, drawn big. The new stills were commissioned from
+ * briefs in ~/bolo-supervisor/storybook-madlib/book1-door.json, and every
+ * `situation` below is that file's `brief` verbatim, because the brief is also
+ * the alt text and the narration, and alt text describing a different picture
+ * is worse than none.
+ *
+ * NO concept, `fits` or `next` changed. The concepts were checked against every
+ * language's corpus, and a rewrite that moved one would quietly shorten this
+ * book somewhere nobody is looking.
+ */
 export const GREETINGS_SCENES: readonly Scene[] = [
   {
     id: "door-1",
     situation:
-      "An older neighbour opens her door into low morning light and looks up at you, waiting.",
+      "Early morning. She has opened her teal front door just a crack and peeks out at the viewer with one curious eye and raised eyebrows, one hand on the door edge, waiting to hear who it is. Soft low sunlight, milk pot on the step.",
     media: [{ tier: 1, ref: "scene/door-1/still", languageCode: null }],
     choices: [
       {
@@ -49,7 +63,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "Delighted, she pushes the door wide and waves you in with both hands.",
+            "She flings the teal door wide open, beaming with her whole face, both arms out to wave the viewer inside, morning sunlight pouring past her into the hallway.",
         },
       },
       {
@@ -58,7 +72,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Stricken, she steps out onto the path and waves sadly at your back while you are still standing on her step.",
+            "Full melodrama: she stands on her own doorstep sobbing into a huge white handkerchief and waving it goodbye as if a ship is leaving, even though the viewer is right in front of her. Two neighbours lean out of their windows, baffled.",
         },
       },
       {
@@ -67,7 +81,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks at her own front door, then at you, then holds up fingers as though pricing it.",
+            "She has decided her house is for sale: a blank price tag on a string hangs from her front door knob, and she proudly lines up her belongings on the step for the viewer, a cooking pot, a chair, a birdcage with an indignant parrot, holding out her open palm for payment with a shrewd shopkeeper squint.",
         },
       },
     ],
@@ -75,7 +89,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
   {
     id: "door-2",
     situation:
-      "She steps back and holds the door wide open with one hand, eyebrows raised at you.",
+      "She holds the teal door wide with one hand and gestures into the cool hallway with the other, eyebrows raised in a clear question: are you coming in?",
     media: [{ tier: 1, ref: "scene/door-2/still", languageCode: null }],
     choices: [
       {
@@ -84,7 +98,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She sweeps an arm towards the hallway like a grand hotel doorman, delighted with herself.",
+            "She bows like a grand hotel doorman, one arm sweeping towards the hallway, where a rolled-out red carpet runs inside. She is enormously pleased with herself.",
         },
       },
       {
@@ -93,7 +107,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She nods gravely and closes the door. Through the window you can see her setting a chair beside it to wait a full day.",
+            "The door is shut. Through the front window we see her in a nightcap, sitting bolt upright in a chair right behind the door beside an enormous alarm clock and a packed tiffin, determined to wait all night for the viewer to come back.",
         },
       },
       {
@@ -102,15 +116,19 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks around her own empty hallway for whatever good thing has happened, thrilled and completely lost.",
+            "Instant party: she wears a paper party hat and throws marigold petals into the air, while three neighbours burst into her hallway with a drum, a trumpet and a garland. She looks around wildly, thrilled, with no idea what they are celebrating.",
         },
       },
     ],
   },
   {
     id: "door-3",
+    // NOT POURING YET, a requirement of the 2026-09-16 rewrite. The "water"
+    // outcome IS the pour, so a setup that already shows one leaves that
+    // punchline nothing to add, and the brief says so in capitals because an
+    // image generator drifts towards the obvious next moment.
     situation:
-      "Inside, she lifts a heavy jug over the empty steel tumbler in front of you and pauses there.",
+      "Inside her sunny kitchen, she holds a heavy clay water jug up over an empty steel tumbler on the table, NOT pouring yet, jug perfectly still, looking at the viewer with raised eyebrows as if asking what they would like.",
     media: [{ tier: 1, ref: "scene/door-3/still", languageCode: null }],
     choices: [
       {
@@ -119,7 +137,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She pours. The tumbler fills and the stream catches the window light.",
+            "She pours a clear sparkling stream of water from the clay jug into the steel tumbler, which is filling up, smiling warmly, sunlight glinting in the water.",
         },
       },
       {
@@ -128,7 +146,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Deeply offended, she sets the jug down and begins writing you a bill on the back of an envelope.",
+            "Deeply offended, she has slammed an old-fashioned brass cash register onto the kitchen table and is cranking its handle with a furious glare over her glasses, the clay jug tucked under her other arm, the tumbler still empty.",
         },
       },
       {
@@ -137,7 +155,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She puts the jug down, fetches a fork from a drawer, and lays it carefully beside the still empty glass.",
+            "She proudly presents the steel tumbler stuffed with dozens of forks sticking out like a bouquet of flowers, with more forks spilling across the table, beaming as if she has done exactly what was asked.",
         },
       },
     ],
@@ -145,7 +163,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
   {
     id: "door-4",
     situation:
-      "She sets the filled tumbler into both of your hands and keeps hold of it a moment longer.",
+      "She presses the full, cold steel tumbler of water into the viewer's two hands, visible at the bottom edge of the picture, and keeps her own hands wrapped around theirs for a moment, looking up warmly and expectantly.",
     media: [{ tier: 1, ref: "scene/door-4/still", languageCode: null }],
     choices: [
       {
@@ -154,7 +172,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She pats your hands where they wrap the tumbler, thoroughly pleased with everyone involved.",
+            "She pats the viewer's hands around the tumbler, touched, one hand on her heart, eyes crinkled with happiness.",
         },
       },
       {
@@ -163,7 +181,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Alarmed, she inspects the glass, then the floor, then her own sari, hunting for whatever has gone wrong.",
+            "Total alarm: she is on her hands and knees under the kitchen table with a big magnifying glass hunting for whatever disaster happened, a mop and bucket beside her, while the viewer's hands hold the perfectly fine tumbler at the bottom edge.",
         },
       },
       {
@@ -172,7 +190,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She turns and peers down the empty hallway behind her to see which relative you mean.",
+            "She has spun round towards her hallway, and startled old men in white kurtas and dhotis are popping out of every doorway, cupboard and curtain, each one pointing at himself with a questioning face.",
         },
       },
     ],
@@ -180,7 +198,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
   {
     id: "door-5",
     situation:
-      "The lamp above her gate is lit and the street behind you is dark. She raises a hand as you go.",
+      "Night. The brass lamp above her gate glows against a deep blue sky full of stars. She stands at the gate as the viewer leaves, one hand half raised, about to say something.",
     media: [{ tier: 1, ref: "scene/door-5/still", languageCode: null }],
     choices: [
       {
@@ -189,7 +207,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She waves under the gate lamp as you step into the soft dark street.",
+            "Under the glowing gate lamp she waves gently as the viewer walks away into the soft blue night, a cat curled asleep on the wall beside her, stars above.",
         },
       },
       {
@@ -198,7 +216,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks up at the black sky full of stars, then at her wristwatch, then back at you, delighted and baffled.",
+            "In the middle of the starry night she holds a rooster high over her head, crowing at the moon, while the whole street's windows light up and neighbours stumble out in pyjamas, rubbing their eyes and looking at the dark sky.",
         },
       },
       {
@@ -207,7 +225,7 @@ export const GREETINGS_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She brightens, swings the gate open again and stands aside, entirely ready to host you a second time.",
+            "She swings the gate wide open again and has dragged a rolled mattress, a pillow, a blanket and a steaming second dinner on a tray out to the gate, ready to host the viewer all over again at midnight, grinning.",
         },
       },
     ],
@@ -216,6 +234,35 @@ export const GREETINGS_SCENES: readonly Scene[] = [
 
 /** Where the greetings book begins. */
 export const GREETINGS_START_ID = "door-1";
+
+/**
+ * The three pictures book 1 can end on, chosen by how the read went (see
+ * endingKind in engine.ts). Briefs from the same commissioned file as the
+ * scenes above, 2026-09-16.
+ *
+ * THE ENDING IS WHERE THE MAD LIB PAYS OFF (owner, 2026-09-16, "it seems
+ * boring"). Each wrong line already gets its own punchline picture; the ending
+ * is the one picture that remembers ALL of them, so the disaster ending gathers
+ * the rooster, the forks, the cash register and the confused old men from the
+ * outcomes a learner can have caused.
+ *
+ * ONLY BOOK 1 HAS THESE. Endings are optional per book, and the other five
+ * render no ending picture until their art exists.
+ */
+export const GREETINGS_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "The next morning: on the viewer's own doorstep sits a steel tiffin of sweets tied with a ribbon, and across the lane she waves happily from her window. Everything calm, sunny and kind.",
+  },
+  chaos: {
+    situation:
+      "The next morning she stands on her doorstep surrounded by laughing neighbours, acting out the viewer's visit with huge arm gestures, a fork in one hand and a party hat on her head. Everyone is laughing warmly.",
+  },
+  disaster: {
+    situation:
+      "The whole lane in joyful uproar: a rooster crowing on top of the gate lamp, forks scattered everywhere, the brass cash register on the doorstep, a line of confused old men in kurtas, a drummer and a trumpeter still playing, marigold petals in the air, and in the middle of it all she is laughing the hardest, arms thrown wide towards the viewer.",
+  },
+};
 
 export const FAMILY_SCENES: readonly Scene[] = [
   {
