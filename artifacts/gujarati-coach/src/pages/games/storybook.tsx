@@ -25,7 +25,7 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useSearch } from "wouter";
-import { ArrowLeft, BookOpen, Lock, RotateCcw, Share2, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, BookOpen, Loader2, Lock, RotateCcw, Share2, Volume2, VolumeX } from "lucide-react";
 import * as Sentry from "@sentry/react";
 import {
   getGetStoryBookQueryKey,
@@ -749,8 +749,14 @@ function ShareStoryButton({
       data-testid="story-share"
       className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-card px-4 py-3 font-bold text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60"
     >
-      <Share2 className="h-4 w-4" />
-      {busy ? "Making your picture…" : STORY_SHARE_CTA}
+      {/* Same words busy or not, as on the phone, which shows a spinner in
+          the icon's place. */}
+      {busy ? (
+        <Loader2 className="h-4 w-4 animate-spin" data-testid="story-share-busy" />
+      ) : (
+        <Share2 className="h-4 w-4" />
+      )}
+      {STORY_SHARE_CTA}
     </button>
   );
 }
