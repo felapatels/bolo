@@ -16,7 +16,11 @@
 //   - a concept the language lacks is ABSENT, never blank, which is what feeds
 //     the engine's null;
 //   - "father" resolves a row that says "Dad", which is the one difference
-//     between Gujarati and the other twenty-one languages.
+//     between Gujarati and the other twenty-one languages;
+//   - a storybook-only line fills a concept the database lacks, with a stable
+//     NEGATIVE phraseId, and never displaces a real row (2026-09-16). Tested on
+//     a second server built by createStoryRouter over a list for the synthetic
+//     language, so the committed region list is never needed here.
 //
 // Rows use test-only ids and are cleaned up by them. See
 // .agents/memory/api-server-tests.md.
@@ -38,8 +42,10 @@ import { eq } from "drizzle-orm";
 import {
   bookConcepts,
   storyBookFor,
+  storyOnlyPhraseId,
+  type StoryOnlyLines,
 } from "@workspace/story";
-import storyRouter from "./story";
+import storyRouter, { createStoryRouter } from "./story";
 import { loadEntitlements } from "../middlewares/loadEntitlements";
 import { ensureUsersColumns } from "../lib/testDbCompat";
 
@@ -51,6 +57,8 @@ const CATEGORY_SLUG = "__test_cat_story";
 let app: Express;
 let server: Server;
 let baseUrl: string;
+let storyOnlyServer: Server;
+let storyOnlyBaseUrl: string;
 let categoryId: number;
 let lessonId: number;
 let currentUserId = FREE_USER_ID;
@@ -58,10 +66,44 @@ let currentUserId = FREE_USER_ID;
 const tasteBook = () => storyBookFor(1, 1)!;
 const paidBook = () => storyBookFor(1, 2)!;
 
-/** The one family concept deliberately left unseeded. */
-const MISSING_CONCEPT = "spoon";
+/**
+ * The one family concept deliberately left unseeded.
+ *
+ * WAS "spoon" UNTIL 2026-09-16, AND EVERY ASSERTION ON IT WAS VACUOUS. Spoon
+ * left the family book when the books were rewritten (it is a thali concept
+ * now), so the seeding filter removed nothing and "a concept the language
+ * lacks is absent" passed without testing anything. Found when the story-only
+ * test asked the family book for spoon and got nothing back. Grandson is in
+ * the family book and not in the taste book, so the Zone 1 assertions still
+ * see a complete book.
+ */
+const MISSING_CONCEPT = "grandson";
 /** Seeded as "Dad", never as "father", which is the Gujarati case. */
 const ALIASED_CONCEPT = "father";
+
+/**
+ * The storybook-only list the second server is built over. MISSING_CONCEPT is
+ * the gap the database really has; `water` has real rows and a story-only line
+ * both, which is the case where the database must win.
+ */
+const TEST_STORY_ONLY_LINES: StoryOnlyLines = {
+  [LANG]: {
+    [MISSING_CONCEPT]: {
+      nativeScript: `story-only:${MISSING_CONCEPT}`,
+      romanized: `story-only-roman:${MISSING_CONCEPT}`,
+      english: MISSING_CONCEPT,
+      confidence: "low",
+      verified: false,
+    },
+    water: {
+      nativeScript: "story-only:water",
+      romanized: "story-only-roman:water",
+      english: "water",
+      confidence: "low",
+      verified: false,
+    },
+  },
+};
 
 type BookResponse = {
   bookId: string;
@@ -82,9 +124,10 @@ async function getBook(
   journey: number,
   zone: number,
   lang: string = LANG,
+  base: string = baseUrl,
 ): Promise<{ status: number; json: BookResponse & { error?: string } }> {
   const res = await fetch(
-    `${baseUrl}/games/story/book?lang=${encodeURIComponent(lang)}&journey=${journey}&zone=${zone}`,
+    `${base}/games/story/book?lang=${encodeURIComponent(lang)}&journey=${journey}&zone=${zone}`,
   );
   const json = (await res.json().catch(() => null)) as BookResponse & {
     error?: string;
@@ -189,6 +232,18 @@ before(async () => {
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+  const storyOnlyApp = express();
+  storyOnlyApp.use(express.json());
+  storyOnlyApp.use((req, _res, next) => {
+    (req as unknown as { userId: string }).userId = currentUserId;
+    next();
+  });
+  storyOnlyApp.use(loadEntitlements);
+  storyOnlyApp.use(createStoryRouter(TEST_STORY_ONLY_LINES));
+  storyOnlyServer = storyOnlyApp.listen(0);
+  await new Promise((r) => storyOnlyServer.once("listening", r));
+  storyOnlyBaseUrl = `http://127.0.0.1:${(storyOnlyServer.address() as AddressInfo).port}`;
 });
 
 after(async () => {
@@ -199,6 +254,7 @@ after(async () => {
   await db.delete(usersTable).where(eq(usersTable.id, FREE_USER_ID));
   await db.delete(usersTable).where(eq(usersTable.id, PLUS_USER_ID));
   server?.close();
+  storyOnlyServer?.close();
   await pool.end();
 });
 
@@ -293,4 +349,56 @@ test("an unknown language answers 200 with nothing in it", async () => {
   const { status, json } = await getBook(1, 1, "__test_lang_absent");
   assert.equal(status, 200);
   assert.deepEqual(json.phrases, []);
+});
+
+test("a storybook-only line fills a concept the database lacks, with a negative id", async () => {
+  currentUserId = PLUS_USER_ID;
+  const { status, json } = await getBook(1, 2, LANG, storyOnlyBaseUrl);
+  assert.equal(status, 200);
+  const filled = json.phrases.find((p) => p.concept === MISSING_CONCEPT);
+  assert.ok(filled, "the story-only line must fill the gap");
+  assert.equal(filled.nativeScript, `story-only:${MISSING_CONCEPT}`);
+  assert.equal(filled.romanized, `story-only-roman:${MISSING_CONCEPT}`);
+  assert.equal(filled.english, MISSING_CONCEPT);
+  // Negative means story-only, and it is the SAME negative every time, so
+  // the web audio cache keyed on it keeps working across visits.
+  assert.ok(Number.isInteger(filled.phraseId) && filled.phraseId < 0);
+  assert.equal(filled.phraseId, storyOnlyPhraseId(LANG, MISSING_CONCEPT));
+  const again = await getBook(1, 2, LANG, storyOnlyBaseUrl);
+  assert.equal(
+    again.json.phrases.find((p) => p.concept === MISSING_CONCEPT)?.phraseId,
+    filled.phraseId,
+  );
+  // Still one line per concept after the merge.
+  const seen = json.phrases.map((p) => p.concept);
+  assert.equal(new Set(seen).size, seen.length);
+  // And the whole book now resolves, since that was the only gap.
+  assert.deepEqual(conceptsIn(json), bookConcepts(paidBook()).sort());
+});
+
+test("a database row beats a storybook-only line for the same concept", async () => {
+  currentUserId = PLUS_USER_ID;
+  const { json } = await getBook(1, 1, LANG, storyOnlyBaseUrl);
+  const water = json.phrases.find((p) => p.concept === "water");
+  assert.ok(water);
+  assert.equal(water.nativeScript, "native:water");
+  assert.ok(water.phraseId > 0, "a real row keeps its real serial id");
+  for (const p of json.phrases) {
+    if (p.concept !== MISSING_CONCEPT) {
+      assert.ok(p.phraseId > 0, `${p.concept} should have come from the database`);
+    }
+  }
+});
+
+test("the list is per language: another language gains nothing from it", async () => {
+  currentUserId = PLUS_USER_ID;
+  const { status, json } = await getBook(1, 1, "__test_lang_absent", storyOnlyBaseUrl);
+  assert.equal(status, 200);
+  assert.deepEqual(json.phrases, []);
+});
+
+test("the locked 402 is unchanged on a router with a story-only list", async () => {
+  currentUserId = FREE_USER_ID;
+  const { status } = await getBook(1, 2, LANG, storyOnlyBaseUrl);
+  assert.equal(status, 402);
 });

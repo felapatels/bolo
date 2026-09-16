@@ -15,3 +15,5 @@ export * from "./concepts";
 export * from "./books";
 export * from "./coverage";
 export * from "./share";
+export * from "./storyOnly";
+export * from "./storyOnlyLines";

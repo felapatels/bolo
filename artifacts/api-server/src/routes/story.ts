@@ -6,8 +6,11 @@ import {
   bookConcepts,
   matchesConcept,
   storyBookFor,
+  STORY_ONLY_LINES,
   STORY_TEASER_SCENES,
+  withStoryOnlyLines,
   type StoryBook,
+  type StoryOnlyLines,
 } from "@workspace/story";
 import { featuresForPlan } from "../lib/entitlements";
 import { denyLockedFeature } from "../lib/gating";
@@ -30,7 +33,6 @@ import type { EntitledRequest } from "../middlewares/loadEntitlements";
  * returned empty, which is what feeds resolveScene()'s null. Same contract as
  * traceStopFor() for an unauthored script: the caller skips the scene.
  */
-const router: IRouter = Router();
 
 type StoryPhrase = {
   concept: string;
@@ -60,6 +62,7 @@ type StoryPhrase = {
 async function loadConceptPhrases(
   languageCode: string,
   concepts: string[],
+  storyOnlyLines: StoryOnlyLines,
 ): Promise<StoryPhrase[]> {
   if (concepts.length === 0) return [];
 
@@ -116,7 +119,20 @@ async function loadConceptPhrases(
       english: row.english,
     });
   }
-  return out;
+
+  // STORYBOOK-ONLY LINES FILL WHAT THE CORPUS COULD NOT, since 2026-09-16
+  // (owner ruling: a storybook-only word list, never new lesson rows, because
+  // India's journey 1 topics must hold exactly 40 rows or boot exits).
+  //
+  // AFTER the database, never instead of it: withStoryOnlyLines only looks at a
+  // concept `out` has no entry for, so a real phrase row always wins, and the
+  // day a lesson row lands the story switches to it on its own.
+  //
+  // A line served from the list carries a NEGATIVE phraseId, stable per
+  // (language, concept), because the contract requires an integer and a real
+  // serial id is always positive. Negative means story-only; see
+  // lib/story/src/storyOnly.ts before sending a story phraseId anywhere.
+  return withStoryOnlyLines(languageCode, concepts, out, storyOnlyLines);
 }
 
 /** Zone 1 is free; later books require All-Access or permanent Chai ownership. */
@@ -138,62 +154,75 @@ async function conceptsForCaller(
   return null;
 }
 
-// GET /games/story/book?lang=&journey=&zone=
-// The book for one zone, with its vocabulary resolved into one language.
-router.get(
-  "/games/story/book",
-  async (req: Request, res: Response): Promise<void> => {
-    const lang = String(req.query.lang ?? "");
-    const journey = Number(req.query.journey);
-    const zone = Number(req.query.zone);
+/**
+ * The router, over a given storybook-only word list.
+ *
+ * A FACTORY SO THE MERGE CAN BE TESTED AGAINST A REAL DATABASE without a module
+ * mock: story.book.test.ts seeds a synthetic language and hands in a list for
+ * it. Production uses the default export below, over STORY_ONLY_LINES.
+ */
+export function createStoryRouter(storyOnlyLines: StoryOnlyLines): IRouter {
+  const router: IRouter = Router();
 
-    // THE UPPER BOUND IS 64, NOT 8, AND THAT IS NOT ARBITRARY. This is the
-    // only endpoint in the API that caps the code's length at all, and the 8
-    // it shipped with in a64c2822 rejected the suite's own language
-    // sentinels: every api test names its language `__test_lang_<suite>`,
-    // which is 17 characters in story.book.test.ts, so that file could never
-    // have passed. The convention is load-bearing rather than incidental,
-    // and routes/languages.ts filters the public picker on that exact prefix
-    // so a crashed run cannot show a test language to a learner. 64 still
-    // keeps a runaway query string out of the phrase lookup, which is all
-    // the cap was ever for.
-    if (lang.length < 2 || lang.length > 64) {
-      res.status(400).json({ error: "Missing or invalid lang" });
-      return;
-    }
-    if (!Number.isInteger(journey) || !Number.isInteger(zone)) {
-      res.status(400).json({ error: "journey and zone must be integers" });
-      return;
-    }
+  // GET /games/story/book?lang=&journey=&zone=
+  // The book for one zone, with its vocabulary resolved into one language.
+  router.get(
+    "/games/story/book",
+    async (req: Request, res: Response): Promise<void> => {
+      const lang = String(req.query.lang ?? "");
+      const journey = Number(req.query.journey);
+      const zone = Number(req.query.zone);
 
-    // No book in this zone is a 404 and not an error: most zones have none, and
-    // journey 2 has none at all because four of its six categories hold zero
-    // phrase rows in every language. The map asks about every zone it draws.
-    const book = storyBookFor(journey, zone);
-    if (!book) {
-      res.status(404).json({ error: "No storybook in that zone" });
-      return;
-    }
+      // THE UPPER BOUND IS 64, NOT 8, AND THAT IS NOT ARBITRARY. This is the
+      // only endpoint in the API that caps the code's length at all, and the 8
+      // it shipped with in a64c2822 rejected the suite's own language
+      // sentinels: every api test names its language `__test_lang_<suite>`,
+      // which is 17 characters in story.book.test.ts, so that file could never
+      // have passed. The convention is load-bearing rather than incidental,
+      // and routes/languages.ts filters the public picker on that exact prefix
+      // so a crashed run cannot show a test language to a learner. 64 still
+      // keeps a runaway query string out of the phrase lookup, which is all
+      // the cap was ever for.
+      if (lang.length < 2 || lang.length > 64) {
+        res.status(400).json({ error: "Missing or invalid lang" });
+        return;
+      }
+      if (!Number.isInteger(journey) || !Number.isInteger(zone)) {
+        res.status(400).json({ error: "journey and zone must be integers" });
+        return;
+      }
 
-    const allowed = await conceptsForCaller(req, res, book, lang);
-    if (!allowed) return;
+      // No book in this zone is a 404 and not an error: most zones have none, and
+      // journey 2 has none at all because four of its six categories hold zero
+      // phrase rows in every language. The map asks about every zone it draws.
+      const book = storyBookFor(journey, zone);
+      if (!book) {
+        res.status(404).json({ error: "No storybook in that zone" });
+        return;
+      }
 
-    const phrases = await loadConceptPhrases(lang, allowed.concepts);
+      const allowed = await conceptsForCaller(req, res, book, lang);
+      if (!allowed) return;
 
-    res.json({
-      bookId: book.id,
-      journey: book.journey,
-      zone: book.zone,
-      title: book.title,
-      startId: book.startId,
-      phrases,
-      // What the client shows when a scene resolves to null: an upgrade beat
-      // when the taste ran out, and nothing at all when the corpus is simply
-      // short in this language. Those two look identical from the scene alone.
-      limited: allowed.limited,
-      teaserScenes: allowed.limited ? STORY_TEASER_SCENES : null,
-    });
-  },
-);
+      const phrases = await loadConceptPhrases(lang, allowed.concepts, storyOnlyLines);
 
-export default router;
+      res.json({
+        bookId: book.id,
+        journey: book.journey,
+        zone: book.zone,
+        title: book.title,
+        startId: book.startId,
+        phrases,
+        // What the client shows when a scene resolves to null: an upgrade beat
+        // when the taste ran out, and nothing at all when the corpus is simply
+        // short in this language. Those two look identical from the scene alone.
+        limited: allowed.limited,
+        teaserScenes: allowed.limited ? STORY_TEASER_SCENES : null,
+      });
+    },
+  );
+
+  return router;
+}
+
+export default createStoryRouter(STORY_ONLY_LINES);
