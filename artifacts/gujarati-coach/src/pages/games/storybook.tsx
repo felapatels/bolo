@@ -195,9 +195,9 @@ function BookOpening({ onDone }: { onDone: () => void }) {
  * a screen reader will read once there is a picture. It is not a hole in the
  * page, it is the same information in the only form currently authored.
  *
- * `media.ref` is carried on the scene and deliberately unused here. When the
- * Tier 1 stills land under public/story/ this becomes an <img> keyed on it and
- * nothing else on the page changes.
+ * `media.ref` is carried on the scene and deliberately unused here. The stills
+ * are served from STORY_ART_DIR (public/story/madlib since 2026-09-16) and
+ * looked up by still id through storyStillSrc, not through this ref.
  */
 /**
  * The book the page is bound into.

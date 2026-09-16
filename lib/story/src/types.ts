@@ -108,9 +108,10 @@ export type SceneChoice = {
 /**
  * The consequence of one line, rendered.
  *
- * Deliberately the same shape as a Scene's `situation`: an English brief that
- * an illustrator or a generator works from AND the alt text a screen reader
- * reads. Never shown as prose to the learner, who sees the picture.
+ * Deliberately the same shape as a Scene's `situation`: the story line the
+ * narrator reads aloud and the alt text a screen reader reads. Since
+ * 2026-09-16 (6f891ef0) it is written as story prose, never as an art prompt;
+ * the prompts that drew the pictures live in ~/bolo-supervisor/storybook-madlib.
  */
 export type SceneOutcome = {
   situation: string;
@@ -137,9 +138,9 @@ export type StoryEndings = Readonly<Record<StoryEndingKind, SceneOutcome>>;
 export type Scene = {
   id: string;
   /**
-   * What the picture shows, in English. The prompt an illustrator or a
-   * generator works from, and the alt text a screen reader reads. Never shown
-   * as story prose: the learner sees the picture and the three lines.
+   * What the picture shows, in English, as story prose: the narrator reads it
+   * aloud and a screen reader reads it as alt text. Not an art prompt since
+   * 2026-09-16 (6f891ef0): a learner hears every word of it.
    */
   situation: string;
   media: SceneMedia[];
