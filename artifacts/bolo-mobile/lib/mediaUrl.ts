@@ -38,9 +38,18 @@ function host(): string {
   return domain ? `https://${domain}` : "";
 }
 
-/** A storybook illustration, by the id the shared library assigns it. */
+/**
+ * A storybook illustration, by the id the shared library assigns it.
+ *
+ * EXPO_PUBLIC_STORY_MEDIA_HOST is a DEVELOPMENT override, added 2026-09-16 so
+ * the owner could see new book art in the simulator before any of it was
+ * published: the art is served from the Mac (for example http://localhost:8765)
+ * while the API stays on EXPO_PUBLIC_DOMAIN. Unset in every EAS profile, so a
+ * store build always fetches from its own domain.
+ */
 export function storyStillUrl(stillId: string): string {
-  return `${host()}/story/${stillId}.webp`;
+  const override = process.env.EXPO_PUBLIC_STORY_MEDIA_HOST;
+  return `${override || host()}/story/${stillId}.webp`;
 }
 
 /** A zone's Emergency film. */
