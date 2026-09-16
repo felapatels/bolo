@@ -36,6 +36,7 @@ import { Screen, TAB_BAR_CLEARANCE, RAISED_PARROT_CLEARANCE } from '@/components
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { SoundBars, TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
 import { Mascot } from '@/components/Mascot';
+import { bolo3dSurfaces } from '@/lib/bolo3dFlag';
 import { ExpressOfferMoment } from '@/components/ExpressOfferMoment';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useEntitlements } from '@/contexts/EntitlementsContext';
@@ -57,6 +58,7 @@ import {
   reportAudioSessionFailure,
   type PlaybackHandle,
 } from '@/lib/audio';
+
 import { loadChatHoldHintSeen, saveChatHoldHintSeen } from '@/lib/settings';
 import { loadSoundPref } from '@/lib/soundPref';
 import { loadCoachVoicePref } from '@/lib/coachVoicePref';
@@ -186,6 +188,11 @@ const InsetsContext =
   SafeAreaInsetsContext ?? React.createContext<{ bottom: number } | null>(null);
 
 export default function ChatScreen() {
+  // THE 3D BIRD, only when the build asks for her, and required while this
+  // renders, never at module load: expo-router evaluates every route module at
+  // launch (lib/bolo3dFlag.ts). Null without the flag, so chat's suites
+  // render today's bird.
+  const Bolo3DSurfaces = bolo3dSurfaces();
   // AI DATA CONSENT. Apple 5.1.1(i) / 5.1.2(i). THIS SCREEN SENDS THE LEARNER'S
   // VOICE OR CONVERSATION ONWARD, so it is one of the four doors that must ask
   // before it can. `shouldAsk` is FALSE while the entitlements snapshot loads,
@@ -2180,7 +2187,11 @@ export default function ChatScreen() {
             And the nav parrot is now the loud microphone (it grows on this tab,
             see BUBBLE_SIZE_FOCUSED), so the on-screen bird no longer has to
             carry that job and can give the transcript its room back. */}
-        <TalkingMascot mode={mascotMode} size={mascotSize} showBars={!isPerched} />
+        {Bolo3DSurfaces ? (
+          <Bolo3DSurfaces.TalkingBolo3D mode={mascotMode} size={mascotSize} showBars={!isPerched} />
+        ) : (
+          <TalkingMascot mode={mascotMode} size={mascotSize} showBars={!isPerched} />
+        )}
 
         {/* Status label under the mascot. Absent, not blank, when idle: an
             empty Text still reserves its line height and gap. */}
@@ -2849,7 +2860,11 @@ export default function ChatScreen() {
           testID="scenario-completion-overlay"
           style={[styles.completionOverlay, { backgroundColor: colors.background }]}
         >
-          <Mascot pose="cheer" size={160} />
+          {Bolo3DSurfaces ? (
+            <Bolo3DSurfaces.SummaryBolo3D moment="perfect" size={160} />
+          ) : (
+            <Mascot pose="cheer" size={160} />
+          )}
           <Text style={[styles.completionTitle, { color: colors.foreground }]}>
             Zone complete!
           </Text>

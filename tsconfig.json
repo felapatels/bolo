@@ -29,6 +29,12 @@
     },
     {
       "path": "./lib/integrations-openai-ai-react"
+    },
+    {
+      "path": "./lib/bolo-character"
+    },
+    {
+      "path": "./lib/bolo-stage"
     }
   ]
 }

@@ -93,6 +93,8 @@ import { FunFactLoader } from '@/components/FunFactLoader';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { asUpgradeRequired, paywallHrefForDenial } from '@/lib/entitlements';
 import { Mascot, type MascotPose } from '@/components/Mascot';
+import { bolo3dSurfaces } from '@/lib/bolo3dFlag';
+import type { LessonMoment } from '@/components/bolo3d/surfaces';
 import { Confetti } from '@/components/Confetti';
 import { MilestoneToast } from '@/components/MilestoneToast';
 import { PhraseReportButton } from '@/components/PhraseReportButton';
@@ -466,6 +468,11 @@ function isZoneLockedError(error: unknown): boolean {
 }
 
 export default function PracticeScreen() {
+  // THE 3D BIRD, only when the build asks for her, and required while this
+  // renders, never at module load: expo-router evaluates every route module at
+  // launch (lib/bolo3dFlag.ts). Null without the flag, so this screen's suites
+  // render today's bird.
+  const Bolo3DSurfaces = bolo3dSurfaces();
   // AI DATA CONSENT. Apple 5.1.1(i) / 5.1.2(i). THIS SCREEN SENDS THE LEARNER'S
   // VOICE OR CONVERSATION ONWARD, so it is one of the four doors that must ask
   // before it can. `shouldAsk` is FALSE while the entitlements snapshot loads,
@@ -808,6 +815,11 @@ export default function PracticeScreen() {
   // belt to that brace, for a long feedback on a short phone: it only moves
   // when the content overflows.
   const showingOutcome = phase === 'result' || phase === 'compare' || phase === 'error';
+  // The 3D bird is bigger and the word card smaller and lower (owner,
+  // 2026-09-16; surfaces.tsx lessonBirdSize): she takes the height the card
+  // leaves her. Today's 2D bird keeps its sizes.
+  const [birdRoom, setBirdRoom] = React.useState(0);
+  const bird3dSize = Bolo3DSurfaces ? Bolo3DSurfaces.lessonBirdSize(birdRoom, showingOutcome) : 0;
   const scrollRef = React.useRef<ScrollView>(null);
   React.useEffect(() => {
     if (phase !== 'result' && phase !== 'compare') return;
@@ -2247,7 +2259,11 @@ export default function PracticeScreen() {
         <View style={styles.summaryWrap} testID="testout-summary">
           {activeTestoutSubmit.isError ? (
             <>
-              <Mascot pose="tryagain" size={148} motion="none" />
+              {Bolo3DSurfaces ? (
+                <Bolo3DSurfaces.SummaryBolo3D moment="error" size={148} />
+              ) : (
+                <Mascot pose="tryagain" size={148} motion="none" />
+              )}
               <Text style={[styles.summaryTitle, { color: colors.foreground }]}>
                 Couldn't check your run
               </Text>
@@ -2281,7 +2297,11 @@ export default function PracticeScreen() {
           ) : outcome?.passed ? (
             <>
               <Animated.View entering={appear(appearZoom(0))}>
-                <Mascot pose="cheer" size={168} motion="bounce" />
+                {Bolo3DSurfaces ? (
+                  <Bolo3DSurfaces.SummaryBolo3D moment="passed" size={168} />
+                ) : (
+                  <Mascot pose="cheer" size={168} motion="bounce" />
+                )}
               </Animated.View>
               <View style={styles.testoutStamp} aria-hidden>
                 <Text style={styles.testoutStampText}>EXPRESS</Text>
@@ -2304,7 +2324,11 @@ export default function PracticeScreen() {
             </>
           ) : outcome ? (
             <>
-              <Mascot pose="thumbsup" size={148} motion="none" />
+              {Bolo3DSurfaces ? (
+                <Bolo3DSurfaces.SummaryBolo3D moment="not-yet" size={148} />
+              ) : (
+                <Mascot pose="thumbsup" size={148} motion="none" />
+              )}
               <Text style={[styles.summaryTitle, { color: colors.foreground }]} testID="testout-failed-title">
                 Not this time, and that's okay
               </Text>
@@ -2323,7 +2347,11 @@ export default function PracticeScreen() {
             </>
           ) : (
             <>
-              <Mascot pose="thinking" size={148} motion="float" />
+              {Bolo3DSurfaces ? (
+                <Bolo3DSurfaces.SummaryBolo3D moment="checking" size={148} />
+              ) : (
+                <Mascot pose="thinking" size={148} motion="float" />
+              )}
               <Text style={[styles.summaryTitle, { color: colors.foreground }]} testID="testout-checking-title">
                 Checking your run...
               </Text>
@@ -2353,7 +2381,11 @@ export default function PracticeScreen() {
         <PracticeHeader onClose={() => router.back()} label="All done!" />
         <View style={styles.summaryWrap}>
           <Animated.View entering={appear(appearZoom(0))}>
-            <Mascot pose="cheer" size={168} motion="bounce" />
+            {Bolo3DSurfaces ? (
+              <Bolo3DSurfaces.SummaryBolo3D moment={isPerfect ? 'perfect' : 'celebrate'} size={168} />
+            ) : (
+              <Mascot pose="cheer" size={168} motion="bounce" />
+            )}
           </Animated.View>
           <Animated.Text
             entering={skipEnter ? undefined : appearDown(120)}
@@ -2602,6 +2634,25 @@ export default function PracticeScreen() {
     retrySlotActive &&
     (phase === 'error' ||
       (phase === 'result' && (!result || !isGoodOrBetterBand(result.band))));
+  // The same moment for the 3D bird, which plays it as a mood or a clip.
+  const lessonMoment: LessonMoment =
+    phase === 'recording'
+      ? 'recording'
+      : phase === 'evaluating'
+        ? 'evaluating'
+        : phase === 'error'
+          ? 'error'
+          : phase === 'compare'
+            ? 'compare'
+            : phase === 'result' && result
+              ? isFullCreditBand(result.band)
+                ? 'great'
+                : isHalfCreditBand(result.band)
+                  ? 'good'
+                  : result.band === 'nocatch'
+                    ? 'nocatch'
+                    : 'miss'
+              : 'idle';
   const mascotMotion =
     phase === 'evaluating'
       ? 'working'
@@ -2667,11 +2718,20 @@ export default function PracticeScreen() {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={styles.body}
+        contentContainerStyle={[styles.body, Bolo3DSurfaces && styles.body3d]}
         showsVerticalScrollIndicator={false}
       >
         {/* Reacting mascot */}
-        <View style={styles.mascotRow}>
+        <View
+          style={[styles.mascotRow, Bolo3DSurfaces && Bolo3DSurfaces.lessonBirdRow(showingOutcome)]}
+          onLayout={
+            Bolo3DSurfaces
+              ? (e) => {
+                  if (!showingOutcome) setBirdRoom(Math.round(e.nativeEvent.layout.height));
+                }
+              : undefined
+          }
+        >
           {/* Manual prev/next phrase navigation (#976, web Task #973 parity).
               Free, never attempt-gated. Absolutely positioned at the row
               edges so the mascot, record button, and waveform never shift.
@@ -2716,15 +2776,32 @@ export default function PracticeScreen() {
               </Pressable>
             </>
           )}
-          <Animated.View style={mascotAmpStyle}>
-            <Mascot
-              pose={mascotPose}
-              size={showingOutcome ? 72 : 104}
-              motion={mascotMotion}
-              entering
-              celebrateBounce={celebrateBounceCount}
-            />
-          </Animated.View>
+          {Bolo3DSurfaces ? (
+            // The row grows into the height the word card leaves, which pushes
+            // the card down to the record button, and she is sized FROM the
+            // row. Absolute, so her own size never feeds back into the row's
+            // and the two cannot chase each other.
+            <View style={styles.birdStage3d} pointerEvents="box-none">
+              <Animated.View style={mascotAmpStyle}>
+                <Bolo3DSurfaces.LessonBolo3D
+                  moment={lessonMoment}
+                  speaking={coachPlaying}
+                  celebrate={celebrateBounceCount}
+                  size={bird3dSize}
+                />
+              </Animated.View>
+            </View>
+          ) : (
+            <Animated.View style={mascotAmpStyle}>
+              <Mascot
+                pose={mascotPose}
+                size={showingOutcome ? 72 : 104}
+                motion={mascotMotion}
+                entering
+                celebrateBounce={celebrateBounceCount}
+              />
+            </Animated.View>
+          )}
         </View>
 
         {/* Phrase card — keyed so entering/exiting fires on phrase change */}
@@ -2734,6 +2811,7 @@ export default function PracticeScreen() {
           exiting={FadeOutUp.duration(200)}
           style={[
             styles.phraseCard,
+            Bolo3DSurfaces && styles.phraseCard3d,
             showingOutcome && styles.phraseCardCompact,
             { backgroundColor: colors.card, borderColor: colors.border },
           ]}
@@ -2746,6 +2824,7 @@ export default function PracticeScreen() {
               style={[
                 nativeProps,
                 styles.phraseNative,
+                Bolo3DSurfaces && styles.phraseNative3d,
                 showingOutcome && styles.phraseNativeCompact,
                 { color: colors.foreground },
               ]}
@@ -2756,6 +2835,7 @@ export default function PracticeScreen() {
           <Text
             style={[
               styles.phraseRoman,
+              Bolo3DSurfaces && styles.phraseRoman3d,
               showingOutcome && styles.phraseRomanCompact,
               { color: colors.secondary },
             ]}
@@ -2770,6 +2850,7 @@ export default function PracticeScreen() {
             <Text
               style={[
                 styles.phraseEng,
+                Bolo3DSurfaces && styles.phraseEng3d,
                 showingOutcome && styles.phraseEngCompact,
                 { color: colors.mutedForeground },
               ]}
@@ -2782,7 +2863,7 @@ export default function PracticeScreen() {
               the compare card carries its own Play target); here it would
               only push the feedback further down. */}
           {phase === 'result' || phase === 'compare' ? null : (
-          <View style={styles.listenRow}>
+          <View style={[styles.listenRow, Bolo3DSurfaces && styles.listenRow3d]}>
             <Pressable
               onPress={() => {
                 playCoach();
@@ -3770,6 +3851,21 @@ const styles = StyleSheet.create({
   phraseNativeCompact: { fontSize: 28, lineHeight: 40 },
   phraseRomanCompact: { fontSize: 15, marginTop: 4 },
   phraseEngCompact: { fontSize: 13, marginTop: 2 },
+  // The 3D bird's layout (owner, 2026-09-16: "make bolo3d bigger and the
+  // lesson card smaller and move it down"). Used only when the 3D bird is on;
+  // the outcome sizes above still win while a result is up, which is why the
+  // card sets the same padding keys as phraseCardCompact (RN ranks
+  // paddingVertical over padding whatever the order). Same 1.4 line height
+  // as phraseNative, which tall scripts need.
+  // paddingBottom: the card now sits on the record button, and the first-time
+  // hold rings reach above the controls.
+  body3d: { flexGrow: 1, paddingBottom: 34 },
+  birdStage3d: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  phraseCard3d: { padding: 18, paddingHorizontal: 20 },
+  phraseNative3d: { fontSize: 32, lineHeight: 45 },
+  phraseRoman3d: { fontSize: 17, marginTop: 6 },
+  phraseEng3d: { fontSize: 14, marginTop: 2 },
+  listenRow3d: { marginTop: 12 },
   listenRow: {
     flexDirection: 'row',
     alignItems: 'center',

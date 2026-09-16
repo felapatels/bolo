@@ -62,6 +62,7 @@ import { giftRangeCopy, type GiftTier } from '@workspace/daily-gift';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
 import { hapticMedium } from '@/lib/haptics';
+import { GIFT_TIER_SIZE as TIER_SIZE, giftTierHasRibbon as hasRibbon } from '@/lib/giftTiers';
 
 /** One shake, out and back, in ms. Slow enough to read as a nudge. */
 export const GIFT_WOBBLE_MS = 2600;
@@ -75,18 +76,6 @@ export const GIFT_WOBBLE_DEG = 5;
  */
 export const GIFT_LID_LIFT = 18;
 
-/** Box width in points per tier. The tier is the picture of how long you kept it up. */
-const TIER_SIZE: Record<GiftTier, number> = {
-  small: 60,
-  medium: 66,
-  large: 72,
-  grand: 80,
-};
-
-/** The gold ribbon is the grand box's alone: a week, and it looks like one. */
-function hasRibbon(tier: GiftTier): boolean {
-  return tier === 'grand';
-}
 
 /** The bazaar's marigold, and the app's own violet rails. Fixed scene colours. */
 const MARIGOLD = '#F0A32B';
@@ -293,6 +282,11 @@ export interface DailyGiftBoxProps {
   onGetMore?: () => void;
   /** Reduce Motion just opens: no shake, no flip, same information. */
   reduceMotion?: boolean;
+  /**
+   * A locked press, handed to the card instead of the row's wiggle. Only the 3D
+   * gift moment uses it (DailyGiftCard, EXPO_PUBLIC_BOLO3D=on): she says it there.
+   */
+  onLockedPress?: () => void;
   testID?: string;
 }
 
@@ -314,6 +308,7 @@ export function DailyGiftBox({
   onShop,
   onGetMore,
   reduceMotion = false,
+  onLockedPress,
   testID = 'daily-gift-box',
 }: DailyGiftBoxProps) {
   const colors = useColors();
@@ -460,7 +455,7 @@ export function DailyGiftBox({
       artWidth={80}
       title={claimable ? 'Tap to open' : 'Finish a stop today to open it'}
       range={giftRangeCopy(multiplier)} locked={!claimable} busy={busy}
-      onOpen={press} onShop={onShop} error={error}
+      onOpen={press} onShop={onShop} error={error} onLockedPress={onLockedPress}
     />;
   }
 
