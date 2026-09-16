@@ -40,6 +40,8 @@ import {
   playableSceneCount,
   setupStillId,
   storyBookFor,
+  storyEnding,
+  STORY_PUNCHLINE_MS,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
   type LedgerEntry,
@@ -426,19 +428,33 @@ function ChoiceCard({
   onPick,
   onSpeak,
   soundOn,
+  disabled = false,
 }: {
   phrase: StoryPhrase;
   onPick: () => void;
   onSpeak: () => void;
   soundOn: boolean;
+  /**
+   * True while a punchline holds the frame (2026-09-16). The board under it is
+   * the scene just answered, so a second tap would answer it twice, and a tap
+   * on its speaker would queue a third voice ahead of the next page's
+   * narration.
+   */
+  disabled?: boolean;
 }) {
   const native = useNativeText();
 
   return (
-    <div className="relative flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-all hover:border-primary/40 hover:bg-primary/5">
+    <div
+      className={cn(
+        "relative flex items-center gap-3 rounded-2xl border border-border bg-card p-4 transition-all",
+        disabled ? "opacity-60" : "hover:border-primary/40 hover:bg-primary/5",
+      )}
+    >
       <button
         type="button"
         onClick={onPick}
+        disabled={disabled}
         data-testid={`story-choice-${phrase.concept}`}
         className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
       >
@@ -463,6 +479,7 @@ function ChoiceCard({
         <button
           type="button"
           onClick={onSpeak}
+          disabled={disabled}
           aria-label={`Hear this line`}
           data-testid={`story-speak-${phrase.concept}`}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted"
@@ -475,50 +492,95 @@ function ChoiceCard({
 }
 
 /**
- * THE LINE JUST SAID, AND WHAT CAME OF IT, carried onto the next beat.
+ * WHAT A PICK DOES FIRST: the punchline takes the whole frame.
  *
- * WHERE THE OUTCOME PAGE WENT. Picking a line used to swap the page for the
- * consequence still and hold there until Next was pressed; the owner removed
- * that page off a TestFlight build on 2026-09-15 ("you don't need the one
- * screen in the middle... show what you selected previously on top of the
- * options"). Both authored halves of the consequence survive here rather than
- * being deleted: the still, because THE JOKE IS THE PICTURE and a picture
- * lands in all 22 languages with nothing translated, and its brief, because
- * that is the alt text and the only form the joke takes for a screen reader.
+ * THE MAD-LIB RULING, owner 2026-09-16: "it seems boring". The game is meant to
+ * play like a mad lib, where picking a line that does not fit makes something
+ * funny happen. Since 2026-09-15 a pick turned the page in the same tick and
+ * the outcome still rode beside the next page's YOU SAID line as an 84px
+ * thumbnail, which is a joke told too small to land. So the outcome now OWNS
+ * the frame for STORY_PUNCHLINE_MS, with a quick comic punch-in, and then the
+ * story moves on by itself.
  *
- * SMALL, AND BESIDE THE LINE RATHER THAN OVER THE PAGE. The page is the scene
- * being read now. Two full-size pictures on one screen compete, and the one
- * that should win is the one with a decision attached to it.
+ * NO NEXT BUTTON, and that is a ruling rather than an omission: the owner
+ * removed one on 2026-09-15 and must not get it back. The beat ends on a timer.
+ * A tap on the picture ends it early, for the learner who has already laughed.
+ *
+ * REDUCED MOTION KEEPS THE BEAT AND DROPS THE SHAKE. The hold is time to look,
+ * not motion; the punch-in and the wobble are exactly what the setting is for.
+ *
+ * A STILL THAT WAS NEVER DRAWN leaves no grey hole: the brief fills the frame
+ * instead, the same fallback the page itself uses.
  */
-function SaidLine({
-  phrase,
-  outcome,
+function Punchline({
   stillId,
+  situation,
+  onSkip,
 }: {
-  phrase: StoryPhrase;
-  outcome: string | null;
-  stillId: string | null;
+  stillId: string;
+  situation: string;
+  onSkip: () => void;
 }) {
-  const native = useNativeText();
+  const reduceMotion = useReducedMotion();
   const [failed, setFailed] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={onSkip}
+      data-testid="story-punchline"
+      className="absolute inset-0 z-30 block overflow-hidden rounded-2xl bg-[#f8f1e0] text-left dark:bg-[#26201a]"
+    >
+      <motion.div
+        key={stillId}
+        className="h-full w-full"
+        initial={reduceMotion ? false : { scale: 1.22, rotate: -2.5 }}
+        animate={
+          reduceMotion
+            ? undefined
+            : { scale: [1.22, 0.96, 1.03, 1], rotate: [-2.5, 2, -1, 0] }
+        }
+        transition={reduceMotion ? undefined : { duration: 0.5, ease: "easeOut" }}
+      >
+        {failed ? (
+          <div className="flex h-full w-full items-center justify-center overflow-auto border-2 border-dashed border-amber-300 px-5 py-4 text-center dark:border-amber-700">
+            <p className="text-sm font-semibold leading-relaxed text-foreground">
+              {situation}
+            </p>
+          </div>
+        ) : (
+          <img
+            src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
+            alt={situation}
+            onError={() => setFailed(true)}
+            className="h-full w-full object-cover"
+          />
+        )}
+      </motion.div>
+      <span className="sr-only">Tap to carry on</span>
+    </button>
+  );
+}
+
+/**
+ * THE LINE JUST SAID, carried onto the next beat.
+ *
+ * SCRIPT, READING AND MEANING, AND NO PICTURE since 2026-09-16. The outcome
+ * still rode here as a thumbnail from 2026-09-15, with its brief as visible
+ * prose beside it. The picture has now had the whole frame for a beat (see
+ * Punchline), so a thumbnail of it one second later is a repeat, and the brief
+ * was only ever alt text; book 1's briefs are now commissioning prose for an
+ * illustrator ("the viewer", "the bottom edge of the picture"), which reads
+ * wrong as story text.
+ */
+function SaidLine({ phrase }: { phrase: StoryPhrase }) {
+  const native = useNativeText();
 
   return (
     <div
       data-testid="story-said"
       className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-2.5"
     >
-      {stillId !== null && !failed && (
-        <img
-          data-testid="story-said-still"
-          src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
-          alt={outcome ?? ""}
-          onError={() => setFailed(true)}
-          // A still that was never generated leaves no broken box: the brief
-          // beside it says the same thing in the only other form it exists in.
-          className="h-14 w-21 shrink-0 rounded-lg object-cover"
-          style={{ width: 84, height: 56 }}
-        />
-      )}
       <p className="min-w-0 flex-1 text-sm text-muted-foreground">
         You said{" "}
         <span
@@ -533,9 +595,6 @@ function SaidLine({
         )}
         {" · "}
         <span className="italic">&ldquo;{phrase.english}&rdquo;</span>
-        {outcome !== null && (
-          <span className="block pt-1 text-primary">{outcome}</span>
-        )}
       </p>
     </div>
   );
@@ -588,12 +647,52 @@ function TasteEnd({ exit }: { exit: StoryExit }) {
 // ─── The book ────────────────────────────────────────────────────────────────
 
 /**
- * What the learner said, in order. NOT a score.
+ * One picture on the finished book's strip, or nothing at all.
+ *
+ * A still that was never drawn leaves NO box (2026-09-16): the strip is only
+ * pictures and lines, and a grey rectangle in it reads as a broken book. The
+ * brief is kept for a screen reader either way, since it is the only form the
+ * picture takes for one.
+ */
+function StripStill({
+  stillId,
+  situation,
+  testId,
+  className,
+}: {
+  stillId: string;
+  situation: string;
+  testId: string;
+  className: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span className="sr-only">{situation}</span>;
+  return (
+    <img
+      data-testid={testId}
+      src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
+      alt={situation}
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
+/**
+ * What the learner said, in order, AS THE PICTURES IT CAUSED. NOT a score.
+ *
+ * A PICTURE STRIP since 2026-09-16, the mad-lib ruling (owner: "it seems
+ * boring"). This screen listed each scene's English brief as small print above
+ * the line said, which made the finished book a page of illustrator's notes.
+ * The book is now the ending the read earned (storyEnding, only where a book's
+ * ending art exists), then every outcome picture the learner actually caused,
+ * each with the line that caused it. The briefs survive only as alt text.
  *
  * The branches converge, so the story is the same shape for everybody; what
  * makes the book theirs is which line they said at each beat. That is why this
  * screen has no total and no pass mark, and why a line that did not fit is
- * listed exactly like one that did.
+ * listed exactly like one that did. The ending is chosen by how many lines did
+ * not fit, and it says so only in pictures.
  */
 function TheBook({
   book,
@@ -624,6 +723,7 @@ function TheBook({
   limited?: boolean;
 }) {
   const native = useNativeText();
+  const ending = storyEnding(book, entries);
   return (
     <div className="flex flex-1 flex-col gap-5 px-4 py-6" data-testid="story-book">
       <div className="text-center">
@@ -632,37 +732,57 @@ function TheBook({
         <p className="mt-1 text-sm text-muted-foreground">{book.title}</p>
       </div>
 
-      <ol className="flex flex-col gap-3">
+      {ending && (
+        <StripStill
+          key={ending.stillId}
+          testId="story-ending"
+          stillId={ending.stillId}
+          situation={ending.situation}
+          className="aspect-[3/2] w-full rounded-2xl object-cover shadow-md"
+        />
+      )}
+
+      {/* A STRIP, NOT A LIST OF THUMBNAILS. Each panel is the picture first and
+          the line under it, like a comic read top to bottom; two across once
+          the column is wide enough for two pictures to still read. */}
+      <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {entries.map((entry, i) => {
           const scene = book.scenes.find((s) => s.id === entry.sceneId);
+          const choice = scene?.choices.find((c) => c.concept === entry.concept);
           const phrase = phrasesByConcept.get(entry.concept);
           return (
             <li
               key={`${entry.sceneId}-${i}`}
-              className="rounded-2xl border border-border bg-card p-4"
+              data-testid="story-book-entry"
+              className="flex flex-col gap-2 overflow-hidden rounded-2xl border border-border bg-card"
             >
-              {scene && (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {scene.situation}
-                </p>
+              {choice?.outcome && (
+                <StripStill
+                  testId="story-book-still"
+                  stillId={outcomeStillId(entry.sceneId, entry.concept)}
+                  situation={choice.outcome.situation}
+                  className="aspect-[3/2] w-full object-cover"
+                />
               )}
-              <p
-                style={native.style}
-                dir={native.dir}
-                className="pt-2 text-lg leading-snug text-foreground"
-              >
-                {phrase?.nativeScript ?? entry.concept}
-              </p>
-              {phrase && phrase.romanized.trim() !== "" && (
-                <p className="text-xs font-medium text-muted-foreground">
-                  {phrase.romanized}
+              <div className="min-w-0 px-4 pb-3 pt-1">
+                <p
+                  style={native.style}
+                  dir={native.dir}
+                  className="text-lg leading-snug text-foreground"
+                >
+                  {phrase?.nativeScript ?? entry.concept}
                 </p>
-              )}
-              {phrase && (
-                <p className="pt-1 text-sm text-muted-foreground">
-                  {phrase.english}
-                </p>
-              )}
+                {phrase && phrase.romanized.trim() !== "" && (
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {phrase.romanized}
+                  </p>
+                )}
+                {phrase && (
+                  <p className="pt-1 text-sm text-muted-foreground">
+                    {phrase.english}
+                  </p>
+                )}
+              </div>
             </li>
           );
         })}
@@ -946,25 +1066,70 @@ export default function StorybookPage() {
    * conversation when the line you just said is still on screen above the three
    * you are choosing between next.
    */
-  const [lastSaid, setLastSaid] = useState<{
-    phrase: StoryPhrase;
-    /** The consequence's brief, English, also the still's alt text. */
-    outcome: string | null;
-    /** The consequence still, or null when the line authored none. */
-    stillId: string | null;
-  } | null>(null);
+  const [lastSaid, setLastSaid] = useState<StoryPhrase | null>(null);
 
   /**
-   * A PICK IS THE PAGE TURN. There is no Next button on this page any more.
+   * THE PUNCHLINE ON SCREEN, or null between beats (2026-09-16, the mad-lib
+   * ruling: "it seems boring"). While it is set the frame shows the outcome
+   * still full size and the board under it cannot be answered.
+   *
+   * THE ADVANCE WAITS IN A REF, NOT IN STATE. What the pick decided (the next
+   * scene, the paywall beat or the finished book) is computed at the pick,
+   * against the board the learner actually answered, and applied when the beat
+   * ends. Recomputing it at the end of the beat would read whatever `scene` and
+   * `data` hold 2.5 seconds later.
+   */
+  const [punchline, setPunchline] = useState<{
+    stillId: string;
+    situation: string;
+  } | null>(null);
+  const pendingAdvanceRef = useRef<(() => void) | null>(null);
+  const punchlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (punchlineTimerRef.current) clearTimeout(punchlineTimerRef.current);
+      punchlineTimerRef.current = null;
+      pendingAdvanceRef.current = null;
+    },
+    [],
+  );
+
+  /**
+   * End the beat: by its timer, or early by a tap on the picture.
+   *
+   * THE NEXT PAGE'S NARRATION IS ASKED FOR HERE AND NOT BEFORE, because
+   * advancing is what changes the Book's still and the Book narrates on that
+   * change. So the chain documented at enqueueVoice (7ecd67d7) still holds, it
+   * is just longer: the learner's line was queued at the pick, and the
+   * narration joins the queue behind it now. A skip that lands while the line
+   * is still speaking therefore waits for the line to finish rather than
+   * cutting it off mid-word.
+   */
+  const endPunchline = useCallback(() => {
+    if (punchlineTimerRef.current) clearTimeout(punchlineTimerRef.current);
+    punchlineTimerRef.current = null;
+    const advance = pendingAdvanceRef.current;
+    pendingAdvanceRef.current = null;
+    setPunchline(null);
+    advance?.();
+  }, []);
+
+  /**
+   * A PICK IS THE PUNCHLINE, AND THE PUNCHLINE TURNS THE PAGE. There is still
+   * no Next button on this page.
    *
    * Owner, off a TestFlight build, 2026-09-15: "after you make a selection, you
-   * don't need the one screen in the middle. should just go to the next
-   * question but show what you selected previously on top of the options. there
-   * is an additional screen in between that's useless."
+   * don't need the one screen in the middle... there is an additional screen in
+   * between that's useless." That page held until Next was pressed. What
+   * replaced it turned the page in the same tick and shrank the outcome to a
+   * thumbnail, and the owner then found the game boring (2026-09-16: "it seems
+   * boring"), because a mad lib is only funny if you SEE what your line did.
+   * So the outcome takes the frame for STORY_PUNCHLINE_MS and the page turns
+   * BY ITSELF afterwards. A beat is not a page: nothing waits on the learner.
    *
-   * WHAT ELSE THIS DOES, and both halves matter. It carries the line and its
-   * consequence forward into the YOU SAID line, which is where the outcome went
-   * rather than being deleted. And it asks for the next scene THIS LANGUAGE CAN
+   * WHAT ELSE THIS DOES, and both halves matter. It carries the line forward
+   * into the YOU SAID line. And it asks for the next scene THIS LANGUAGE CAN
    * CARRY rather than trusting `taken.next` to resolve, so a book whose later
    * scenes name a word the corpus lacks ends properly on the finished book
    * instead of dropping the reader on the not-ready screen with their
@@ -973,16 +1138,15 @@ export default function StorybookPage() {
   const choose = useCallback(
     (concept: string, phrase: StoryPhrase) => {
       if (!scene || !book || !activeLang) return;
+      // Not tappable during a beat. The cards are disabled too; this catches a
+      // second click that lands before the render that disables them.
+      if (pendingAdvanceRef.current) return;
       const taken = chooseScene(scene, concept);
       if (!taken) return;
       const choice = scene.choices.find((c) => c.concept === concept) ?? null;
       const next = [...entries, taken.entry];
       setEntries(next);
-      setLastSaid({
-        phrase,
-        outcome: choice?.outcome?.situation ?? null,
-        stillId: choice?.outcome ? outcomeStillId(scene.id, concept) : null,
-      });
+      setLastSaid(phrase);
       webHaptic("success");
       speak(phrase);
 
@@ -990,32 +1154,57 @@ export default function StorybookPage() {
         taken.next === null
           ? null
           : firstPlayableScene(book.scenes, taken.next, activeLang, has);
+
+      let advance: () => void;
       if (onward) {
-        setSceneId(onward.scene.id);
+        const onwardId = onward.scene.id;
+        advance = () => setSceneId(onwardId);
+      } else if (taken.next !== null && data?.limited === true) {
+        // THE TWO WAYS A STORY CAN STOP, and they must not be confused. A
+        // `limited` response means the server served the taste's concepts
+        // only, so the scenes past it cannot resolve BECAUSE THEY WERE NOT PAID
+        // FOR: that is the paywall beat, and the page falls into it by holding
+        // the id that will not resolve. Anything else is the story genuinely
+        // running out, which is a finished book. Selling somebody a book that
+        // does not exist in their language is the worse of the two mistakes,
+        // and telling a paying reader their story is unfinished when it just
+        // ended is the other one.
+        const heldId = taken.next;
+        advance = () => setSceneId(heldId);
+      } else {
+        // SAVED AT THE PICK, not when the beat ends: a learner who leaves
+        // during the last punchline has still finished the book, and comes
+        // back to it rather than to page one.
+        saveStoryBook(book.id, activeLang, next);
+        advance = () => {
+          setFinished(true);
+          setSceneId(null);
+        };
+      }
+
+      // A line with no authored outcome has no punchline to show, so it turns
+      // the page at once, which is how every pick behaved on 2026-09-15.
+      if (!choice?.outcome) {
+        advance();
         return;
       }
-      // THE TWO WAYS A STORY CAN STOP, and they must not be confused. A `limited`
-      // response means the server served the taste's concepts only, so the
-      // scenes past it cannot resolve BECAUSE THEY WERE NOT PAID FOR: that is
-      // the paywall beat, and the page falls into it by holding the id that will
-      // not resolve. Anything else is the story genuinely running out, which is
-      // a finished book. Selling somebody a book that does not exist in their
-      // language is the worse of the two mistakes, and telling a paying reader
-      // their story is unfinished when it just ended is the other one.
-      if (taken.next !== null && data?.limited === true) {
-        setSceneId(taken.next);
-        return;
-      }
-      setFinished(true);
-      setSceneId(null);
-      saveStoryBook(book.id, activeLang, next);
+      pendingAdvanceRef.current = advance;
+      setPunchline({
+        stillId: outcomeStillId(scene.id, concept),
+        situation: choice.outcome.situation,
+      });
+      punchlineTimerRef.current = setTimeout(endPunchline, STORY_PUNCHLINE_MS);
     },
-    [scene, book, activeLang, entries, has, speak, data],
+    [scene, book, activeLang, entries, has, speak, data, endPunchline],
   );
 
   const readAgain = useCallback(() => {
     if (!book || !activeLang) return;
     clearStoryBook(book.id, activeLang);
+    if (punchlineTimerRef.current) clearTimeout(punchlineTimerRef.current);
+    punchlineTimerRef.current = null;
+    pendingAdvanceRef.current = null;
+    setPunchline(null);
     setEntries([]);
     setFinished(false);
     // Starting over must clear the carried line too, or the first page of a
@@ -1175,10 +1364,12 @@ export default function StorybookPage() {
                 swapped this frame for the outcome still and held there until
                 Next was pressed, which is the page the owner removed on
                 2026-09-15 ("there is an additional screen in between that's
-                useless"). The consequence itself was NOT removed with it: the
-                still and its brief moved to the carried YOU SAID line below,
-                which is what keeps the 2026-08-24 report answered ("it doesn't
-                really adjust based on my selection") without a page of its own.
+                useless"). The consequence itself was NOT removed with it. It
+                rode as a thumbnail beside YOU SAID for a day, and since
+                2026-09-16 (the mad-lib ruling, "it seems boring") it covers
+                this frame for a timed beat instead: see Punchline. Either way
+                the 2026-08-24 report stays answered ("it doesn't really adjust
+                based on my selection").
 
                 EVERY BEAT IS STILL A PAGE TURNING. The scene lives on the page,
                 so advancing swings the next one in on a left-hand hinge rather
@@ -1190,13 +1381,28 @@ export default function StorybookPage() {
                 completes, and framer-motion never completes one under jsdom.
                 The page arriving reads as a turn on its own; the page leaving
                 would have cost every test that renders this screen. */}
-            <Book
-              testId="story-scene"
-              stillId={setupStillId(resolved.scene.id)}
-              situation={resolved.scene.situation}
-              narrate={narrate}
-              soundOn={soundOn}
-            />
+            <div className="relative">
+              <Book
+                testId="story-scene"
+                stillId={setupStillId(resolved.scene.id)}
+                situation={resolved.scene.situation}
+                narrate={narrate}
+                soundOn={soundOn}
+              />
+              {/* THE PUNCHLINE COVERS THE PAGE, IT DOES NOT REPLACE IT
+                  (2026-09-16). The Book underneath keeps the scene just
+                  answered, so its still does not change during the beat and
+                  it asks for no narration; the next page's narration starts
+                  when the beat ends and the Book turns. */}
+              {punchline && (
+                <Punchline
+                  key={punchline.stillId}
+                  stillId={punchline.stillId}
+                  situation={punchline.situation}
+                  onSkip={endPunchline}
+                />
+              )}
+            </div>
 
             {/* MUTE, not "hear". Sound is on by default and this turns it off,
                 which is the owner's decision of 2026-08-24 reversing an earlier
@@ -1230,15 +1436,9 @@ export default function StorybookPage() {
                 together: the script is what they are learning to recognise, the
                 reading is how to say it, and the English is what makes the
                 picture land. Any one of the three alone leaves a gap. The
-                consequence rides beside them; see SaidLine. */}
-            {lastSaid && (
-              <SaidLine
-                key={`${lastSaid.phrase.phraseId}-${lastSaid.stillId ?? ""}`}
-                phrase={lastSaid.phrase}
-                outcome={lastSaid.outcome}
-                stillId={lastSaid.stillId}
-              />
-            )}
+                consequence is no longer here: it had the whole frame for a beat
+                before this line appeared (2026-09-16); see SaidLine. */}
+            {lastSaid && <SaidLine phrase={lastSaid} />}
 
             <div className="flex flex-col gap-3">
               {resolved.choices.map((choice) => {
@@ -1249,6 +1449,7 @@ export default function StorybookPage() {
                     key={choice.concept}
                     phrase={phrase}
                     soundOn={soundOn}
+                    disabled={punchline !== null}
                     onPick={() => choose(choice.concept, phrase)}
                     onSpeak={() => speak(phrase)}
                   />
@@ -1261,7 +1462,12 @@ export default function StorybookPage() {
                 2026-09-15 (owner, off a TestFlight build: "there is an
                 additional screen in between that's useless"). On the last beat
                 it said "Finish the story"; the last pick now reaches the
-                finished book directly. */}
+                finished book directly.
+
+                STILL NONE after 2026-09-16, when the punchline beat arrived. A
+                beat that needed a press to leave would be the removed page
+                back under another name, so it ends on a timer, and a tap on the
+                picture only makes it end sooner. */}
           </div>
         )}
       </div>

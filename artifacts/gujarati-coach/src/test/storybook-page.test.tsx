@@ -23,6 +23,13 @@
 // rather than deleted, and each says so where it stands: a pick now turns the
 // page itself, so there is no Next button and no outcome frame, and the
 // consequence rides beside the carried YOU SAID line instead.
+//
+// AND AGAIN ON 2026-09-16, the mad-lib ruling (owner: "it seems boring"). A
+// pick now shows its outcome still FULL SIZE in the frame for a timed beat,
+// and the page turns by itself when the beat ends or the picture is tapped.
+// Still no Next button. The pins that said the page turns in the same tick are
+// INVERTED where they stand, dated; most tests reach the next page through
+// `pick` below, which taps the punchline to end the beat early.
 import { describe, test, expect, beforeEach, vi } from "vitest";
 import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
@@ -96,6 +103,8 @@ import Storybook from "@/pages/games/storybook";
 import {
   storyBookFor,
   bookConcepts,
+  outcomeStillId,
+  STORY_PUNCHLINE_MS,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
 } from "@workspace/story";
@@ -137,8 +146,26 @@ function sceneAlt(testId = "story-scene"): string {
  * same two reasons sceneAlt gives.
  */
 function saidOutcomeAlt(): string {
-  const still = screen.getByTestId("story-said-still");
-  return still.getAttribute("alt") ?? "";
+  // 2026-09-16: the consequence left the YOU SAID line for the frame itself,
+  // so this reads the punchline, which is where the joke now is. Name kept so
+  // the history above still points at something.
+  const still = screen.getByTestId("story-punchline").querySelector("img");
+  return still?.getAttribute("alt") ?? "";
+}
+
+/**
+ * Answer the board and end the punchline beat at once, by tapping the picture.
+ *
+ * SINCE 2026-09-16 A PICK IS TWO MOMENTS, and neither is a button press on
+ * anything but the line: the outcome takes the frame for STORY_PUNCHLINE_MS,
+ * then the page turns. Waiting out the timer in every test would add seconds
+ * each; the tap is the learner's own early way out and is pinned on its own
+ * below, as is the timer.
+ */
+function pick(concept: string): void {
+  fireEvent.click(screen.getByTestId(`story-choice-${concept}`));
+  const beat = screen.queryByTestId("story-punchline");
+  if (beat) fireEvent.click(beat);
 }
 
 /**
@@ -237,20 +264,80 @@ describe("every choice advances", () => {
     // which was how it proved a misfitting line does not stop the story. The
     // owner removed the beat Next existed to leave ("there is an additional
     // screen in between that's useless"), so the proof is now the stronger
-    // one: the story has ALREADY moved on, with no second press.
+    // one: the story moves on with no second press on any button.
+    //
+    // INVERTED AGAIN 2026-09-16 (mad-lib ruling, "it seems boring"): the move
+    // on waits for the punchline beat to end, which a tap on the picture does
+    // early. Still no Next button, before or after.
+    expect(screen.queryByTestId("story-next")).toBeNull();
+    fireEvent.click(screen.getByTestId("story-punchline"));
     expect(screen.queryByTestId("story-next")).toBeNull();
     expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
   });
 
-  test("a misfitting line still turns the page, on the FIRST press", () => {
+  test("a misfitting line turns the page BY ITSELF once its punchline beat ends", async () => {
+    // INVERTED 2026-09-16. This was "on the FIRST press": one click, one page,
+    // in the same tick, since 2026-09-15. The mad-lib ruling (owner: "it seems
+    // boring") put the outcome picture in the frame first, so the page now
+    // turns when the beat's timer runs out. What has NOT changed is the half
+    // that mattered: nothing else is pressed. Real timers, because the frame
+    // animates through framer-motion and fake timers would be testing that.
     renderPage();
     const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
     fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
-    // One click, one page. It took two until 2026-09-15.
+    expect(screen.getByTestId("story-punchline")).toBeInTheDocument();
+    // The page under the punchline is still the scene just answered.
+    expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
+    await waitFor(
+      () => expect(screen.queryByTestId("story-punchline")).toBeNull(),
+      { timeout: STORY_PUNCHLINE_MS + 1500 },
+    );
+    expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
+  }, STORY_PUNCHLINE_MS + 5000);
+
+  test("the punchline takes the WHOLE frame, and a tap on it skips the beat", () => {
+    // Added 2026-09-16. The thumbnail beside YOU SAID was a joke told too small
+    // to land; the owner's ruling is that the picture has the screen.
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    const beat = screen.getByTestId("story-punchline");
+    // Inside the same box as the page, covering it, not in the column below.
+    expect(beat.parentElement).toContainElement(screen.getByTestId("story-scene"));
+    expect(beat.className).toMatch(/\binset-0\b/);
+    expect(beat.querySelector("img")?.getAttribute("src")).toContain(
+      `story/${BOOK.scenes[0]!.id}--`,
+    );
+    fireEvent.click(beat);
+    expect(screen.queryByTestId("story-punchline")).toBeNull();
     expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
   });
 
-  test("the CONSEQUENCE of the line you said is carried onto the next beat", () => {
+  test("the lines cannot be answered again while the punchline is up", () => {
+    renderPage();
+    const [first, second] = BOOK.scenes[0]!.choices;
+    fireEvent.click(screen.getByTestId(`story-choice-${first!.concept}`));
+    const other = screen.getByTestId(`story-choice-${second!.concept}`);
+    expect(other).toBeDisabled();
+    fireEvent.click(other);
+    // Still the first line's punchline, and still one line in the book: a
+    // second tap would have answered the same scene twice.
+    expect(saidOutcomeAlt()).toBe(first!.outcome!.situation);
+    expect(screen.getByTestId("story-said")).toHaveTextContent(`native:${first!.concept}`);
+    expect(screen.getByTestId("story-said")).not.toHaveTextContent(`native:${second!.concept}`);
+  });
+
+  test("a punchline still that was never drawn leaves its brief, not a grey hole", () => {
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    const beat = screen.getByTestId("story-punchline");
+    fireEvent.error(beat.querySelector("img")!);
+    expect(beat.querySelector("img")).toBeNull();
+    expect(beat).toHaveTextContent(misfit.outcome!.situation);
+  });
+
+  test("the CONSEQUENCE of the line you said takes the frame, then the next beat carries only the line", () => {
     // INVERTED 2026-09-15, and the thing it guards is unchanged. Reported
     // 2026-08-24 as "it doesn't really adjust based on my selection": it
     // adjusted in the ledger, where nobody could see it, so the consequence
@@ -264,14 +351,21 @@ describe("every choice advances", () => {
     expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
     fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
 
-    // The consequence, as the picture AND as its brief.
+    // INVERTED 2026-09-16 (mad-lib ruling, "it seems boring"). The consequence
+    // was a thumbnail with its brief as visible prose beside YOU SAID. It is
+    // the full frame now, with the brief as its alt text only.
     expect(saidOutcomeAlt()).toBe(misfit.outcome!.situation);
-    expect(screen.getByTestId("story-said")).toHaveTextContent(
-      misfit.outcome!.situation,
-    );
-    // And it is no longer a page: the frame is already the next scene.
+    fireEvent.click(screen.getByTestId("story-punchline"));
+
+    // And it is still not a page: once the beat ends the frame is the next
+    // scene, and the carried line has no thumbnail and no brief, because the
+    // picture already had the screen.
     expect(screen.queryByTestId("story-outcome")).toBeNull();
     expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
+    expect(screen.queryByTestId("story-said-still")).toBeNull();
+    expect(screen.getByTestId("story-said")).not.toHaveTextContent(
+      misfit.outcome!.situation,
+    );
   });
 
   test("two different lines give two different consequences", () => {
@@ -305,9 +399,8 @@ describe("the free taste runs out", () => {
     // itself is untouched, and it must STAY distinct from the corpus being
     // short: a scene that will not resolve on a limited response is somebody
     // reaching the end of what they were given.
-    fireEvent.click(
-      screen.getByTestId(`story-choice-${BOOK.scenes[0]!.choices[0]!.concept}`),
-    );
+    // 2026-09-16: after the punchline beat, which `pick` taps through.
+    pick(BOOK.scenes[0]!.choices[0]!.concept);
 
     const beat = screen.getByTestId("story-taste-end");
     expect(beat).toHaveTextContent(STORY_TEASER_END.title);
@@ -334,7 +427,7 @@ describe("a language the book is not ready in", () => {
     serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
     renderPage();
     const said = BOOK.scenes[0]!.choices[0]!.concept;
-    fireEvent.click(screen.getByTestId(`story-choice-${said}`));
+    pick(said);
 
     const book = screen.getByTestId("story-book");
     expect(book).toHaveTextContent(`native:${said}`);
@@ -393,7 +486,7 @@ describe("a language the book is not ready in", () => {
         .getAllByTestId(/^story-choice-/)[0]!
         .getAttribute("data-testid")!
         .replace("story-choice-", "");
-      fireEvent.click(screen.getByTestId(`story-choice-${first}`));
+      pick(first);
     }
     // The scene it could not carry was never drawn, part-drawn or otherwise.
     expect(screen.queryByTestId("story-scene")).toBeNull();
@@ -419,7 +512,8 @@ function playBook(): string[] {
       .getAllByTestId(/^story-choice-/)
       .map((el) => el.getAttribute("data-testid")!.replace("story-choice-", ""));
     said.push(cards[0]!);
-    fireEvent.click(screen.getByTestId(`story-choice-${cards[0]!}`));
+    // Through the punchline beat since 2026-09-16, tapped rather than waited.
+    pick(cards[0]!);
   }
   return said;
 }
@@ -440,6 +534,63 @@ describe("the book at the end", () => {
     // A book, not a scorecard. Nothing here counts anything.
     expect(book.textContent).not.toMatch(/\d\s*\/\s*\d/);
     expect(book.textContent).not.toMatch(/score|correct|xp/i);
+  });
+
+  test("is a picture strip: the ending on top, then each outcome caused, with its line", () => {
+    // INVERTS THE OLD SHAPE, 2026-09-16 (mad-lib ruling, "it seems boring").
+    // This screen printed each scene's English brief above the line said, so
+    // the finished book read as a page of illustrator's notes. The briefs are
+    // alt text only now; nothing on screen prints one.
+    renderPage();
+    const said = playBook();
+    const book = screen.getByTestId("story-book");
+
+    // Always the first card, so the ending depends on how the shuffle fell;
+    // derive it from what was said rather than hardcoding one.
+    const fitted = BOOK.scenes.map(
+      (sc, i) => sc.choices.find((c) => c.concept === said[i])!.fits,
+    );
+    const wrong = fitted.filter((f) => !f).length;
+    const kind = wrong === 0 ? "perfect" : wrong * 2 <= said.length ? "chaos" : "disaster";
+    const ending = screen.getByTestId("story-ending");
+    expect(ending.getAttribute("src")).toContain(`story/door--end-${kind}.webp`);
+    expect(ending.getAttribute("alt")).toBe(BOOK.endings![kind].situation);
+    // On TOP of the strip, never under it.
+    expect(ending.compareDocumentPosition(book.querySelector("ol")!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+
+    const panels = screen.getAllByTestId("story-book-entry");
+    expect(panels).toHaveLength(said.length);
+    panels.forEach((panel, i) => {
+      const scene = BOOK.scenes[i]!;
+      const choice = scene.choices.find((c) => c.concept === said[i])!;
+      const still = panel.querySelector("img")!;
+      expect(still.getAttribute("src")).toContain(
+        `story/${outcomeStillId(scene.id, choice.concept)}.webp`,
+      );
+      expect(still.getAttribute("alt")).toBe(choice.outcome!.situation);
+      expect(panel).toHaveTextContent(`native:${choice.concept}`);
+      expect(panel).toHaveTextContent(`english:${choice.concept}`);
+      // The brief as prose is gone.
+      expect(panel.textContent).not.toContain(scene.situation);
+      expect(panel.textContent).not.toContain(choice.outcome!.situation);
+    });
+  });
+
+  test("a strip still that was never drawn leaves no box, and keeps its brief for a screen reader", () => {
+    renderPage();
+    playBook();
+    const panel = screen.getAllByTestId("story-book-entry")[0]!;
+    const still = panel.querySelector("img")!;
+    const alt = still.getAttribute("alt")!;
+    fireEvent.error(still);
+    expect(panel.querySelector("img")).toBeNull();
+    const hidden = panel.querySelector(".sr-only");
+    expect(hidden?.textContent).toBe(alt);
+    // Same for the ending.
+    fireEvent.error(screen.getByTestId("story-ending"));
+    expect(screen.queryByTestId("story-ending")).toBeNull();
   });
 
   test("it is still there on the way back, and can be started again", () => {
@@ -480,7 +631,7 @@ describe("the book opens", () => {
       { timeout: 3000 },
     );
     const first = BOOK.scenes[0]!.choices[0]!;
-    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    pick(first.concept);
     expect(screen.queryByTestId("story-book-opening")).toBeNull();
   });
 });
@@ -527,10 +678,19 @@ describe("the narrator", () => {
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
     await drainVoices();
 
+    // 2026-09-16: THE NEXT PAGE IS NOT NARRATED DURING THE PUNCHLINE. The
+    // learner's line is what speaks over their joke; the page they turn to is
+    // asked for only when the beat ends, so it joins the voice chain behind the
+    // line instead of racing it (the chain from 7ecd67d7).
+    expect(h.narrated).toEqual([BOOK.scenes[0]!.situation]);
+    fireEvent.click(screen.getByTestId("story-punchline"));
+    await drainVoices();
+
     expect(h.narrated).toEqual([
       BOOK.scenes[0]!.situation,
       BOOK.scenes[1]!.situation,
     ]);
+    // The punchline is seen and not read aloud, as the thumbnail was not.
     expect(h.narrated).not.toContain(first.outcome!.situation);
   });
 
@@ -564,7 +724,7 @@ describe("the narrator", () => {
     fireEvent.click(screen.getByTestId("story-mute"));
     h.narrated = [];
     const first = BOOK.scenes[0]!.choices[0]!;
-    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    pick(first.concept);
     // Drained rather than read immediately: a queued request that arrives a
     // turn later is still a request, and is still charged for.
     await drainVoices();
@@ -634,7 +794,7 @@ describe("the line you just said", () => {
     // second, which is the only thing about it that changed.
     renderPage();
     const first = BOOK.scenes[0]!.choices[0]!;
-    fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    pick(first.concept);
 
     const said = screen.getByTestId("story-said");
     expect(said).toHaveTextContent(`native:${first.concept}`);
