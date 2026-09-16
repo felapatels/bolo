@@ -350,6 +350,38 @@ export const STORY_TEASER_END = {
   cta: "Subscribe to continue",
 } as const;
 
+/**
+ * The book request was REFUSED (HTTP 402), before a single page was read.
+ *
+ * Owner, 2026-09-16, India book 2 in Assamese: "This story is not ready in
+ * Assamese yet", on a pair the census proves plays 4 of 5 scenes in the seed
+ * AND in production. Both clients drew "not ready" whenever no scene resolved,
+ * and a denied request resolves none, because it carries no phrases at all. A
+ * locked book is a sale, not a content gap, so it gets the teaser's offer.
+ *
+ * NOT STORY_TEASER_END's words: that beat says "You have read the first page",
+ * and somebody refused at the door has read nothing. The CTA is the same one,
+ * so the two asks cannot drift apart.
+ */
+export const STORY_LOCKED = {
+  title: "This story is part of All-Access",
+  body: "All-Access opens this book, and every book on the map.",
+  cta: STORY_TEASER_END.cta,
+} as const;
+
+/**
+ * The book request FAILED for any other reason: offline, a timeout, a 5xx.
+ *
+ * Same 2026-09-16 report. A failed fetch is neither a sale nor a content gap,
+ * and telling a learner their language is missing words when their train went
+ * into a tunnel is the lie this copy exists to stop. It offers a retry.
+ */
+export const STORY_LOAD_FAILED = {
+  title: "We could not open this story.",
+  body: "Check your connection and try again.",
+  retry: "Try again",
+} as const;
+
 
 /**
  * The upsell on a FINISHED taste book, which is a different moment from

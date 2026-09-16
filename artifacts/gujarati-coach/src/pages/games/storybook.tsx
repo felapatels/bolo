@@ -49,6 +49,8 @@ import {
   STORY_SHARE_CTA,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
+  STORY_LOCKED,
+  STORY_LOAD_FAILED,
   type LedgerEntry,
   type StoryBook,
 } from "@workspace/story";
@@ -650,6 +652,96 @@ function TasteEnd({ exit }: { exit: StoryExit }) {
   );
 }
 
+/**
+ * The book request was REFUSED (402): the account has not opened this book.
+ *
+ * Owner, 2026-09-16, India book 2 in Assamese: this page said "not ready in
+ * Assamese" on a pair the census proves plays 4 of 5 scenes, because a denied
+ * request carries no phrases and the page never read the error. The map opens a
+ * story stop on the CLIENT's plan, so an account the server calls free can land
+ * here. Same route to the paywall as TasteEnd; phone twin: storybook-locked.
+ */
+function StoryLocked({ exit }: { exit: StoryExit }) {
+  return (
+    <div
+      data-testid="story-locked"
+      className="flex flex-1 flex-col items-center justify-center gap-5 px-6 text-center"
+    >
+      <Lock className="h-8 w-8 text-muted-foreground" />
+      <div>
+        <h2 className="text-2xl font-extrabold text-foreground">{STORY_LOCKED.title}</h2>
+        <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+          {STORY_LOCKED.body}
+        </p>
+      </div>
+      <Link
+        href="/upgrade"
+        data-testid="story-locked-upgrade"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3.5 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+      >
+        <Lock className="h-4 w-4" />
+        {STORY_LOCKED.cta}
+      </Link>
+      <Link
+        href={exit.href}
+        className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+      >
+        {exit.label}
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * The book request FAILED for any other reason: offline, a timeout, a 5xx.
+ * Neither a sale nor a content gap, so a retry. Phone twin: storybook-load-failed.
+ */
+function StoryLoadFailed({
+  exit,
+  onRetry,
+  retrying,
+}: {
+  exit: StoryExit;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  return (
+    <div
+      data-testid="story-load-failed"
+      className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
+    >
+      <BookOpen className="h-8 w-8 text-muted-foreground" />
+      <div>
+        <h2 className="text-lg font-bold text-foreground">{STORY_LOAD_FAILED.title}</h2>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+          {STORY_LOAD_FAILED.body}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        aria-busy={retrying}
+        data-testid="story-retry"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-8 py-3 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+      >
+        {retrying ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RotateCcw className="h-4 w-4" />
+        )}
+        {STORY_LOAD_FAILED.retry}
+      </button>
+      <Link
+        href={exit.href}
+        className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+      >
+        {exit.label}
+      </Link>
+    </div>
+  );
+}
+
 // ─── The book ────────────────────────────────────────────────────────────────
 
 /**
@@ -939,7 +1031,7 @@ export default function StorybookPage() {
     () => ({ lang: activeLang, journey, zone }),
     [activeLang, journey, zone],
   );
-  const { data, isLoading } = useGetStoryBook(bookParams, {
+  const { data, isLoading, isError, error, isFetching, refetch } = useGetStoryBook(bookParams, {
     query: {
       queryKey: getGetStoryBookQueryKey(bookParams),
       // A zone with no book is a 404 by design and there is nothing to retry.
@@ -947,6 +1039,37 @@ export default function StorybookPage() {
       retry: false,
     },
   });
+
+  /**
+   * WHY THE BOOK DID NOT ARRIVE, when it did not. Owner, 2026-09-16, India book
+   * 2 in Assamese: "not ready in Assamese" on a pair the census proves plays 4
+   * of 5 scenes in seed and production. This page never read the query's
+   * error, so a refused or failed request, which carries no phrases, read as a
+   * language with no words. Only a response that ARRIVED can say a book is not
+   * ready; a 402 is a sale and anything else is a retry. Keyed on `data` being
+   * absent: a failed background refetch behind a loaded book leaves the book.
+   */
+  const loadFailure: "locked" | "failed" | null =
+    isError && data === undefined
+      ? (error as { status?: unknown } | null)?.status === 402
+        ? "locked"
+        : "failed"
+      : null;
+  // A refusal is the gate working, so only a real failure reaches Sentry, once
+  // per error object.
+  useEffect(() => {
+    if (loadFailure !== "failed") return;
+    const status = (error as { status?: unknown } | null)?.status;
+    Sentry.captureException(
+      error instanceof Error ? error : new Error(`storybook load failed: ${String(error)}`),
+      {
+        tags: {
+          apiContext: "storybook.load",
+          httpStatus: typeof status === "number" ? String(status) : "network",
+        },
+      },
+    );
+  }, [loadFailure, error]);
 
   const phrasesByConcept = useMemo(() => {
     const map = new Map<string, StoryPhrase>();
@@ -1402,6 +1525,18 @@ export default function StorybookPage() {
           <TasteEnd exit={exit} />
         )}
 
+        {book && !isLoading && !finished && !resolved && loadFailure === "locked" && (
+          <StoryLocked exit={exit} />
+        )}
+
+        {book && !isLoading && !finished && !resolved && loadFailure === "failed" && (
+          <StoryLoadFailed
+            exit={exit}
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
+        )}
+
         {/* The corpus is short in this language. No offer, because there is
             nothing here to sell them: the rest of this book does not exist in
             their language at all.
@@ -1414,7 +1549,9 @@ export default function StorybookPage() {
             book in any of the 22 languages: every one of the 132 pairs carries
             at least one playable scene. It stays because production is not the
             seed and a book authored from rarer concepts could still land here. */}
-        {book && !isLoading && !finished && !resolved && !data?.limited && (
+        {/* AND ONLY A RESPONSE THAT ARRIVED can say so (2026-09-16): `data`
+            present, never an errored, refused or not-yet-enabled request. */}
+        {book && !isLoading && !finished && !resolved && data !== undefined && !data.limited && (
           <div
             className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
             data-testid="story-short"

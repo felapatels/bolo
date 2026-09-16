@@ -6,6 +6,11 @@ import { Alert } from 'react-native';
 // The story payload the screen sees. `undefined` is the loading state, which is
 // what every test here opened on before the Next button got its own case.
 let mockStoryData: { limited: boolean; phrases: unknown[] } | undefined;
+// A REQUEST THAT DID NOT ARRIVE (2026-09-16). Set, it wins over mockStoryData:
+// the hook reports an error with no data, the way react-query does when the
+// first fetch fails or is refused.
+let mockStoryError: unknown;
+const mockRefetch = jest.fn();
 
 // A SMOKE TEST, and it is not a formality.
 //
@@ -100,9 +105,18 @@ jest.mock('@workspace/api-client-react', () => ({
   useListCategoryPhrases: () => ({ data: [], isLoading: false }),
   getListCategoryPhrasesQueryKey: () => ['phrases'],
   useGetStoryBook: () =>
-    mockStoryData === undefined
-      ? { data: undefined, isLoading: true }
-      : { data: mockStoryData, isLoading: false },
+    mockStoryError !== undefined
+      ? {
+          data: undefined,
+          isLoading: false,
+          isError: true,
+          error: mockStoryError,
+          isFetching: false,
+          refetch: mockRefetch,
+        }
+      : mockStoryData === undefined
+        ? { data: undefined, isLoading: true, isError: false, error: null, isFetching: true, refetch: mockRefetch }
+        : { data: mockStoryData, isLoading: false, isError: false, error: null, isFetching: false, refetch: mockRefetch },
   getGetStoryBookQueryKey: () => ['storybook'],
   useSynthesizeSpeech: () => ({ mutateAsync: jest.fn() }),
   useNarrateStoryLine: () => ({ mutateAsync: jest.fn() }),
@@ -118,6 +132,8 @@ import {
   outcomeStillId,
   storyBookFor,
   STORY_PUNCHLINE_MS,
+  STORY_LOCKED,
+  STORY_LOAD_FAILED,
 } from '@workspace/story';
 
 /** The zone 1 book, which is what this screen opens on with no params. */
@@ -125,6 +141,8 @@ const BOOK = storyBookFor(1, 1)!;
 
 beforeEach(async () => {
   mockStoryData = undefined;
+  mockStoryError = undefined;
+  mockRefetch.mockReset();
   // THE LEDGER SURVIVES A TEST, which it did not have to before: no case in
   // this file finished a book until 2026-09-15. AsyncStorage's mock is one
   // store for the whole file, so a saved book from the case above restores as
@@ -576,6 +594,83 @@ describe('the storybook advances on the pick itself', () => {
     render(<StorybookScreen />);
     expect(await screen.findByTestId('storybook-short')).toBeOnTheScreen();
     expect(screen.queryByTestId('storybook-frame')).toBeNull();
+    // And it is not mistaken for either failure state.
+    expect(screen.queryByTestId('storybook-locked')).toBeNull();
+    expect(screen.queryByTestId('storybook-load-failed')).toBeNull();
+  });
+
+  /**
+   * A REQUEST THAT DID NOT ARRIVE IS NOT A LANGUAGE WITH NO WORDS (owner,
+   * 2026-09-16, India book 2 in Assamese: "This story is not ready in Assamese
+   * yet", on a pair the census proves plays 4 of 5 scenes in seed and
+   * production). The screen never read the query's error, so a refused or
+   * failed fetch drew the content-gap copy. Web twin: storybook-page.test.tsx.
+   */
+  describe('when the book request does not arrive', () => {
+    /** The shape apiFailureStatus reads: the shared client's ApiError. */
+    function apiError(status: number): Error {
+      return Object.assign(new Error(`HTTP ${status}`), { name: 'ApiError', status });
+    }
+
+    // The share cases above report their own failures through the same mock.
+    beforeEach(() => {
+      require('@sentry/react-native').captureException.mockClear();
+    });
+
+    test('a 402 shows the locked offer, never "not ready", and routes to the paywall', async () => {
+      mockStoryError = Object.assign(apiError(402), {
+        data: { upgradeRequired: true, reason: 'feature_locked', feature: 'storybook' },
+      });
+      render(<StorybookScreen />);
+
+      expect(await screen.findByTestId('storybook-locked')).toBeOnTheScreen();
+      expect(screen.getByText(STORY_LOCKED.title)).toBeOnTheScreen();
+      expect(screen.queryByTestId('storybook-short')).toBeNull();
+      expect(screen.queryByText(/not ready/i)).toBeNull();
+      expect(screen.queryByTestId('storybook-load-failed')).toBeNull();
+      fireEvent.press(screen.getByTestId('storybook-locked-upgrade'));
+      expect(mockPush).toHaveBeenCalledWith('/paywall');
+      // A refusal is the gate working, not a fault to report.
+      expect(require('@sentry/react-native').captureException).not.toHaveBeenCalled();
+    });
+
+    test('a 500 shows a retry, reports it, and the retry refetches', async () => {
+      mockStoryError = apiError(500);
+      const view = render(<StorybookScreen />);
+
+      expect(await screen.findByTestId('storybook-load-failed')).toBeOnTheScreen();
+      expect(screen.getByText(STORY_LOAD_FAILED.title)).toBeOnTheScreen();
+      expect(screen.getByText(STORY_LOAD_FAILED.body)).toBeOnTheScreen();
+      expect(screen.queryByTestId('storybook-short')).toBeNull();
+      expect(screen.queryByText(/not ready/i)).toBeNull();
+      expect(screen.queryByTestId('storybook-locked')).toBeNull();
+      expect(screen.getByTestId('storybook-load-failed-back')).toBeOnTheScreen();
+      const sentry = require('@sentry/react-native');
+      expect(sentry.captureException).toHaveBeenCalledWith(
+        mockStoryError,
+        expect.objectContaining({
+          tags: expect.objectContaining({ apiContext: 'storybook.load', httpStatus: '500' }),
+        }),
+      );
+
+      fireEvent.press(screen.getByTestId('storybook-retry'));
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+
+      // The refetch lands: the book opens, and the failure is gone.
+      mockStoryError = undefined;
+      mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+      view.rerender(<StorybookScreen />);
+      expect(await screen.findByTestId('storybook-frame')).toBeOnTheScreen();
+      expect(screen.queryByTestId('storybook-load-failed')).toBeNull();
+    });
+
+    test('a network failure with no status is a retry too, not a sale', async () => {
+      mockStoryError = new TypeError('Network request failed');
+      render(<StorybookScreen />);
+      expect(await screen.findByTestId('storybook-load-failed')).toBeOnTheScreen();
+      expect(screen.queryByTestId('storybook-locked')).toBeNull();
+      expect(screen.queryByTestId('storybook-short')).toBeNull();
+    });
   });
 });
 

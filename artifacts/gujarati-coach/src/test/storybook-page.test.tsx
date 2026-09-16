@@ -48,6 +48,18 @@ const h = vi.hoisted(() => ({
   limited: false,
   isLoading: false,
   narrated: [] as string[],
+  // A REQUEST THAT DID NOT ARRIVE (2026-09-16). Set, it wins: the hook reports
+  // an error with no data, the way react-query does when the first fetch fails.
+  error: undefined as unknown,
+  refetch: vi.fn(),
+  captureException: vi.fn(),
+}));
+
+// Only captureException is replaced: a failed book load reports through it,
+// and a refused one must not.
+vi.mock("@sentry/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@sentry/react")>()),
+  captureException: h.captureException,
 }));
 
 // Chrome, not the subject: BottomNav pulls in the language picker, which pulls
@@ -91,7 +103,14 @@ vi.mock("@workspace/api-client-react", async () => ({
       return { audioBase64: "", format: "mp3" };
     }),
   }),
-  useGetStoryBook: () => ({
+  useGetStoryBook: () => h.error !== undefined ? ({
+    data: undefined,
+    isLoading: false,
+    isError: true,
+    error: h.error,
+    isFetching: false,
+    refetch: h.refetch,
+  }) : ({
     data: h.isLoading
       ? undefined
       : {
@@ -108,7 +127,7 @@ vi.mock("@workspace/api-client-react", async () => ({
     isError: false,
     error: null,
     isFetching: false,
-    refetch: vi.fn(),
+    refetch: h.refetch,
   }),
 }));
 
@@ -122,6 +141,8 @@ import {
   STORY_PUNCHLINE_MS,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
+  STORY_LOCKED,
+  STORY_LOAD_FAILED,
 } from "@workspace/story";
 
 const BOOK = storyBookFor(1, 1)!;
@@ -220,6 +241,9 @@ beforeEach(() => {
   localStorage.clear();
   h.isLoading = false;
   h.limited = false;
+  h.error = undefined;
+  h.refetch.mockReset();
+  h.captureException.mockReset();
   serve(bookConcepts(BOOK));
 });
 
@@ -467,6 +491,9 @@ describe("a language the book is not ready in", () => {
     expect(screen.getByTestId("story-short")).toBeInTheDocument();
     expect(screen.queryByTestId("story-taste-end")).toBeNull();
     expect(document.body.textContent).not.toMatch(/subscribe/i);
+    // And it is not mistaken for either failure state.
+    expect(screen.queryByTestId("story-locked")).toBeNull();
+    expect(screen.queryByTestId("story-load-failed")).toBeNull();
   });
 
   test("a scene missing even one of its three lines is skipped, not part-drawn", () => {
@@ -534,6 +561,71 @@ function playBook(): string[] {
   }
   return said;
 }
+
+// A REQUEST THAT DID NOT ARRIVE IS NOT A LANGUAGE WITH NO WORDS (owner,
+// 2026-09-16, India book 2 in Assamese: "not ready in Assamese", on a pair the
+// census proves plays 4 of 5 scenes in seed and production). The page never
+// read the query's error, so a refused or failed fetch drew the content-gap
+// copy. Phone twin: emergency-and-storybook-screens.test.tsx.
+describe("when the book request does not arrive", () => {
+  /** The shape the page reads: the shared client's ApiError. */
+  function apiError(status: number): Error {
+    return Object.assign(new Error(`HTTP ${status}`), { name: "ApiError", status });
+  }
+
+  test("a 402 shows the locked offer, never not-ready, with the route to /upgrade", () => {
+    h.error = Object.assign(apiError(402), {
+      data: { upgradeRequired: true, reason: "feature_locked", feature: "storybook" },
+    });
+    renderPage();
+
+    expect(screen.getByTestId("story-locked")).toHaveTextContent(STORY_LOCKED.title);
+    expect(screen.getByTestId("story-locked-upgrade").getAttribute("href")).toBe("/upgrade");
+    expect(screen.queryByTestId("story-short")).toBeNull();
+    expect(screen.queryByTestId("story-load-failed")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/not ready/i);
+    // A refusal is the gate working, not a fault to report.
+    expect(h.captureException).not.toHaveBeenCalled();
+  });
+
+  test("a 500 shows a retry, reports it, and the retry refetches", () => {
+    h.error = apiError(500);
+    const view = renderPage();
+
+    const failed = screen.getByTestId("story-load-failed");
+    expect(failed).toHaveTextContent(STORY_LOAD_FAILED.title);
+    expect(failed).toHaveTextContent(STORY_LOAD_FAILED.body);
+    expect(screen.queryByTestId("story-short")).toBeNull();
+    expect(screen.queryByTestId("story-locked")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/not ready/i);
+    expect(document.body.textContent).not.toMatch(/subscribe/i);
+    expect(h.captureException).toHaveBeenCalledWith(
+      h.error,
+      expect.objectContaining({
+        tags: expect.objectContaining({ apiContext: "storybook.load", httpStatus: "500" }),
+      }),
+    );
+
+    fireEvent.click(screen.getByTestId("story-retry"));
+    expect(h.refetch).toHaveBeenCalledTimes(1);
+
+    // The refetch lands: the book opens, and the failure is gone. A fresh
+    // mount stands in for the re-render react-query would trigger.
+    h.error = undefined;
+    view.unmount();
+    renderPage();
+    expect(screen.queryByTestId("story-load-failed")).toBeNull();
+    expect(screen.getByTestId("story-scene")).toBeInTheDocument();
+  });
+
+  test("a network failure with no status is a retry too, not a sale", () => {
+    h.error = new TypeError("Failed to fetch");
+    renderPage();
+    expect(screen.getByTestId("story-load-failed")).toBeInTheDocument();
+    expect(screen.queryByTestId("story-locked")).toBeNull();
+    expect(screen.queryByTestId("story-short")).toBeNull();
+  });
+});
 
 describe("the book at the end", () => {
   /** The same walk as playBook above, kept local where it was. */

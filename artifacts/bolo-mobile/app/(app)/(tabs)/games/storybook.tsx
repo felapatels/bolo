@@ -64,9 +64,12 @@ import {
   STORY_PUNCHLINE_MS,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
+  STORY_LOCKED,
+  STORY_LOAD_FAILED,
   type LedgerEntry,
   type StoryBook,
 } from '@workspace/story';
+import { apiFailureStatus, reportApiFailure } from '@/lib/apiErrors';
 import { storyStillUrl } from '@/lib/mediaUrl';
 import { loadStoryBook, saveStoryBook, clearStoryBook } from '@/lib/storyLedger';
 import { useColors } from '@/hooks/useColors';
@@ -214,9 +217,31 @@ export default function StorybookScreen() {
   }, []);
 
   const bookParams = { lang: activeLang, journey, zone };
-  const { data, isLoading } = useGetStoryBook(bookParams, {
+  const { data, isLoading, isError, error, isFetching, refetch } = useGetStoryBook(bookParams, {
     query: { queryKey: getGetStoryBookQueryKey(bookParams) },
   });
+
+  /**
+   * WHY THE BOOK DID NOT ARRIVE, when it did not. Owner, 2026-09-16, India book
+   * 2 in Assamese: "This story is not ready in Assamese yet" on a pair the
+   * census proves plays 4 of 5 scenes in seed and production. The screen never
+   * read the query's error, so a refused or failed request, which carries no
+   * phrases, read as a language with no words. Only a response that ARRIVED
+   * can say a book is not ready; a 402 is a sale and anything else is a retry.
+   * Keyed on `data` being absent: a failed background refetch behind a book
+   * that already loaded leaves that book on screen.
+   */
+  const loadFailure: 'locked' | 'failed' | null =
+    isError && data === undefined
+      ? apiFailureStatus(error) === 402
+        ? 'locked'
+        : 'failed'
+      : null;
+  // A refusal is the gate working, so only a real failure reaches Sentry, once
+  // per error object.
+  useEffect(() => {
+    if (loadFailure === 'failed') reportApiFailure('storybook.load', error);
+  }, [loadFailure, error]);
 
   const phrasesByConcept = useMemo(() => {
     const m = new Map<string, StoryPhrase>();
@@ -756,6 +781,51 @@ export default function StorybookScreen() {
           scene will not resolve; a scene can also fail because the language's
           corpus is thin, and selling somebody a book that does not exist in
           their language is the worse mistake. */}
+      {/* THE BOOK IS LOCKED FOR THIS ACCOUNT (402). The map opens a story stop
+          on the CLIENT's isPlus, so a device that believes Plus while the
+          server row says free lands here. Web twin: story-locked. */}
+      {!isLoading && !finished && !resolved && loadFailure === 'locked' && (
+        <View style={s.gap} testID="storybook-locked">
+          <Text style={[s.h2, { color: colors.foreground }]}>{STORY_LOCKED.title}</Text>
+          <Text style={[s.body, { color: colors.mutedForeground }]}>{STORY_LOCKED.body}</Text>
+          <Pressable
+            testID="storybook-locked-upgrade"
+            onPress={() => router.push('/paywall')}
+            style={[s.cta, { backgroundColor: colors.primary }]}
+          >
+            <Text style={s.ctaText}>{STORY_LOCKED.cta}</Text>
+          </Pressable>
+          <Pressable testID="storybook-locked-back" onPress={leave} style={s.cta}>
+            <Text style={[s.body, { color: colors.mutedForeground }]}>
+              {fromStop ? 'Back to the journey' : 'Back to the games'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* THE REQUEST FAILED: offline, a timeout, a 5xx. Not a content gap and
+          not a sale, so a retry. Web twin: story-load-failed. */}
+      {!isLoading && !finished && !resolved && loadFailure === 'failed' && (
+        <View style={s.gap} testID="storybook-load-failed">
+          <Text style={[s.h2, { color: colors.foreground }]}>{STORY_LOAD_FAILED.title}</Text>
+          <Text style={[s.body, { color: colors.mutedForeground }]}>{STORY_LOAD_FAILED.body}</Text>
+          <Pressable
+            testID="storybook-retry"
+            onPress={() => void refetch()}
+            disabled={isFetching}
+            accessibilityState={{ disabled: isFetching, busy: isFetching }}
+            style={[s.cta, { backgroundColor: colors.primary, opacity: isFetching ? 0.6 : 1 }]}
+          >
+            <Text style={s.ctaText}>{STORY_LOAD_FAILED.retry}</Text>
+          </Pressable>
+          <Pressable testID="storybook-load-failed-back" onPress={leave} style={s.cta}>
+            <Text style={[s.body, { color: colors.mutedForeground }]}>
+              {fromStop ? 'Back to the journey' : 'Back to the games'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
       {!isLoading && !finished && !resolved && limited && (
         <View style={s.gap} testID="storybook-taste-end">
           <Text style={[s.h2, { color: colors.foreground }]}>{STORY_TEASER_END.title}</Text>
@@ -785,7 +855,9 @@ export default function StorybookScreen() {
           book in any of the 22 languages: every one of the 132 pairs carries
           at least one playable scene. It stays because production is not the
           seed and a book authored from rarer concepts could still land here. */}
-      {!isLoading && !finished && !resolved && !limited && (
+      {/* AND ONLY A RESPONSE THAT ARRIVED can say so (2026-09-16): `data`
+          present, never an errored or refused request. See loadFailure. */}
+      {!isLoading && !finished && !resolved && !limited && data !== undefined && (
         <View style={s.gap} testID="storybook-short">
           <Text style={[s.h2, { color: colors.foreground }]}>
             {`This story is not ready in ${activeLanguage?.name ?? 'this language'} yet`}
