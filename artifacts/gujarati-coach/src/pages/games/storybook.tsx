@@ -1077,7 +1077,7 @@ export default function StorybookPage() {
    * scene, the paywall beat or the finished book) is computed at the pick,
    * against the board the learner actually answered, and applied when the beat
    * ends. Recomputing it at the end of the beat would read whatever `scene` and
-   * `data` hold 2.5 seconds later.
+   * `data` hold 3.5 seconds later.
    */
   const [punchline, setPunchline] = useState<{
     stillId: string;

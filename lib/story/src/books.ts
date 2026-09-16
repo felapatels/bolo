@@ -403,8 +403,11 @@ export function outcomeStillId(sceneId: string, concept: string): string {
  * twins, and a beat that is 2.5 seconds on one and 3 on the other is the drift
  * this library exists to prevent. Long enough to take a picture in and laugh,
  * short enough that a learner playing it straight is not kept waiting.
+ *
+ * 3.5 seconds, not the first cut's 2.5: the owner, the same day, "have the
+ * funny photo linger for 1 more second".
  */
-export const STORY_PUNCHLINE_MS = 2500;
+export const STORY_PUNCHLINE_MS = 3500;
 
 /**
  * The prefix every scene id in a book shares: "door" for door-1 to door-5.

@@ -197,7 +197,7 @@ export default function StorybookScreen() {
   /**
    * What the pick decided, applied when the beat ends. A ref rather than
    * state, and computed AT the pick, so it answers the board the learner
-   * actually tapped rather than whatever the screen holds 2.5 seconds later.
+   * actually tapped rather than whatever the screen holds 3.5 seconds later.
    */
   const pendingAdvanceRef = useRef<(() => void) | null>(null);
   const punchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
