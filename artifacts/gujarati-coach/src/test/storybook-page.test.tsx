@@ -66,6 +66,19 @@ vi.mock("@/lib/language-context", () => ({
   nativeTextProps: () => ({ style: {}, dir: "ltr" as const }),
 }));
 
+// THE SHARE PICTURE'S DRAWING, mocked at the module (2026-09-16). jsdom has no
+// canvas, and what goes INTO the picture is storySharePlan's answer, pinned in
+// story-share.test.ts. What this page owns is handing that plan over, the busy
+// state, and not throwing when the drawing fails.
+const share = vi.hoisted(() => ({
+  compose: vi.fn(),
+  share: vi.fn(),
+}));
+vi.mock("@/lib/story-share-image", () => ({
+  composeStoryShareImage: share.compose,
+  shareStoryImage: share.share,
+}));
+
 vi.mock("@workspace/api-client-react", async () => ({
   ...(await (await import("./api-client-mock")).baseApiClientMock()),
   // Records what the narrator was ASKED to say. The assertions below are about
@@ -101,6 +114,8 @@ vi.mock("@workspace/api-client-react", async () => ({
 
 import Storybook from "@/pages/games/storybook";
 import {
+  storySharePlan,
+  STORY_SHARE_CTA,
   storyBookFor,
   bookConcepts,
   outcomeStillId,
@@ -591,6 +606,74 @@ describe("the book at the end", () => {
     // Same for the ending.
     fireEvent.error(screen.getByTestId("story-ending"));
     expect(screen.queryByTestId("story-ending")).toBeNull();
+  });
+
+  test("Read it again and the share sit at the TOP, above the ending, and the upsell stays below the strip", () => {
+    // NEW 2026-09-16, the owner: "the play again button, put it on the top of
+    // that summary screen". Read it again was the last thing on this screen,
+    // under the strip and the upsell. No earlier pin held that order, so
+    // nothing was inverted; this pins the new one.
+    renderPage();
+    playBook();
+    const again = screen.getByTestId("story-again");
+    const shareBtn = screen.getByTestId("story-share");
+    expect(shareBtn).toHaveTextContent(STORY_SHARE_CTA);
+    expect(screen.getByTestId("story-book-actions")).toContainElement(again);
+    expect(screen.getByTestId("story-book-actions")).toContainElement(shareBtn);
+    const ending = screen.getByTestId("story-ending");
+    expect(again.compareDocumentPosition(ending)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(shareBtn.compareDocumentPosition(ending)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  test("Share your story draws the plan for this read, with this page's host, then shares it", async () => {
+    share.compose.mockReset();
+    share.share.mockReset();
+    let finishDrawing!: (b: Blob) => void;
+    share.compose.mockImplementation(
+      () => new Promise<Blob>((resolve) => { finishDrawing = resolve; }),
+    );
+    share.share.mockResolvedValue("shared");
+    renderPage();
+    const said = playBook();
+    const btn = screen.getByTestId("story-share");
+    fireEvent.click(btn);
+
+    // Busy while it draws, and a second press does not start a second picture.
+    await waitFor(() => expect(btn).toBeDisabled());
+    fireEvent.click(btn);
+    expect(share.compose).toHaveBeenCalledTimes(1);
+
+    const [plan, stillUrl] = share.compose.mock.calls[0]!;
+    const entries = BOOK.scenes.map((sc, i) => ({
+      sceneId: sc.id,
+      concept: said[i]!,
+      fitted: sc.choices.find((c) => c.concept === said[i])!.fits,
+    }));
+    const byConcept = new Map(h.phrases.map((p) => [p.concept, p]));
+    expect(plan).toEqual(
+      storySharePlan(BOOK, entries, (c) => byConcept.get(c), window.location.host),
+    );
+    expect(plan.footer.domain).toBe(window.location.host);
+    expect(stillUrl("door-1--x")).toContain("story/door-1--x.webp");
+
+    const blob = new Blob(["png"], { type: "image/png" });
+    await act(async () => { finishDrawing(blob); });
+    await waitFor(() => expect(share.share).toHaveBeenCalledWith(blob, `bolo-story-${BOOK.id}.png`));
+    await waitFor(() => expect(btn).not.toBeDisabled());
+  });
+
+  test("a picture that fails to draw gives the button back and throws nothing at the learner", async () => {
+    share.compose.mockReset();
+    share.share.mockReset();
+    share.compose.mockRejectedValue(new Error("no canvas"));
+    renderPage();
+    playBook();
+    const btn = screen.getByTestId("story-share");
+    fireEvent.click(btn);
+    await waitFor(() => expect(share.compose).toHaveBeenCalled());
+    await waitFor(() => expect(btn).not.toBeDisabled());
+    expect(share.share).not.toHaveBeenCalled();
+    expect(screen.getByTestId("story-book")).toBeInTheDocument();
   });
 
   test("it is still there on the way back, and can be started again", () => {

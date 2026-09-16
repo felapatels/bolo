@@ -25,7 +25,8 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useSearch } from "wouter";
-import { ArrowLeft, BookOpen, Lock, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { ArrowLeft, BookOpen, Lock, RotateCcw, Share2, Volume2, VolumeX } from "lucide-react";
+import * as Sentry from "@sentry/react";
 import {
   getGetStoryBookQueryKey,
   useGetAccount,
@@ -41,7 +42,10 @@ import {
   setupStillId,
   storyBookFor,
   storyEnding,
+  storyShareFileName,
+  storySharePlan,
   STORY_PUNCHLINE_MS,
+  STORY_SHARE_CTA,
   STORY_TEASER_END,
   STORY_TASTE_BOOK_DONE,
   type LedgerEntry,
@@ -60,6 +64,7 @@ import {
   loadStoryBook,
   saveStoryBook,
 } from "@/lib/story-ledger";
+import { composeStoryShareImage, shareStoryImage } from "@/lib/story-share-image";
 
 /** One concept resolved into this language, as the server returned it. */
 type StoryPhrase = {
@@ -654,6 +659,12 @@ function TasteEnd({ exit }: { exit: StoryExit }) {
  * brief is kept for a screen reader either way, since it is the only form the
  * picture takes for one.
  */
+/** Where this page serves a still from. The strip and the share picture both
+ *  ask here, so the picture can only ever hold what the screen shows. */
+function storyStillSrc(stillId: string): string {
+  return `${import.meta.env.BASE_URL}story/${stillId}.webp`;
+}
+
 function StripStill({
   stillId,
   situation,
@@ -670,11 +681,77 @@ function StripStill({
   return (
     <img
       data-testid={testId}
-      src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
+      src={storyStillSrc(stillId)}
       alt={situation}
       onError={() => setFailed(true)}
       className={className}
     />
+  );
+}
+
+/**
+ * SHARE YOUR STORY: the finished book as one tall picture (owner, 2026-09-16:
+ * "add a share button to share the story once its done as an image file").
+ *
+ * What goes in is storySharePlan's answer, never this component's; the drawing
+ * is lib/story-share-image.ts. The phone twin is
+ * bolo-mobile/components/story/StoryShareButton.tsx.
+ *
+ * NO PERSONAL DATA: the plan is the book, the lines and the domain, read from
+ * window.location.host so a fork prints its own address. A failure is
+ * reported and the button comes back; nothing is thrown at the learner.
+ */
+function ShareStoryButton({
+  book,
+  entries,
+  phrasesByConcept,
+}: {
+  book: StoryBook;
+  entries: LedgerEntry[];
+  phrasesByConcept: Map<string, StoryPhrase>;
+}) {
+  const native = useNativeText();
+  const [busy, setBusy] = useState(false);
+  const share = async () => {
+    if (busy) return;
+    setBusy(true);
+    let stage = "compose";
+    try {
+      const plan = storySharePlan(
+        book,
+        entries,
+        (concept) => phrasesByConcept.get(concept),
+        typeof window !== "undefined" ? window.location.host : null,
+      );
+      const ui = getComputedStyle(document.body).fontFamily || "sans-serif";
+      const blob = await composeStoryShareImage(plan, storyStillSrc, {
+        ui,
+        script: (native.style.fontFamily as string | undefined) ?? ui,
+        dir: native.dir,
+        nastaliq: native.isNastaliq,
+      });
+      stage = "share";
+      await shareStoryImage(blob, storyShareFileName(plan));
+    } catch (err) {
+      Sentry.captureException(
+        err instanceof Error ? err : new Error(`story share ${stage} failed: ${String(err)}`),
+        { tags: { storyShare: stage, bookId: book.id } },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button
+      onClick={() => void share()}
+      disabled={busy}
+      aria-busy={busy}
+      data-testid="story-share"
+      className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-2 border-primary bg-card px-4 py-3 font-bold text-primary transition-all hover:bg-primary/5 active:scale-[0.98] disabled:opacity-60"
+    >
+      <Share2 className="h-4 w-4" />
+      {busy ? "Making your picture…" : STORY_SHARE_CTA}
+    </button>
   );
 }
 
@@ -730,6 +807,23 @@ function TheBook({
         <BookOpen className="mx-auto mb-2 h-7 w-7 text-primary" />
         <h2 className="text-2xl font-extrabold text-foreground">Your book</h2>
         <p className="mt-1 text-sm text-muted-foreground">{book.title}</p>
+      </div>
+
+      {/* READ IT AGAIN IS AT THE TOP, with the share beside it (owner,
+          2026-09-16: "the play again button, put it on the top of that summary
+          screen"). It sat under the whole strip and the upsell, a long scroll
+          from the moment a learner wants it. The upsell stays AFTER the strip,
+          because the strip is still the argument. */}
+      <div className="flex gap-3" data-testid="story-book-actions">
+        <button
+          onClick={onAgain}
+          data-testid="story-again"
+          className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3.5 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+        >
+          <RotateCcw className="h-4 w-4" />
+          Read it again
+        </button>
+        <ShareStoryButton book={book} entries={entries} phrasesByConcept={phrasesByConcept} />
       </div>
 
       {ending && (
@@ -810,14 +904,6 @@ function TheBook({
         </div>
       )}
 
-      <button
-        onClick={onAgain}
-        data-testid="story-again"
-        className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
-      >
-        <RotateCcw className="h-4 w-4" />
-        Read it again
-      </button>
       <Link
         href={exit.href}
         className="text-center text-sm text-muted-foreground underline-offset-2 hover:underline"
