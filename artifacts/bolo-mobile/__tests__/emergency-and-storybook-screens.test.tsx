@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // The story payload the screen sees. `undefined` is the loading state, which is
@@ -94,7 +94,12 @@ jest.mock('@workspace/api-client-react', () => ({
 
 import EmergencyScreen from '@/app/(app)/(tabs)/games/emergency';
 import StorybookScreen from '@/app/(app)/(tabs)/games/storybook';
-import { bookConcepts, storyBookFor } from '@workspace/story';
+import {
+  bookConcepts,
+  outcomeStillId,
+  storyBookFor,
+  STORY_PUNCHLINE_MS,
+} from '@workspace/story';
 
 /** The zone 1 book, which is what this screen opens on with no params. */
 const BOOK = storyBookFor(1, 1)!;
@@ -161,6 +166,20 @@ describe('the two screens that arrived with no test', () => {
  * `within` vacuity guard it was built around is kept, pointed at what the frame
  * holds now.
  */
+/**
+ * AND ON 2026-09-16 THE PICK GREW A PUNCHLINE, the mad-lib ruling (owner: "it
+ * seems boring"). A pick shows that line's outcome still over the whole frame
+ * for STORY_PUNCHLINE_MS, then the page turns by itself; a tap on the picture
+ * ends the beat early. STILL NO NEXT BUTTON. Pins that said the page turns in
+ * the same tick are inverted where they stand, dated; `pick` below answers and
+ * taps through the beat.
+ */
+function pick(concept: string): void {
+  fireEvent.press(screen.getByTestId(`storybook-choice-${concept}`));
+  const beat = screen.queryByTestId('storybook-punchline');
+  if (beat) fireEvent.press(beat);
+}
+
 describe('the storybook advances on the pick itself', () => {
   const PHRASES = [
     { concept: 'good morning', phraseId: 1, nativeScript: 'नमस्ते', romanized: 'namaste', english: 'good morning' },
@@ -201,9 +220,80 @@ describe('the storybook advances on the pick itself', () => {
     // Gone from the frame, where it used to sit, and gone from the page.
     expect(within(frame).queryByTestId('storybook-next')).toBeNull();
     expect(screen.queryByTestId('storybook-next')).toBeNull();
+
+    // 2026-09-16: what the frame holds after a pick is the PUNCHLINE, and the
+    // frame is where it sits. Ending it still reveals no button.
+    const beat = within(frame).getByTestId('storybook-punchline');
+    fireEvent.press(beat);
+    expect(screen.queryByTestId('storybook-punchline')).toBeNull();
+    expect(screen.queryByTestId('storybook-next')).toBeNull();
   });
 
-  test('shows what you said, and its consequence, above the NEXT set of lines', async () => {
+  test('the punchline turns the page BY ITSELF when its beat runs out', async () => {
+    // Added 2026-09-16. No press on anything: the timer ends the beat.
+    mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    jest.useFakeTimers();
+    try {
+      const first = BOOK.scenes[0]!.choices[0]!;
+      fireEvent.press(screen.getByTestId(`storybook-choice-${first.concept}`));
+      expect(screen.getByTestId('storybook-punchline')).toBeOnTheScreen();
+      // Under the beat the board is still the scene just answered.
+      expect(screen.getByTestId(`storybook-choice-${first.concept}`)).toBeOnTheScreen();
+
+      act(() => {
+        jest.advanceTimersByTime(STORY_PUNCHLINE_MS - 100);
+      });
+      expect(screen.getByTestId('storybook-punchline')).toBeOnTheScreen();
+      act(() => {
+        jest.advanceTimersByTime(200);
+      });
+      expect(screen.queryByTestId('storybook-punchline')).toBeNull();
+      for (const choice of BOOK.scenes[1]!.choices) {
+        expect(screen.getByTestId(`storybook-choice-${choice.concept}`)).toBeOnTheScreen();
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('the punchline is the outcome still for the line said, and the board cannot be answered under it', async () => {
+    mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    const [first, second] = BOOK.scenes[0]!.choices;
+    fireEvent.press(screen.getByTestId(`storybook-choice-${first!.concept}`));
+
+    const beat = screen.getByTestId('storybook-punchline');
+    expect(beat.props.accessibilityLabel).toBe(first!.outcome!.situation);
+    const still = screen.getByTestId('storybook-punchline-still');
+    expect(still.props.source.uri).toContain(
+      `/story/${outcomeStillId(BOOK.scenes[0]!.id, first!.concept)}.webp`,
+    );
+
+    // A second line pressed during the beat does nothing.
+    fireEvent.press(screen.getByTestId(`storybook-choice-${second!.concept}`));
+    expect(screen.getByTestId('storybook-punchline').props.accessibilityLabel).toBe(
+      first!.outcome!.situation,
+    );
+    expect(within(screen.getByTestId('storybook-said')).queryByText(`native:${second!.concept}`)).toBeNull();
+  });
+
+  test('a punchline still that was never drawn shows its brief, not a grey hole', async () => {
+    mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    const first = BOOK.scenes[0]!.choices[0]!;
+    fireEvent.press(screen.getByTestId(`storybook-choice-${first.concept}`));
+    fireEvent(screen.getByTestId('storybook-punchline-still'), 'error');
+    expect(screen.queryByTestId('storybook-punchline-still')).toBeNull();
+    expect(
+      within(screen.getByTestId('storybook-punchline')).getByText(first.outcome!.situation),
+    ).toBeTruthy();
+  });
+
+  test('shows what you said above the NEXT set of lines, after its consequence had the frame', async () => {
     // The owner's words for what should replace the middle page: "show what you
     // selected previously on top of the options". The consequence is authored
     // content and went with it rather than being dropped: the still, because
@@ -213,16 +303,19 @@ describe('the storybook advances on the pick itself', () => {
     render(<StorybookScreen />);
     await screen.findByTestId('storybook-frame');
     const first = BOOK.scenes[0]!.choices[0]!;
-    fireEvent.press(screen.getByTestId(`storybook-choice-${first.concept}`));
+    // Zone 1 must author every consequence, or the assertions below are vacuous.
+    // (jest's expect takes no message argument; the web twin's vitest does.)
+    expect(first.outcome).toBeDefined();
+    pick(first.concept);
 
     const said = screen.getByTestId('storybook-said');
     expect(within(said).getByText(`native:${first.concept}`)).toBeTruthy();
     expect(within(said).getByText(`english:${first.concept}`)).toBeTruthy();
-    // Zone 1 must author every consequence, or the assertion below is vacuous.
-    // (jest's expect takes no message argument; the web twin's vitest does.)
-    expect(first.outcome).toBeDefined();
-    expect(within(said).getByText(first.outcome!.situation)).toBeTruthy();
-    expect(screen.getByTestId('storybook-said-still')).toBeTruthy();
+    // INVERTED 2026-09-16 (mad-lib ruling, "it seems boring"). This asserted the
+    // consequence brief and a thumbnail still inside YOU SAID. The picture now
+    // has the whole frame for a beat first, so the carried line has neither.
+    expect(within(said).queryByText(first.outcome!.situation)).toBeNull();
+    expect(screen.queryByTestId('storybook-said-still')).toBeNull();
 
     // And the board underneath is the NEXT scene's, not the one just answered.
     for (const choice of BOOK.scenes[1]!.choices) {
@@ -237,11 +330,48 @@ describe('the storybook advances on the pick itself', () => {
     await screen.findByTestId('storybook-frame');
     for (const scene of BOOK.scenes) {
       const concept = scene.choices[0]!.concept;
-      fireEvent.press(screen.getByTestId(`storybook-choice-${concept}`));
+      // Through each punchline beat since 2026-09-16, tapped rather than waited.
+      pick(concept);
     }
     // The ledger, straight off the fifth pick. It took a sixth press until
-    // 2026-09-15, on a page whose only job was to hold a button.
+    // 2026-09-15, on a page whose only job was to hold a button. The taps on
+    // the punchlines are not that button: each only ends its beat early.
     expect(screen.getByTestId('storybook-book')).toBeOnTheScreen();
+  });
+
+  test('the finished book is a picture strip: the ending on top, then each outcome caused, with its line', async () => {
+    // INVERTS THE OLD SHAPE, 2026-09-16. The book listed each scene's English
+    // brief above the line said; the briefs are accessibility labels only now.
+    mockStoryData = { limited: false, phrases: WHOLE_BOOK };
+    render(<StorybookScreen />);
+    await screen.findByTestId('storybook-frame');
+    // Every misfitting line: the disaster ending, whatever the shuffle.
+    for (const scene of BOOK.scenes) {
+      pick(scene.choices.find((c) => !c.fits)!.concept);
+    }
+    const book = screen.getByTestId('storybook-book');
+    const ending = within(book).getByTestId('storybook-ending');
+    expect(ending.props.source.uri).toContain('/story/door--end-disaster.webp');
+    expect(ending.props.accessibilityLabel).toBe(BOOK.endings!.disaster.situation);
+
+    const panels = within(book).getAllByTestId('storybook-book-entry');
+    expect(panels).toHaveLength(BOOK.scenes.length);
+    BOOK.scenes.forEach((scene, i) => {
+      const choice = scene.choices.find((c) => !c.fits)!;
+      const still = within(panels[i]!).getByTestId('storybook-book-still');
+      expect(still.props.source.uri).toContain(`/story/${outcomeStillId(scene.id, choice.concept)}.webp`);
+      expect(still.props.accessibilityLabel).toBe(choice.outcome!.situation);
+      expect(within(panels[i]!).getByText(`native:${choice.concept}`)).toBeTruthy();
+      expect(within(panels[i]!).getByText(`english:${choice.concept}`)).toBeTruthy();
+      expect(within(panels[i]!).queryByText(scene.situation)).toBeNull();
+    });
+
+    // A strip still that was never drawn leaves no box, and keeps its brief.
+    fireEvent(within(panels[0]!).getByTestId('storybook-book-still'), 'error');
+    expect(within(panels[0]!).queryByTestId('storybook-book-still')).toBeNull();
+    expect(
+      within(panels[0]!).getByTestId('storybook-book-still-missing').props.accessibilityLabel,
+    ).toBe(BOOK.scenes[0]!.choices.find((c) => !c.fits)!.outcome!.situation);
   });
 
   /**
