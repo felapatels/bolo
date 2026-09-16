@@ -251,6 +251,26 @@ export function storyTeaserConcepts(book: StoryBook): string[] {
  * choosing a position, or the web and the phone will disagree about which stop
  * a learner is on. That is not hypothetical: it is exactly the rule written on
  * traceStopIndexIn, for the same reason.
+ *
+ * THE ROW KNOWS NOTHING ABOUT THE CORPUS, AND THAT IS DELIBERATE. Asked on
+ * 2026-09-15, after the owner opened a story stop that could not draw its first
+ * scene: should a zone whose book this language cannot carry simply not draw
+ * the row? It cannot be answered here, and the reason is not effort.
+ *
+ *   1. The corpus answer is one request per book, GET /games/story/book, and
+ *      that endpoint DENIES a non-paying caller on zones 2 to 6. So a probe
+ *      cannot tell "thin corpus" from "locked" for exactly the learners who
+ *      see the most locked rows.
+ *   2. planZoneRows is shared with the HOME HERO, which never fetches a book.
+ *      A corpus-dependent row count would make home and the map disagree about
+ *      which stop a learner is on, which is the precise bug this whole family
+ *      of helpers was written to end (2026-08-27).
+ *   3. A row that vanishes when a fetch lands renumbers every stop under it.
+ *
+ * So the recovery lives in the screen instead: firstPlayableScene steps over
+ * what the language cannot carry and the book ends on what it could. The row is
+ * only ever a dead end now for a book with NO drawable scene, which no book in
+ * India's seeded content is, in any of the 22 languages.
  */
 export function storyStopIndexIn(
   rowCount: number,

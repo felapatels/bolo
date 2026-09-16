@@ -7,13 +7,17 @@ import {
   FAMILY_SCENES,
   FAMILY_START_ID,
   availableScenes,
+  bookIsFinished,
   chooseScene,
+  firstPlayableScene,
   fittingChoice,
   mediaFor,
   orderChoices,
   playablePath,
+  playableSceneCount,
   resolveScene,
   sceneAvailable,
+  sceneExit,
   type Scene,
 } from "@workspace/story";
 
@@ -210,6 +214,42 @@ describe("the choice moves the story and writes the book", () => {
     expect(book.every((e) => e.fitted)).toBe(false);
   });
 
+  test("a scene this language cannot carry is stepped OVER, not stopped at", () => {
+    // INVERTED 2026-09-15. playablePath used to break at the first hole in the
+    // corpus while its own comment promised it skipped one, and that stop was
+    // what both clients turned into a full-screen dead end: the owner opened a
+    // story stop on the SEA fork in Tagalog, got "This story is not ready in
+    // Tagalog yet" and a Back button, and said "this isn't ok".
+    //
+    // The concept withheld is derived rather than named, for the reason the
+    // page suite gives: a book reuses concepts across its scenes, so hardcoding
+    // one can silently take out the first scene too and pass for the wrong
+    // reason. This picks one that appears in exactly one LATER scene.
+    const victim = FAMILY_SCENES.slice(1)
+      .flatMap((sc) => sc.choices.map((c) => c.concept))
+      .find(
+        (concept) =>
+          FAMILY_SCENES.filter((sc) =>
+            sc.choices.some((c) => c.concept === concept),
+          ).length === 1,
+      );
+    expect(victim, "the book needs a concept unique to one later scene").toBeDefined();
+    const skipped = FAMILY_SCENES.find((sc) =>
+      sc.choices.some((c) => c.concept === victim),
+    )!;
+    const without = (_l: string, c: string) => UNIVERSAL.has(c) && c !== victim;
+
+    const book = playablePath(FAMILY_SCENES, FAMILY_START_ID, "xx", without, (r) =>
+      fittingChoice(r.scene)!.concept,
+    );
+    // One scene short, not one scene long: the walk carried on past the hole.
+    expect(book).toHaveLength(FAMILY_SCENES.length - 1);
+    // And NOTHING was written for the scene it could not draw. A skipped scene
+    // means the learner said nothing there; inventing an entry would put a line
+    // in their book they never chose.
+    expect(book.map((e) => e.sceneId)).not.toContain(skipped.id);
+  });
+
   test("a loop in the graph cannot hang the client", () => {
     // A hand-authored branching graph grows one the first time two
     // consequences point at each other.
@@ -221,5 +261,148 @@ describe("the choice moves the story and writes the book", () => {
     ];
     const book = playablePath(loop, "a", "gu", has, (r) => r.choices[0]!.concept);
     expect(book).toHaveLength(2);
+  });
+});
+
+// ─── Never offering a dead end ───────────────────────────────────────────────
+//
+// WHY THESE EXIST. The whole storybook screen, on both platforms, used to call
+// resolveScene on whichever scene id it was holding and draw a full-screen
+// "This story is not ready in <language> yet" with a Back button the moment it
+// came back null. The owner hit that on a TestFlight build of the SEA fork, in
+// Tagalog, on a story stop the map had offered them: "this isn't ok".
+//
+// So the engine now answers a different question, and both clients ask THAT one
+// instead: not "can this scene be drawn" but "which scene from here can be".
+describe("a book steps over what a language cannot carry", () => {
+  /** Withhold every concept a named scene needs, and nothing else. */
+  function withoutScene(sceneId: string) {
+    const doomed = new Set(
+      FAMILY_SCENES.find((sc) => sc.id === sceneId)!.choices.map(
+        (c) => c.concept,
+      ),
+    );
+    // Only the concepts that appear NOWHERE else, so exactly one scene falls.
+    const elsewhere = new Set(
+      FAMILY_SCENES.filter((sc) => sc.id !== sceneId).flatMap((sc) =>
+        sc.choices.map((c) => c.concept),
+      ),
+    );
+    const victims = [...doomed].filter((c) => !elsewhere.has(c));
+    expect(victims.length, `${sceneId} needs a concept of its own`).toBeGreaterThan(0);
+    return (_l: string, c: string) => UNIVERSAL.has(c) && !victims.includes(c);
+  }
+
+  test("an unplayable FIRST scene opens the book on the next one that plays", () => {
+    // The 18 of 132 book-and-language pairs in India's seeded content whose
+    // opening scene cannot be drawn. Every one of them opened on the dead end.
+    const has0 = withoutScene(FAMILY_SCENES[0]!.id);
+    expect(resolveScene(FAMILY_SCENES[0]!, "xx", has0)).toBeNull();
+
+    const opened = firstPlayableScene(FAMILY_SCENES, FAMILY_START_ID, "xx", has0);
+    expect(opened).not.toBeNull();
+    expect(opened!.scene.id).toBe(FAMILY_SCENES[1]!.id);
+    // Whole board or no board: never two of three lines.
+    expect(opened!.choices).toHaveLength(3);
+  });
+
+  test("an unplayable scene in the MIDDLE is skipped and the book runs on", () => {
+    const hasMid = withoutScene(FAMILY_SCENES[2]!.id);
+    const opened = firstPlayableScene(FAMILY_SCENES, FAMILY_START_ID, "xx", hasMid);
+    expect(opened!.scene.id).toBe(FAMILY_SCENES[0]!.id);
+    // From the scene before the hole, the next playable beat is the one AFTER
+    // it, not nothing.
+    const onward = firstPlayableScene(
+      FAMILY_SCENES,
+      sceneExit(FAMILY_SCENES[1]!),
+      "xx",
+      hasMid,
+    );
+    expect(onward!.scene.id).toBe(FAMILY_SCENES[3]!.id);
+  });
+
+  test("null still means what it says: not one scene of this book can be drawn", () => {
+    // The only state in which "this story is not ready in your language yet" is
+    // a true sentence, and the only one either client may draw it for.
+    expect(
+      firstPlayableScene(FAMILY_SCENES, FAMILY_START_ID, "zz", hasNothing),
+    ).toBeNull();
+    expect(playableSceneCount(FAMILY_SCENES, FAMILY_START_ID, "zz", hasNothing)).toBe(0);
+  });
+
+  test("the beat count is what this language will be shown, not the book's length", () => {
+    // A five-pip rail over a three-beat run leaves pips unfilled forever and
+    // reads as a story that broke rather than one that ended.
+    expect(playableSceneCount(FAMILY_SCENES, FAMILY_START_ID, "gu", has)).toBe(
+      FAMILY_SCENES.length,
+    );
+    const hasMid = withoutScene(FAMILY_SCENES[2]!.id);
+    expect(playableSceneCount(FAMILY_SCENES, FAMILY_START_ID, "xx", hasMid)).toBe(
+      FAMILY_SCENES.length - 1,
+    );
+  });
+
+  test("every authored book converges, which is what makes a skip unambiguous", () => {
+    // sceneExit takes the fitting line's `next`. That is only an arbitrary
+    // choice if the three ever disagree, so this says they do not. If a book is
+    // ever authored to diverge, this fails and the skip rule needs a ruling
+    // rather than a default.
+    for (const book of STORY_BOOKS) {
+      for (const scene of book.scenes) {
+        const nexts = new Set(scene.choices.map((c) => String(c.next)));
+        expect(nexts.size, `${book.id}/${scene.id}`).toBe(1);
+        expect(sceneExit(scene)).toBe(scene.choices[0]!.next);
+      }
+    }
+  });
+});
+
+// ─── A saved book knows it is finished ───────────────────────────────────────
+describe("a saved ledger says whether the book ended", () => {
+  test("an ending is a choice with nowhere to go, not a length", () => {
+    // Mobile restored a book by asking whether it held as many entries as the
+    // book has scenes. That answer went wrong the day a book could legitimately
+    // end short, which is the day scenes started being skipped (2026-09-15): a
+    // finished four-entry run would have replayed itself from page one.
+    const full = playablePath(FAMILY_SCENES, FAMILY_START_ID, "gu", has, (r) =>
+      fittingChoice(r.scene)!.concept,
+    );
+    expect(bookIsFinished(FAMILY_SCENES, full)).toBe(true);
+    expect(bookIsFinished(FAMILY_SCENES, full.slice(0, -1))).toBe(false);
+    expect(bookIsFinished(FAMILY_SCENES, [])).toBe(false);
+
+    // THE CASE THE LENGTH TEST GOT WRONG, stated outright: a book that ended
+    // short because a scene was skipped is finished, and is SHORTER than the
+    // book. A length comparison says false here.
+    const victim = FAMILY_SCENES.slice(1)
+      .flatMap((sc) => sc.choices.map((c) => c.concept))
+      .find(
+        (concept) =>
+          FAMILY_SCENES.filter((sc) =>
+            sc.choices.some((c) => c.concept === concept),
+          ).length === 1,
+      );
+    const short = playablePath(
+      FAMILY_SCENES,
+      FAMILY_START_ID,
+      "xx",
+      (_l: string, c: string) => UNIVERSAL.has(c) && c !== victim,
+      (r) => fittingChoice(r.scene)!.concept,
+    );
+    expect(short.length).toBeLessThan(FAMILY_SCENES.length);
+    expect(bookIsFinished(FAMILY_SCENES, short)).toBe(true);
+  });
+
+  test("a ledger naming a scene or a line the book does not have is not finished", () => {
+    expect(
+      bookIsFinished(FAMILY_SCENES, [
+        { sceneId: "not-a-scene", concept: "water", fitted: true },
+      ]),
+    ).toBe(false);
+    expect(
+      bookIsFinished(FAMILY_SCENES, [
+        { sceneId: FAMILY_SCENES[0]!.id, concept: "aeroplane", fitted: true },
+      ]),
+    ).toBe(false);
   });
 });

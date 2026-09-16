@@ -54,7 +54,8 @@ import {
 } from '@workspace/api-client-react';
 import {
   storyBookFor,
-  resolveScene,
+  bookIsFinished,
+  firstPlayableScene,
   chooseScene,
   setupStillId,
   outcomeStillId,
@@ -77,6 +78,27 @@ type StoryPhrase = {
   nativeScript: string;
   romanized: string;
   english: string;
+};
+
+/**
+ * THE LINE JUST SAID, AND WHAT HAPPENED BECAUSE OF IT, carried onto the next
+ * beat.
+ *
+ * This is where the outcome went when the outcome PAGE was removed (owner, off
+ * a TestFlight build, 2026-09-15: "after you make a selection, you don't need
+ * the one screen in the middle... there is an additional screen in between
+ * that's useless"). The consequence is authored content and both halves of it
+ * survive: the still, because THE JOKE IS THE PICTURE and a picture lands in
+ * all 22 languages with nothing translated, and its brief, because that is the
+ * alt text and the only form the joke exists in for a screen reader. They ride
+ * beside the carried line instead of taking a page and a second Next press.
+ */
+type SaidLine = {
+  phrase: StoryPhrase;
+  /** The consequence's brief, English, also the still's alt text. */
+  outcome: string | null;
+  /** The consequence still, or null when the line authored none. */
+  stillId: string | null;
 };
 
 /**
@@ -135,8 +157,9 @@ export default function StorybookScreen() {
 
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [sceneId, setSceneId] = useState<string | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
-  const [lastSaid, setLastSaid] = useState<StoryPhrase | null>(null);
+  const [lastSaid, setLastSaid] = useState<SaidLine | null>(null);
+  /** Reset with every carried line: a missing still is per consequence. */
+  const [saidStillFailed, setSaidStillFailed] = useState(false);
   const [finished, setFinished] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
 
@@ -155,6 +178,12 @@ export default function StorybookScreen() {
     return m;
   }, [data]);
 
+  /** The engine's corpus probe: did this concept come back from the server. */
+  const has = useCallback(
+    (_lang: string, concept: string) => phrasesByConcept.has(concept),
+    [phrasesByConcept],
+  );
+
   // Restore a book in progress, or open on its start.
   useEffect(() => {
     if (!book || !activeLang) return;
@@ -162,7 +191,13 @@ export default function StorybookScreen() {
     void loadStoryBook(book.id, activeLang).then((saved) => {
       if (!live) return;
       setEntries(saved);
-      setFinished(saved.length >= book.scenes.length);
+      // NOT `saved.length >= book.scenes.length` any more. A book may now end
+      // SHORT, because the scenes this language cannot carry are skipped
+      // rather than dead-ending the reader, and a length test would have sent
+      // a learner who finished a four-scene run straight back to page one
+      // (2026-09-15). bookIsFinished asks the ledger whether its last entry
+      // took a choice that ends the book, which needs no corpus at all.
+      setFinished(bookIsFinished(book.scenes, saved));
       setSceneId(book.startId);
     });
     return () => {
@@ -170,20 +205,17 @@ export default function StorybookScreen() {
     };
   }, [book, activeLang]);
 
-  const scene = useMemo(
-    () => book?.scenes.find((sc) => sc.id === sceneId) ?? null,
-    [book, sceneId],
-  );
-  // resolveScene returns null when the language cannot carry the scene, and the
-  // caller skips it. Never a partial board: a scene showing two of its three
-  // lines reads as broken rather than as short.
+  // THE SCENE THIS LANGUAGE CAN ACTUALLY BE SHOWN, which is not always the one
+  // `sceneId` names. A scene whose concepts the corpus lacks is stepped over
+  // (owner, TestFlight, SEA in Tagalog, 2026-09-15: a story stop that opened on
+  // "not ready in Tagalog yet" and a Back button, "this isn't ok"). Still never
+  // a partial board: a scene showing two of its three lines reads as broken
+  // rather than as short, so it is skipped whole or drawn whole.
   const resolved = useMemo(
-    () =>
-      scene
-        ? resolveScene(scene, activeLang, (_lang, concept) => phrasesByConcept.has(concept))
-        : null,
-    [scene, phrasesByConcept, activeLang],
+    () => (book ? firstPlayableScene(book.scenes, sceneId, activeLang, has) : null),
+    [book, sceneId, activeLang, has],
   );
+  const scene = resolved?.scene ?? null;
 
   /* ── audio ─────────────────────────────────────────────────────────────
      Two voices and ONE handle. Tapping a line must stop the narrator, and a
@@ -224,42 +256,93 @@ export default function StorybookScreen() {
     [],
   );
 
+  /**
+   * ONE VOICE AT A TIME, IN THE ORDER IT WAS ASKED FOR.
+   *
+   * THE QUEUE IS PART OF REMOVING THE MIDDLE PAGE, not a tidy-up. A pick used
+   * to turn the page on the SECOND press, so the learner's line and the next
+   * beat's narration were separated by a tap and could never collide. Now a
+   * pick turns the page itself, and both requests are fired in the same tick
+   * onto the one handle the comment above insists on: whichever synthesis
+   * resolved last won, and the other was cut off mid-word, at random. Chaining
+   * them keeps the order they were asked in, which is YOUR line, then the page
+   * you turned to.
+   *
+   * Nothing here waits on a clip that has stopped: mobile's playBase64Audio
+   * carries its own watchdog and always reports done, and playGuarded handing
+   * back null (the screen is gone) resolves the link too.
+   */
+  const voiceRef = useRef<Promise<void>>(Promise.resolve());
+  const enqueueVoice = useCallback((task: () => Promise<void>) => {
+    const next = voiceRef.current.then(task, task);
+    voiceRef.current = next.then(
+      () => undefined,
+      () => undefined,
+    );
+  }, []);
+
+  const playToEnd = useCallback(
+    (audioBase64: string, format: string) =>
+      new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+        void playGuarded(audioBase64, format, finish)
+          .then((h) => {
+            if (!h) finish();
+            else soundRef.current = h;
+          })
+          .catch(finish);
+      }),
+    [playGuarded],
+  );
+
   const speak = useCallback(
-    async (phrase: StoryPhrase) => {
+    (phrase: StoryPhrase) => {
       if (!soundOn) return;
-      try {
-        soundRef.current?.stop();
-        const res = await synthesize.mutateAsync({
-          data: {
-            text: phrase.nativeScript,
-            languageCode: activeLang,
-            languageName: activeLanguage?.name ?? activeLang,
-          },
-        });
-        soundRef.current = await playGuarded(res.audioBase64, res.format);
-      } catch {
-        // A line that will not speak still reads. Silence is the fallback.
-      }
+      enqueueVoice(async () => {
+        // The screen can die while this sits in the queue behind another clip.
+        if (!aliveRef.current) return;
+        try {
+          soundRef.current?.stop();
+          const res = await synthesize.mutateAsync({
+            data: {
+              text: phrase.nativeScript,
+              languageCode: activeLang,
+              languageName: activeLanguage?.name ?? activeLang,
+            },
+          });
+          await playToEnd(res.audioBase64, res.format);
+        } catch {
+          // A line that will not speak still reads. Silence is the fallback.
+        }
+      });
     },
-    [soundOn, synthesize, activeLang, activeLanguage],
+    [soundOn, synthesize, activeLang, activeLanguage, enqueueVoice, playToEnd],
   );
 
   const narrate = useCallback(
-    async (text: string) => {
+    (text: string) => {
       // The mute check is FIRST, before the request, so a muted learner never
       // causes a synthesis. Narration bills per character on first play.
       if (!soundOn) return;
       const line = text.trim();
       if (!line) return;
-      try {
-        soundRef.current?.stop();
-        const res = await narrateApi.mutateAsync({ data: { text: line } });
-        soundRef.current = await playGuarded(res.audioBase64, res.format);
-      } catch {
-        // Same contract as speak: the story still reads.
-      }
+      enqueueVoice(async () => {
+        if (!aliveRef.current) return;
+        try {
+          soundRef.current?.stop();
+          const res = await narrateApi.mutateAsync({ data: { text: line } });
+          await playToEnd(res.audioBase64, res.format);
+        } catch {
+          // Same contract as speak: the story still reads.
+        }
+      });
     },
-    [soundOn, narrateApi],
+    [soundOn, narrateApi, enqueueVoice, playToEnd],
   );
 
   /* ── the book's zoom ───────────────────────────────────────────────────
@@ -267,14 +350,12 @@ export default function StorybookScreen() {
      not tick in release builds of this app, so the only honest choice is the
      JS one. A 2-second interpolation on the JS thread is well within what it
      can carry, and the alternative is a zoom that ships as a still. */
-  const chosen = picked === null ? null : resolved?.choices.find((c) => c.concept === picked) ?? null;
-  const outcome = chosen?.outcome ?? null;
-  const stillId = resolved
-    ? outcome
-      ? outcomeStillId(resolved.scene.id, picked!)
-      : setupStillId(resolved.scene.id)
-    : null;
-  const prose = resolved ? (outcome ? outcome.situation : resolved.scene.situation) : '';
+  // THE PAGE IS THE SCENE YOU ARE ON, and only ever that. It used to become the
+  // consequence still for one press after a pick, which is the middle page the
+  // owner asked for the removal of on 2026-09-15. The consequence still has not
+  // been dropped: it rides beside the carried line below (see SaidLine).
+  const stillId = resolved ? setupStillId(resolved.scene.id) : null;
+  const prose = resolved ? resolved.scene.situation : '';
 
   const zoom = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -290,12 +371,19 @@ export default function StorybookScreen() {
     return () => anim.stop();
   }, [stillId, zoom]);
 
-  // NARRATION ON BY DEFAULT, on the scene as well as its consequence. It began
-  // as an opt-in button; the owner reversed that and asked for sound on with a
-  // mute, so the control below reads "Mute the Story".
+  // NARRATION ON BY DEFAULT. It began as an opt-in button; the owner reversed
+  // that and asked for sound on with a mute, so the control below reads "Mute
+  // the Story".
+  //
+  // ONE CLIP PER PAGE SINCE 2026-09-15, where it used to be two: the scene and
+  // then its consequence. Removing the middle page removed the second clip with
+  // it, which halves what this game bills the narrator for. The consequence is
+  // still on the screen, beside the carried line, read rather than spoken: the
+  // pick already fires the learner's own line in their own language, and a
+  // third voice on one page turn is a queue, not a story.
   useEffect(() => {
     if (!stillId || !prose) return;
-    void narrate(prose);
+    narrate(prose);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stillId, soundOn]);
 
@@ -326,29 +414,70 @@ export default function StorybookScreen() {
     outputRange: [0, -frameW / 4],
   });
 
-  const advance = useCallback(() => {
-    if (!scene || !picked || !book || !activeLang) return;
-    const taken = chooseScene(scene, picked);
-    if (!taken) return;
-    const next = [...entries, taken.entry];
-    setEntries(next);
-    setPicked(null);
-    if (taken.next === null) {
+  /**
+   * A PICK IS THE PAGE TURN. There is no Next button on this screen any more.
+   *
+   * Owner, off a TestFlight build, 2026-09-15: "after you make a selection, you
+   * don't need the one screen in the middle. should just go to the next
+   * question but show what you selected previously on top of the options. there
+   * is an additional screen in between that's useless."
+   *
+   * WHAT ELSE THIS DOES, and both halves matter. It carries the line and its
+   * consequence forward into the YOU SAID block, which is where the outcome
+   * went rather than being deleted. And it looks for the next scene THIS
+   * LANGUAGE CAN CARRY rather than trusting `taken.next` to resolve, so a book
+   * whose later scenes name a word the corpus lacks ends properly on the
+   * finished book instead of dropping the reader on the not-ready screen with
+   * their part-written story thrown away.
+   */
+  const choose = useCallback(
+    (concept: string, phrase: StoryPhrase) => {
+      if (!scene || !book || !activeLang) return;
+      const taken = chooseScene(scene, concept);
+      if (!taken) return;
+      const choice = scene.choices.find((c) => c.concept === concept) ?? null;
+      const next = [...entries, taken.entry];
+      setEntries(next);
+      setLastSaid({
+        phrase,
+        outcome: choice?.outcome?.situation ?? null,
+        stillId: choice?.outcome ? outcomeStillId(scene.id, concept) : null,
+      });
+      setSaidStillFailed(false);
+      speak(phrase);
+      void saveStoryBook(book.id, activeLang, next);
+
+      const onward =
+        taken.next === null
+          ? null
+          : firstPlayableScene(book.scenes, taken.next, activeLang, has);
+      if (onward) {
+        setSceneId(onward.scene.id);
+        return;
+      }
+      // THE TWO WAYS A STORY CAN STOP, and they must not be confused. A
+      // `limited` response means the server served the taste's concepts only,
+      // so the scenes past it cannot resolve BECAUSE THEY WERE NOT PAID FOR:
+      // that is the paywall beat, and the screen falls into it by holding the
+      // id that will not resolve. Anything else is the story genuinely running
+      // out, which is a finished book. Selling somebody a book that does not
+      // exist in their language is the worse of the two mistakes, and telling a
+      // paying reader their story is unfinished when it just ended is the other.
+      if (taken.next !== null && data?.limited === true) {
+        setSceneId(taken.next);
+        return;
+      }
       setFinished(true);
       setSceneId(null);
-      void saveStoryBook(book.id, activeLang, next);
-      return;
-    }
-    setSceneId(taken.next);
-    void saveStoryBook(book.id, activeLang, next);
-  }, [scene, picked, book, activeLang, entries]);
+    },
+    [scene, book, activeLang, entries, speak, has, data],
+  );
 
   const readAgain = useCallback(() => {
     if (!book || !activeLang) return;
     void clearStoryBook(book.id, activeLang);
     setEntries([]);
     setFinished(false);
-    setPicked(null);
     // Starting over clears the carried line too, or a fresh read opens with
     // "You said" quoting the previous one.
     setLastSaid(null);
@@ -473,7 +602,16 @@ export default function StorybookScreen() {
           on a language missing one of the scene's concepts opened the book
           to a title and a blank page, which the owner's Gujarati tester hit
           on 1.0.6 page one. No offer, because there is nothing to sell:
-          the rest of this book does not exist in their language yet. */}
+          the rest of this book does not exist in their language yet.
+
+          WHAT IT TAKES TO REACH THIS NOW, since 2026-09-15: NOT ONE scene of
+          this book resolves. It used to be any single scene, which is how the
+          owner got a full-screen "not ready in Tagalog yet" and a Back button
+          on the SEA fork ("this isn't ok"), on a book whose other four scenes
+          were fine. Against India's seeded corpus this is reachable for no
+          book in any of the 22 languages: every one of the 132 pairs carries
+          at least one playable scene. It stays because production is not the
+          seed and a book authored from rarer concepts could still land here. */}
       {!isLoading && !finished && !resolved && !limited && (
         <View style={s.gap} testID="storybook-short">
           <Text style={[s.h2, { color: colors.foreground }]}>
@@ -520,44 +658,25 @@ export default function StorybookScreen() {
               </View>
             </Animated.View>
 
-            {/* NEXT SITS ON THE PICTURE, and this is a BUG FIX rather than a
-                layout preference (owner, 2026-09-08, off the phone: "user is
-                unable to press the next button, when they scroll down to see
-                it, when they let go it autoscrolls back to top").
+            {/* THERE IS NO NEXT BUTTON HERE ANY MORE, and the history is worth
+                keeping because it was twice a bug in one week.
 
-                WHAT WAS ACTUALLY WRONG. This screen's scroller padded its
-                bottom by 40 while the tab bar is a FLOATING PILL absolutely
-                positioned over the content: 74pt of bar plus the home
-                indicator, which is why the rest of the app pads by
-                TAB_BAR_CLEARANCE (132). So Next was drawn UNDER the bar. The
-                content was also short enough not to scroll, so dragging it up
-                was pure iOS rubber band and letting go snapped straight back
-                to zero. Nothing was auto-scrolling; there was nowhere to
-                scroll TO. That padding is fixed below, which is what saves the
-                choice cards and the two upsell buttons behind it.
+                It was moved ONTO the picture on 2026-09-08 (owner, off the
+                phone: "user is unable to press the next button, when they
+                scroll down to see it, when they let go it autoscrolls back to
+                top"). The cause was this scroller padding its bottom by 40
+                under a FLOATING tab bar 74pt tall plus the home indicator, so
+                Next was drawn under the bar, and the page was too short to
+                scroll, so the drag was rubber band and let go snapped back.
+                THE PADDING FIX IS STILL LOAD-BEARING and is still below
+                (TAB_BAR_CLEARANCE): it is what saves the choice cards and the
+                two upsell buttons.
 
-                THE PADDING ALONE WOULD NOT HAVE BEEN ENOUGH, and that is the
-                owner's call: even reachable, Next was a scroll away from the
-                thing it advances. On the art it is on screen the instant a
-                choice is taken.
-
-                WHITE RING, NOT A COLOUR. The stills are generated art and this
-                button lands on whatever they happen to be, so it carries its
-                own edge and its own shadow instead of relying on the primary
-                reading against the picture. */}
-            {picked !== null && (
-              <Pressable
-                testID="storybook-next"
-                onPress={advance}
-                accessibilityRole="button"
-                accessibilityLabel="Next"
-                hitSlop={10}
-                style={[s.nextOnArt, { backgroundColor: colors.primary }]}
-              >
-                <Text style={s.ctaText}>Next</Text>
-                <Feather name="arrow-right" size={16} color="#fff" />
-              </Pressable>
-            )}
+                Then on 2026-09-15 the owner removed the thing Next advanced
+                to: "there is an additional screen in between that's useless".
+                A pick turns the page itself, so the button it needed is gone
+                rather than relocated. A button that cannot be pressed in the
+                wrong place is best fixed by there being no button. */}
           </View>
 
           {/* MUTE, not "hear". Sound is on by default. */}
@@ -575,50 +694,71 @@ export default function StorybookScreen() {
             </Text>
           </Pressable>
 
-          {/* WHAT YOU SAID, carried onto the next beat rather than given a page
-              of its own. */}
+          {/* WHAT YOU SAID, AND WHAT CAME OF IT, carried onto the next beat
+              rather than given a page of its own. The middle page is gone
+              (owner, 2026-09-15) and this block is where its two authored
+              pieces landed: the consequence still, small, and the brief that
+              is also its alt text. The picture stays because the joke is the
+              picture and a picture needs no translating; it is a thumbnail
+              rather than the page because the page is the scene you are
+              reading NOW, and two full pictures compete on a phone.
+
+              THE MEANING LIVES HERE TOO. It used to appear on the chosen card
+              after the tap, and that card is gone the instant a line is
+              picked, so the reveal moved with the line it belongs to. */}
           {lastSaid && (
             <View style={[s.said, { borderColor: colors.primary }]} testID="storybook-said">
-              <Text style={[s.tiny, { color: colors.mutedForeground }]}>YOU SAID</Text>
-              <Text style={[s.script, nativeTextStyle(activeLanguage), { color: colors.foreground }]}>
-                {lastSaid.nativeScript}
-              </Text>
-              <Text style={[s.tiny, { color: colors.mutedForeground }]}>{lastSaid.english}</Text>
+              <View style={s.saidRow}>
+                <View style={s.saidText}>
+                  <Text style={[s.tiny, { color: colors.mutedForeground }]}>YOU SAID</Text>
+                  <Text
+                    style={[s.script, nativeTextStyle(activeLanguage), { color: colors.foreground }]}
+                  >
+                    {lastSaid.phrase.nativeScript}
+                  </Text>
+                  <Text style={[s.tiny, { color: colors.mutedForeground }]}>
+                    {lastSaid.phrase.english}
+                  </Text>
+                </View>
+                {lastSaid.stillId !== null && !saidStillFailed && (
+                  <Image
+                    testID="storybook-said-still"
+                    source={{ uri: storyStillUrl(lastSaid.stillId) }}
+                    style={s.saidStill}
+                    resizeMode="cover"
+                    accessibilityLabel={lastSaid.outcome ?? ''}
+                    // A consequence still that has not been generated must not
+                    // leave a grey hole beside the line: the brief below says
+                    // the same thing in the only other form it exists in.
+                    onError={() => setSaidStillFailed(true)}
+                  />
+                )}
+              </View>
+              {lastSaid.outcome !== null && (
+                <Text style={[s.tiny, { color: colors.primary }]}>{lastSaid.outcome}</Text>
+              )}
             </View>
           )}
 
           {resolved.choices.map((choice) => {
             const phrase = phrasesByConcept.get(choice.concept);
             if (!phrase) return null;
-            const isPicked = picked === choice.concept;
             return (
               <Pressable
                 key={choice.concept}
                 testID={`storybook-choice-${choice.concept}`}
-                onPress={() => {
-                  if (picked !== null) return;
-                  setPicked(choice.concept);
-                  setLastSaid(phrase);
-                  void speak(phrase);
-                }}
-                style={[
-                  s.card,
-                  {
-                    borderColor: isPicked ? colors.primary : colors.border,
-                    backgroundColor: colors.card,
-                  },
-                ]}
+                // ONE TAP IS THE WHOLE TURN since 2026-09-15. There is no
+                // picked state to guard against a second tap: this card is
+                // unmounted by the time one could land, because the board it
+                // sits on has already been replaced by the next scene's.
+                onPress={() => choose(choice.concept, phrase)}
+                style={[s.card, { borderColor: colors.border, backgroundColor: colors.card }]}
               >
                 <Text style={[s.script, nativeTextStyle(activeLanguage), { color: colors.foreground }]}>
                   {phrase.nativeScript}
                 </Text>
                 {phrase.romanized.trim() !== '' && (
                   <Text style={[s.tiny, { color: colors.mutedForeground }]}>{phrase.romanized}</Text>
-                )}
-                {/* The MEANING is the reveal. Showing it up front turns reading
-                    the picture into a matching exercise. */}
-                {isPicked && (
-                  <Text style={[s.tiny, { color: colors.primary }]}>{phrase.english}</Text>
                 )}
               </Pressable>
             );
@@ -667,7 +807,12 @@ const s = StyleSheet.create({
   },
   still: { width: '100%', height: '100%' },
   card: { borderWidth: 1, borderRadius: 16, padding: 13, gap: 2 },
-  said: { borderWidth: 1, borderRadius: 14, padding: 11, gap: 2 },
+  said: { borderWidth: 1, borderRadius: 14, padding: 11, gap: 4 },
+  saidRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  saidText: { flex: 1, gap: 2 },
+  // 3:2, the shape every still is generated at, small enough to sit beside the
+  // line rather than compete with the page.
+  saidStill: { width: 84, height: 56, borderRadius: 8 },
   upsell: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 8, alignItems: 'center' },
   mute: {
     alignSelf: 'center',
@@ -678,23 +823,8 @@ const s = StyleSheet.create({
   },
   muteText: { fontFamily: AppFonts.bold, fontSize: 13 },
   cta: { borderRadius: 16, paddingVertical: 13, alignItems: 'center' },
-  nextOnArt: {
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 99,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.92)',
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-  },
+  // `nextOnArt` lived here until 2026-09-15 and went with the button it styled.
+  // A style for a control that no longer exists is an invitation to put the
+  // control back.
   ctaText: { fontFamily: AppFonts.bold, fontSize: 15, color: '#fff' },
 });

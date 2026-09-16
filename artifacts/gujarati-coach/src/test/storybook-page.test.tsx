@@ -15,8 +15,16 @@
 // (5) a language whose corpus is short gets NO upgrade offer, because there is
 //     nothing there to sell them;
 // (6) the finished book lists what the learner said, in order.
+//
+// REWRITTEN IN PART ON 2026-09-15, when the owner removed the page between a
+// pick and the next beat off a TestFlight build: "after you make a selection,
+// you don't need the one screen in the middle... there is an additional screen
+// in between that's useless." Every pin that recorded that page is INVERTED
+// rather than deleted, and each says so where it stands: a pick now turns the
+// page itself, so there is no Next button and no outcome frame, and the
+// consequence rides beside the carried YOU SAID line instead.
 import { describe, test, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -120,6 +128,36 @@ function sceneAlt(testId = "story-scene"): string {
   return img?.getAttribute("alt") ?? frame.textContent ?? "";
 }
 
+/**
+ * What the carried YOU SAID line is showing, consequence included.
+ *
+ * WHERE THE OUTCOME WENT when its page was removed on 2026-09-15. The still is
+ * still a picture with the consequence brief as its alt, which is the only form
+ * the joke takes for a screen reader, so alt is the right anchor here for the
+ * same two reasons sceneAlt gives.
+ */
+function saidOutcomeAlt(): string {
+  const still = screen.getByTestId("story-said-still");
+  return still.getAttribute("alt") ?? "";
+}
+
+/**
+ * Let the voice queue drain.
+ *
+ * NARRATION IS ASYNC NOW, and that is part of the same change. A pick turns the
+ * page in one tick, so the learner's spoken line and the next beat's narration
+ * are both asked for at once and both end at the one audio element; they are
+ * chained so the line is not cut off mid-word. A chain is promises, so a
+ * narration that used to be recorded synchronously is recorded a turn later.
+ * This waits for that turn rather than for a particular value, so a test
+ * asserting NOTHING was narrated still fails if something was.
+ */
+async function drainVoices(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 function renderPage() {
   const { hook } = memoryLocation({ path: "/games/storybook", record: true });
   // BottomNav renders XpCounter, which reads the query client directly rather
@@ -171,15 +209,20 @@ describe("the scene", () => {
   });
 
   test("reveals the meaning of the line that was picked, and only that one", () => {
+    // INVERTED 2026-09-15. The reveal used to appear ON the chosen card, which
+    // worked while a pick held the page still. A pick turns the page now
+    // (owner: "there is an additional screen in between that's useless"), so
+    // that card is unmounted before anybody could read it. The reveal was real
+    // content, so it MOVED rather than went: it is on the carried YOU SAID
+    // line, beside the picture of what saying it caused.
     renderPage();
     const [first, second] = BOOK.scenes[0]!.choices;
     fireEvent.click(screen.getByTestId(`story-choice-${first!.concept}`));
-    expect(
-      screen.getByTestId(`story-choice-${first!.concept}`),
-    ).toHaveTextContent(`english:${first!.concept}`);
-    expect(
-      screen.getByTestId(`story-choice-${second!.concept}`),
-    ).not.toHaveTextContent(`english:${second!.concept}`);
+
+    const said = screen.getByTestId("story-said");
+    expect(said).toHaveTextContent(`english:${first!.concept}`);
+    // And only that one: the line not taken is not glossed anywhere on screen.
+    expect(document.body.textContent).not.toContain(`english:${second!.concept}`);
   });
 });
 
@@ -190,43 +233,60 @@ describe("every choice advances", () => {
     fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
     // Not a quiz. No buzzer, no red, no "incorrect" anywhere on the page.
     expect(document.body.textContent).not.toMatch(/incorrect|wrong|try again/i);
-    expect(screen.getByTestId("story-next")).toBeInTheDocument();
-  });
-
-  test("a misfitting line still turns the page", () => {
-    renderPage();
-    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
-    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
-    fireEvent.click(screen.getByTestId("story-next"));
+    // INVERTED 2026-09-15. This used to assert the Next button had appeared,
+    // which was how it proved a misfitting line does not stop the story. The
+    // owner removed the beat Next existed to leave ("there is an additional
+    // screen in between that's useless"), so the proof is now the stronger
+    // one: the story has ALREADY moved on, with no second press.
+    expect(screen.queryByTestId("story-next")).toBeNull();
     expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
   });
 
-  test("the picture becomes the CONSEQUENCE of the line you said", () => {
-    // The whole point of the outcome beat. Reported 2026-08-24 as "it doesn't
-    // really adjust based on my selection": it adjusted in the ledger, where
-    // nobody could see it.
+  test("a misfitting line still turns the page, on the FIRST press", () => {
+    renderPage();
+    const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
+    fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
+    // One click, one page. It took two until 2026-09-15.
+    expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
+  });
+
+  test("the CONSEQUENCE of the line you said is carried onto the next beat", () => {
+    // INVERTED 2026-09-15, and the thing it guards is unchanged. Reported
+    // 2026-08-24 as "it doesn't really adjust based on my selection": it
+    // adjusted in the ledger, where nobody could see it, so the consequence
+    // became a picture. That picture took a PAGE, which is the page the owner
+    // removed. It is still here, still keyed on the line that was said, beside
+    // the carried line rather than over the story.
     renderPage();
     const misfit = BOOK.scenes[0]!.choices.find((c) => !c.fits)!;
     expect(misfit.outcome, "zone 1 must author every consequence").toBeDefined();
 
     expect(sceneAlt()).toBe(BOOK.scenes[0]!.situation);
     fireEvent.click(screen.getByTestId(`story-choice-${misfit.concept}`));
-    expect(sceneAlt("story-outcome")).toBe(misfit.outcome!.situation);
+
+    // The consequence, as the picture AND as its brief.
+    expect(saidOutcomeAlt()).toBe(misfit.outcome!.situation);
+    expect(screen.getByTestId("story-said")).toHaveTextContent(
+      misfit.outcome!.situation,
+    );
+    // And it is no longer a page: the frame is already the next scene.
+    expect(screen.queryByTestId("story-outcome")).toBeNull();
+    expect(sceneAlt()).toBe(BOOK.scenes[1]!.situation);
   });
 
-  test("two different lines give two different pictures", () => {
+  test("two different lines give two different consequences", () => {
     // If these ever matched, the branch would be invisible again and nothing
     // else in this suite would notice.
     const [a, b] = BOOK.scenes[0]!.choices;
     const first = renderPage();
     fireEvent.click(screen.getByTestId(`story-choice-${a!.concept}`));
-    const altA = sceneAlt("story-outcome");
+    const altA = saidOutcomeAlt();
     first.unmount();
     localStorage.clear();
 
     renderPage();
     fireEvent.click(screen.getByTestId(`story-choice-${b!.concept}`));
-    expect(sceneAlt("story-outcome")).not.toBe(altA);
+    expect(saidOutcomeAlt()).not.toBe(altA);
   });
 });
 
@@ -241,10 +301,13 @@ describe("the free taste runs out", () => {
     h.limited = true;
     serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
     renderPage();
+    // One click reaches it now rather than two (2026-09-15). The paywall beat
+    // itself is untouched, and it must STAY distinct from the corpus being
+    // short: a scene that will not resolve on a limited response is somebody
+    // reaching the end of what they were given.
     fireEvent.click(
       screen.getByTestId(`story-choice-${BOOK.scenes[0]!.choices[0]!.concept}`),
     );
-    fireEvent.click(screen.getByTestId("story-next"));
 
     const beat = screen.getByTestId("story-taste-end");
     expect(beat).toHaveTextContent(STORY_TEASER_END.title);
@@ -256,17 +319,40 @@ describe("the free taste runs out", () => {
 });
 
 describe("a language the book is not ready in", () => {
-  test("gets no upgrade offer, because there is nothing to sell", () => {
-    // Same null from the engine, a completely different cause: the corpus is
-    // short rather than the taste being spent. Selling a book that does not
-    // exist in someone's language is the worse of the two mistakes.
+  test("a book that runs out of playable scenes ENDS, and still sells nothing", () => {
+    // INVERTED 2026-09-15, and this inversion is the whole of the second fix.
+    // It used to assert the dead end: a paying reader whose corpus ran short
+    // mid-book was dropped on a full-screen "This story is not ready in <your
+    // language> yet" with a Back button and nothing to do, their part-written
+    // story thrown away. The owner hit exactly that on the SEA fork in Tagalog
+    // and said "this isn't ok". The book now ENDS properly on what they did
+    // write.
+    //
+    // The half that was right is kept and still asserted: no upgrade offer,
+    // because there is nothing here to sell them.
     h.limited = false;
     serve(BOOK.scenes[0]!.choices.map((c) => c.concept));
     renderPage();
-    fireEvent.click(
-      screen.getByTestId(`story-choice-${BOOK.scenes[0]!.choices[0]!.concept}`),
-    );
-    fireEvent.click(screen.getByTestId("story-next"));
+    const said = BOOK.scenes[0]!.choices[0]!.concept;
+    fireEvent.click(screen.getByTestId(`story-choice-${said}`));
+
+    const book = screen.getByTestId("story-book");
+    expect(book).toHaveTextContent(`native:${said}`);
+    expect(screen.queryByTestId("story-short")).toBeNull();
+    expect(screen.queryByTestId("story-taste-end")).toBeNull();
+    expect(screen.queryByTestId("story-book-upsell")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/subscribe/i);
+  });
+
+  test("gets no upgrade offer, and IS told, when not one scene can be drawn", () => {
+    // The only state in which "this story is not ready in your language yet" is
+    // a true sentence, and now the only one that draws it. Against India's
+    // seeded content on 2026-09-15 no book reaches it in any of the 22
+    // languages: all 132 book-and-language pairs carry at least one playable
+    // scene. It is kept because production is not the seed.
+    h.limited = false;
+    serve([]);
+    renderPage();
 
     expect(screen.getByTestId("story-short")).toBeInTheDocument();
     expect(screen.queryByTestId("story-taste-end")).toBeNull();
@@ -308,41 +394,39 @@ describe("a language the book is not ready in", () => {
         .getAttribute("data-testid")!
         .replace("story-choice-", "");
       fireEvent.click(screen.getByTestId(`story-choice-${first}`));
-      fireEvent.click(screen.getByTestId("story-next"));
     }
     // The scene it could not carry was never drawn, part-drawn or otherwise.
     expect(screen.queryByTestId("story-scene")).toBeNull();
+    // AND THE BOOK FINISHED RATHER THAN DEAD-ENDING, which is the half this
+    // test could not say before 2026-09-15: skipping was already the engine's
+    // intent, but the page turned the skip into a screen with a Back button.
+    expect(screen.getByTestId("story-book")).toBeInTheDocument();
   });
 });
 
-/** Play the whole book, always taking the first line offered. */
+/**
+ * Play the whole book, always taking the first line offered.
+ *
+ * ONE CLICK PER BEAT since 2026-09-15; it was a click on the line and then a
+ * click on Next. The loop reads the board each time rather than counting
+ * scenes, so a book that legitimately ends short still drains it.
+ */
 function playBook(): string[] {
   const said: string[] = [];
   for (let i = 0; i < BOOK.scenes.length; i++) {
+    if (!screen.queryByTestId("story-scene")) break;
     const cards = screen
       .getAllByTestId(/^story-choice-/)
       .map((el) => el.getAttribute("data-testid")!.replace("story-choice-", ""));
     said.push(cards[0]!);
     fireEvent.click(screen.getByTestId(`story-choice-${cards[0]!}`));
-    fireEvent.click(screen.getByTestId("story-next"));
   }
   return said;
 }
 
 describe("the book at the end", () => {
-  /** Play the whole book, always taking the first line offered. */
-  function playThrough(): string[] {
-    const said: string[] = [];
-    for (let i = 0; i < BOOK.scenes.length; i++) {
-      const cards = screen
-        .getAllByTestId(/^story-choice-/)
-        .map((el) => el.getAttribute("data-testid")!.replace("story-choice-", ""));
-      said.push(cards[0]!);
-      fireEvent.click(screen.getByTestId(`story-choice-${cards[0]!}`));
-      fireEvent.click(screen.getByTestId("story-next"));
-    }
-    return said;
-  }
+  /** The same walk as playBook above, kept local where it was. */
+  const playThrough = playBook;
 
   test("lists what the learner said, in order, with no score", () => {
     renderPage();
@@ -397,7 +481,6 @@ describe("the book opens", () => {
     );
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
-    fireEvent.click(screen.getByTestId("story-next"));
     expect(screen.queryByTestId("story-book-opening")).toBeNull();
   });
 });
@@ -423,19 +506,32 @@ describe("the narrator", () => {
     serve(bookConcepts(BOOK));
   });
 
-  test("reads the scene without being asked", () => {
+  test("reads the scene without being asked", async () => {
     renderPage();
+    await drainVoices();
     expect(h.narrated).toEqual([BOOK.scenes[0]!.situation]);
   });
 
-  test("reads the consequence too, once a line is picked", () => {
+  test("reads ONE clip per page, and the page is the scene you turned to", async () => {
+    // INVERTED 2026-09-15, and the bill moved with it. This used to assert a
+    // second clip for the consequence, because the consequence was a page. It
+    // is not a page any more (owner: "there is an additional screen in between
+    // that's useless"), so a beat costs one narration rather than two, which
+    // HALVES what this game bills the narrator for. The consequence is still on
+    // screen beside the carried line, read rather than spoken: the pick already
+    // fires the learner's own line in their own language, and a third voice on
+    // one page turn is a queue, not a story.
     renderPage();
     const first = BOOK.scenes[0]!.choices[0]!;
+    expect(first.outcome, "the consequence must still be authored").toBeDefined();
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    await drainVoices();
+
     expect(h.narrated).toEqual([
       BOOK.scenes[0]!.situation,
-      first.outcome!.situation,
+      BOOK.scenes[1]!.situation,
     ]);
+    expect(h.narrated).not.toContain(first.outcome!.situation);
   });
 
   test("the control is a MUTE, and it says so", () => {
@@ -454,16 +550,24 @@ describe("the narrator", () => {
     expect(btn).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("muted asks for NO synthesis at all, not merely silent playback", () => {
+  test("muted asks for NO synthesis at all, not merely silent playback", async () => {
     // Narration bills per character on first play and is cached forever after.
     // A clip generated for somebody who muted the game is charged, stored and
     // never heard, which is the worst of both. Mute has to short-circuit the
     // REQUEST, not the audio element.
     renderPage();
+    // The opening page's narration was asked for BEFORE the mute and is
+    // already on its way; draining it first is what makes the reset below mean
+    // "from here on", rather than swallowing a request that mute never had a
+    // chance to stop.
+    await drainVoices();
     fireEvent.click(screen.getByTestId("story-mute"));
     h.narrated = [];
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
+    // Drained rather than read immediately: a queued request that arrives a
+    // turn later is still a request, and is still charged for.
+    await drainVoices();
     expect(h.narrated).toEqual([]);
   });
 });
@@ -523,10 +627,14 @@ describe("the line you just said", () => {
     // shouldn't be its own page, but it should just show up above the next set
     // of answers." It used to be derived from `picked`, which resets on
     // advance, so it disappeared at exactly the moment it became useful.
+    //
+    // The same sentence came back on 2026-09-15 as the whole request: "should
+    // just go to the next question but show what you selected previously on top
+    // of the options". So this now happens on the FIRST press rather than the
+    // second, which is the only thing about it that changed.
     renderPage();
     const first = BOOK.scenes[0]!.choices[0]!;
     fireEvent.click(screen.getByTestId(`story-choice-${first.concept}`));
-    fireEvent.click(screen.getByTestId("story-next"));
 
     const said = screen.getByTestId("story-said");
     expect(said).toHaveTextContent(`native:${first.concept}`);

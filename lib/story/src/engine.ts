@@ -94,6 +94,126 @@ export function fittingChoice(scene: Scene): SceneChoice | null {
 }
 
 /**
+ * Where the story goes when a scene is SKIPPED rather than played.
+ *
+ * WHY A SKIPPED SCENE NEEDS AN EXIT AT ALL. Until 2026-09-15 a scene this
+ * language could not carry ENDED THE READER'S VISIT: resolveScene returned
+ * null and both clients drew a full-screen "This story is not ready in <your
+ * language> yet" with a Back button and nothing else on it. The owner hit that
+ * on a TestFlight build, on the SEA fork in Tagalog, opening a story stop the
+ * map had offered them: "this isn't ok". A scene the corpus cannot carry is
+ * now stepped over, and stepping over one means knowing where it would have
+ * gone. A skipped scene has no chosen line to take that from.
+ *
+ * ALL SIX BOOKS CONVERGE, which is checked by a test rather than assumed: every
+ * choice in a scene points at the same next beat, so the exit is unambiguous
+ * today. The FITTING line's next is taken so that an author who later diverges
+ * the graph gets the honest answer, since that is the line the story is written
+ * around.
+ */
+export function sceneExit(scene: Scene): string | null {
+  const fitting = fittingChoice(scene);
+  if (fitting) return fitting.next;
+  return scene.choices[0]?.next ?? null;
+}
+
+/**
+ * The first scene from `startId` onward that this language can actually be
+ * shown, or null when none of them can.
+ *
+ * THIS IS THE ONE ANSWER BOTH CLIENTS ASK FOR, and it replaces each of them
+ * calling resolveScene on whichever scene id they happened to be holding. A
+ * client that calls resolveScene directly gets null and has nowhere to go with
+ * it, which is exactly the dead end described on sceneExit above.
+ *
+ * NULL STILL MEANS SOMETHING, and it means the honest thing now: not one scene
+ * of this book can be drawn in this language. That is the only case where
+ * "this story is not ready in your language yet" is a true sentence, and
+ * against India's seeded corpus on 2026-09-15 it is true for NO book in ANY of
+ * the 22 languages: every one of the 132 book-and-language pairs carries at
+ * least one playable scene, and 59 of them carry between one and four.
+ *
+ * The cycle guard is the same one playablePath carries, for the same reason: a
+ * hand-authored graph grows a loop the first time two consequences point at
+ * each other, and a loop here would hang the client rather than fail a test.
+ */
+export function firstPlayableScene(
+  scenes: readonly Scene[],
+  startId: string | null,
+  languageCode: string,
+  has: (languageCode: string, concept: string) => boolean,
+): ResolvedScene | null {
+  const byId = new Map(scenes.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  let id: string | null = startId;
+
+  while (id !== null && !seen.has(id)) {
+    seen.add(id);
+    const scene: Scene | undefined = byId.get(id);
+    if (!scene) return null;
+    const resolved = resolveScene(scene, languageCode, has);
+    if (resolved) return resolved;
+    id = sceneExit(scene);
+  }
+  return null;
+}
+
+/**
+ * How many beats this book really has for this language.
+ *
+ * NOT scenes.length, and the difference is what a progress bar gets wrong. A
+ * book that skips two scenes for a thin corpus finishes after three, so a row
+ * of five pips leaves two unfilled forever and reads as a story that broke
+ * rather than one that ended.
+ */
+export function playableSceneCount(
+  scenes: readonly Scene[],
+  startId: string | null,
+  languageCode: string,
+  has: (languageCode: string, concept: string) => boolean,
+): number {
+  const byId = new Map(scenes.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  let id: string | null = startId;
+  let n = 0;
+
+  while (id !== null && !seen.has(id)) {
+    seen.add(id);
+    const scene: Scene | undefined = byId.get(id);
+    if (!scene) break;
+    if (resolveScene(scene, languageCode, has)) {
+      n += 1;
+      id = sceneExit(scene);
+      continue;
+    }
+    id = sceneExit(scene);
+  }
+  return n;
+}
+
+/**
+ * Whether a saved ledger has already reached an ending of this book.
+ *
+ * LANGUAGE-FREE ON PURPOSE, which is the whole reason it is not a length
+ * comparison. Mobile restored a saved book by asking whether it held as many
+ * entries as the book has scenes, and that answer became wrong the moment a
+ * book could legitimately end short because its language cannot carry every
+ * scene: a finished four-entry book would have replayed itself from the start.
+ * An ending is a choice whose `next` is null, and the ledger records which
+ * choice was taken, so the ledger can answer this on its own.
+ */
+export function bookIsFinished(
+  scenes: readonly Scene[],
+  entries: readonly LedgerEntry[],
+): boolean {
+  const last = entries[entries.length - 1];
+  if (!last) return false;
+  const scene = scenes.find((s) => s.id === last.sceneId);
+  const choice = scene?.choices.find((c) => c.concept === last.concept);
+  return choice ? choice.next === null : false;
+}
+
+/**
  * Where the story goes next, and what to write in the book.
  *
  * EVERY CHOICE ADVANCES, including the ones that do not fit. That is the whole
@@ -117,6 +237,16 @@ export function chooseScene(
  * Walk a scene graph from a starting id, skipping what this language cannot
  * carry, and stopping at an ending or a scene that does not exist.
  *
+ * IT SAID "SKIPPING" AND IT MEANT "STOPPING" UNTIL 2026-09-15. An unresolvable
+ * scene broke the walk, so this function reported a book as ending at the first
+ * hole in the corpus while its own comment promised it stepped over one. Both
+ * clients now step over it (firstPlayableScene above), and a library that
+ * answers the same question two ways is the drift lib/story exists to prevent,
+ * so the walker was corrected to the comment rather than the comment to the
+ * walker. A skipped scene writes NOTHING to the ledger: the learner said
+ * nothing there, and inventing an entry would put a line in their book that
+ * they never chose.
+ *
  * The cycle guard is not paranoia: a branching graph authored by hand will grow
  * a loop the first time somebody points two consequences at each other, and a
  * loop here would hang the client rather than fail a test.
@@ -138,7 +268,10 @@ export function playablePath(
     const scene: Scene | undefined = byId.get(id);
     if (!scene) break;
     const resolved = resolveScene(scene, languageCode, has);
-    if (!resolved) break;
+    if (!resolved) {
+      id = sceneExit(scene);
+      continue;
+    }
     const taken = chooseScene(scene, pick(resolved));
     if (!taken) break;
     book.push(taken.entry);
