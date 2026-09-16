@@ -29,6 +29,7 @@ import {
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { usePricing } from "@/lib/pricing";
+import { trackShare } from "@/lib/analytics";
 
 const PLUS_GRADIENT = "bg-gradient-to-r from-primary to-secondary";
 const BASE_PATH = import.meta.env.BASE_URL;
@@ -151,6 +152,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
 
   async function copyCode() {
     if (!family.joinCode) return;
+    trackShare("family_code");
     try {
       await navigator.clipboard.writeText(family.joinCode);
       setCopied(true);

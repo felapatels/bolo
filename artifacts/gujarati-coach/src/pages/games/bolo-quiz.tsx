@@ -23,6 +23,7 @@ import {
   type ListenIdentifyQuestion,
   type OrderWordsQuestion,
 } from "@workspace/api-client-react";
+import { trackShare } from "@/lib/analytics";
 
 /** Mirror of the server-side isCorrectAnswer — used for instant local score display. */
 function localIsCorrect(q: QuizQuestion, ans: string | null): boolean {
@@ -506,6 +507,7 @@ function ResultsScreen({
     : `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
 
   const handleShare = async () => {
+    trackShare("bolo_quiz", { score, total });
     if (navigator.share) {
       try {
         await navigator.share({ text: shareText });
@@ -633,6 +635,7 @@ function AlreadyDoneScreen({
   const shareText = `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage`;
 
   const handleShare = async () => {
+    trackShare("bolo_quiz", { score, total });
     if (navigator.share) {
       try {
         await navigator.share({ text: shareText });

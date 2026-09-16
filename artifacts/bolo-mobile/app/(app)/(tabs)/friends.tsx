@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackReferral } from '@/lib/analytics';
 import {
   ActivityIndicator,
   Alert,
@@ -811,6 +812,7 @@ function YourFriendCode() {
   if (!code) return null;
 
   const onCopy = async () => {
+    trackReferral('friends_invite', 'copy', code);
     await Clipboard.setStringAsync(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -818,6 +820,7 @@ function YourFriendCode() {
 
   const onShare = () => {
     if (!link) return;
+    trackReferral('friends_invite', 'share', code);
     // A FRIEND invite, not a referral: it sells the leaderboard, not
     // the Chai. The link is the same /join/<CODE> either way, so the
     // reward still lands; it is simply not the pitch here. The

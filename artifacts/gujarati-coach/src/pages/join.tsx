@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link, useParams } from "wouter";
+import { trackReferral } from "@/lib/analytics";
 import { Show } from "@clerk/react";
 import { motion } from "framer-motion";
 import { Loader2, PartyPopper } from "lucide-react";
@@ -98,6 +99,7 @@ export default function Join() {
     if (!code || storedRef.current === code) return;
     storedRef.current = code;
     rememberReferralCode(code);
+    trackReferral("join_page", "landing_view", code);
     // A signed-in visitor can redeem right now; for a signed-out one this is a
     // no-op until Clerk reports a session.
     attemptRef.current();

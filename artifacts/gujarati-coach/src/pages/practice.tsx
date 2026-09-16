@@ -64,6 +64,7 @@ import { loadSilentMode, saveSilentMode } from "@/lib/silent-mode";
 import { loadMeaningAudio, saveMeaningAudio, meaningSpeechText } from "@/lib/meaning-audio";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { track, trackOnce, ANALYTICS_EVENTS } from "@/lib/analytics";
+import { lessonTypeFor, stationNewlyCompleted } from "@/lib/lesson-analytics";
 import { XpCounter } from "@/components/XpCounter";
 import { MilestoneToast } from "@/components/ui/milestone-toast";
 import {
@@ -605,6 +606,19 @@ export default function Practice({
   // Keyed by phraseId so retrying a phrase overwrites its previous entry
   // instead of appending a duplicate. The summary derives an ordered list from
   // `phrases` so phrase ordering is preserved.
+  // FUNNEL EVENTS (audit 2026-09-16): every session, not just the first.
+  // lessonStartRef keeps the start time and the best scores the session began
+  // from, so station_completed can compare before and after even though the
+  // phrase list refetches with new scores while the session runs. Mobile twin:
+  // bolo-mobile practice/[id].tsx.
+  const lessonProps = {
+    language: activeLang ?? "unknown",
+    lesson_type: lessonTypeFor({ isGroup, isTestout, isSentences }),
+    category_id: Number(categoryId) || 0,
+    ...(isGroup ? { stop_id: groupId } : {}),
+  };
+  const lessonStartRef = useRef<{ at: number; scores: { id: number; bestScore?: number | null }[] } | null>(null);
+
   const [sessionResults, setSessionResults] = useState<Record<number, {
     phraseId: number;
     band: Band;
@@ -964,6 +978,16 @@ export default function Practice({
       // In silent mode skip the coach voice and go straight to recording.
       setState(silentModeRef.current ? "idle" : "playing_coach");
       trackOnce(ANALYTICS_EVENTS.FIRST_PRACTICE_SESSION_STARTED, { language: activeLang });
+      if (!lessonStartRef.current) {
+        lessonStartRef.current = {
+          at: Date.now(),
+          scores: phrases.map(p => ({ id: p.id, bestScore: p.bestScore ?? null })),
+        };
+        track(ANALYTICS_EVENTS.LESSON_STARTED, { ...lessonProps, total: phrases.length });
+        if (isGroup && !isTestout && activeLang) {
+          trackOnce(ANALYTICS_EVENTS.JOURNEY_STARTED, lessonProps, activeLang);
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phrases, state]);
@@ -1756,6 +1780,11 @@ export default function Practice({
       // session summary, haptics, and SESSION_COMPLETED event are skipped:
       // nothing was recorded, so there is no session to celebrate yet.
       submitTestoutRun();
+      track(ANALYTICS_EVENTS.LESSON_COMPLETED, {
+        ...lessonProps,
+        total: (phrases ?? []).length,
+        duration_s: lessonStartRef.current ? Math.round((Date.now() - lessonStartRef.current.at) / 1000) : 0,
+      });
       setState("summary");
     } else {
       // Fire a session-end haptic: success if any phrase passed, warning if not.
@@ -1774,6 +1803,18 @@ export default function Practice({
         total: _entries.length,
         good: _good,
       });
+      const _fullCredit = new Set(
+        (phrases ?? []).filter(p => sessionResults[p.id] && isFullCreditBand(sessionResults[p.id].band)).map(p => p.id),
+      );
+      track(ANALYTICS_EVENTS.LESSON_COMPLETED, {
+        ...lessonProps,
+        total: _entries.length,
+        full_credit: _fullCredit.size,
+        duration_s: lessonStartRef.current ? Math.round((Date.now() - lessonStartRef.current.at) / 1000) : 0,
+      });
+      if (isGroup && lessonStartRef.current && stationNewlyCompleted(lessonStartRef.current.scores, _fullCredit)) {
+        track(ANALYTICS_EVENTS.STATION_COMPLETED, lessonProps);
+      }
       setState("summary");
     }
   };

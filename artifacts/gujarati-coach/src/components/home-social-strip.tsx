@@ -323,8 +323,8 @@ export function HomeSocialStrip() {
               onClick={() =>
                 void shareReferralLink(link, async () => {
                   // Desktop fallback: no share sheet → copy to clipboard.
-                  await copyReferralLink(link);
-                })
+                  await copyReferralLink(link, "home_social_strip");
+                }, "home_social_strip")
               }
               className="w-full shrink-0 rounded-2xl bg-primary px-4 py-2.5 text-sm font-black text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
             >

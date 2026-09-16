@@ -59,6 +59,14 @@ export interface RevenueCatEvent {
   transaction_id?: string | null;
   original_transaction_id?: string | null;
   store?: string | null;
+  // Read ONLY by the analytics mapper in lib/posthogCapture.ts (audit
+  // 2026-09-16); like the fields above, never used to decide a subscription.
+  id?: string | null;
+  event_timestamp_ms?: number | null;
+  is_trial_conversion?: boolean | null;
+  price?: number | null;
+  currency?: string | null;
+  environment?: string | null;
 }
 
 export interface RevenueCatWebhookBody {

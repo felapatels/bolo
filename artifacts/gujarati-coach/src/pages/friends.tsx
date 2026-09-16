@@ -490,7 +490,7 @@ function YourFriendCode() {
   const link = referralLink(data.code);
 
   const copy = async (what: "code" | "link", text: string) => {
-    if (await copyReferralLink(text)) {
+    if (await copyReferralLink(text, "friends_invite")) {
       setCopied(what);
       setTimeout(() => setCopied(null), 2000);
     }
@@ -546,7 +546,7 @@ function YourFriendCode() {
               size="sm"
               variant="outline"
               className="rounded-xl"
-              onClick={() => void shareReferralLink(link, () => copy("link", link))}
+              onClick={() => void shareReferralLink(link, () => copy("link", link), "friends_invite")}
               data-testid="share-friend-code"
             >
               <Share2 className="h-4 w-4" />

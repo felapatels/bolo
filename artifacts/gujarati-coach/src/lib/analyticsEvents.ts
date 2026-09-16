@@ -48,6 +48,32 @@ export const ANALYTICS_EVENTS = {
   // is the card the learner was on (0-based), so a skip rate per card can be
   // read without a second event.
   WALKTHROUGH_FINISHED: "walkthrough_finished",
+  // THE FUNNEL SET (owner audit, 2026-09-16). Every event also carries the super
+  // properties from analytics.ts: app, platform, environment and first-touch
+  // acquisition_source / _medium / _campaign / referral_code. Mobile twin:
+  // bolo-mobile/lib/analyticsEvents.ts, same names and meanings.
+  // app_open: once per browser tab session (sessionStorage).
+  APP_OPEN: "app_open",
+  // signup_completed: the new name for sign_up_completed; both fire during the
+  // switch so existing charts keep working.
+  SIGNUP_COMPLETED: "signup_completed",
+  // journey_started: the first journey-stop session in a language, once per
+  // browser per language.
+  JOURNEY_STARTED: "journey_started",
+  // lesson_started / lesson_completed: every practice session, lesson_type
+  // station | topic | sentences | testout.
+  LESSON_STARTED: "lesson_started",
+  LESSON_COMPLETED: "lesson_completed",
+  // station_completed: this session carried a journey stop over the server's
+  // completion line.
+  STATION_COMPLETED: "station_completed",
+  // share_clicked: any share sheet or copy (property: surface).
+  SHARE_CLICKED: "share_clicked",
+  // referral_clicked: invite link shared, copied, or a /join/<code> landing.
+  REFERRAL_CLICKED: "referral_clicked",
+  // Server events (api-server lib/posthogCapture.ts), listed for review only.
+  TRIAL_STARTED: "trial_started",
+  SUBSCRIPTION_STARTED: "subscription_started",
 } as const;
 
 export type AnalyticsEvent =

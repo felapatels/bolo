@@ -15,6 +15,7 @@ import { ChaiGlyph } from '@/components/ChaiStall';
 import * as Haptics from 'expo-haptics';
 import { hapticLight, hapticMedium, hapticHeavy, hapticNotify } from '@/lib/haptics';
 import { track, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
+import { lessonTypeFor, stationNewlyCompleted } from '@/lib/lessonAnalytics';
 import { useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -1617,6 +1618,41 @@ export default function PracticeScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list.length > 0]);
 
+  // FUNNEL EVENTS (audit 2026-09-16): every session, not just the first.
+  // lessonStartRef holds the start time and the best scores the session began
+  // from, so station_completed can compare before and after even though the
+  // phrase list refetches (with the new scores) while the session runs.
+  const lessonType = lessonTypeFor({ isGroup, isTestout, isSentences });
+  const lessonProps = {
+    language: activeLang ?? 'unknown',
+    lesson_type: lessonType,
+    category_id: categoryId,
+    ...(isGroup ? { stop_id: groupId } : {}),
+  };
+  const lessonStartRef = React.useRef<{
+    at: number;
+    scores: { id: number; bestScore?: number | null }[];
+  } | null>(null);
+  React.useEffect(() => {
+    if (list.length === 0 || lessonStartRef.current) return;
+    lessonStartRef.current = {
+      at: Date.now(),
+      scores: list.map((p) => ({ id: p.id, bestScore: (p as { bestScore?: number | null }).bestScore ?? null })),
+    };
+    track(ANALYTICS_EVENTS.LESSON_STARTED, { ...lessonProps, total: list.length });
+    if (isGroup && !isTestout && activeLang) {
+      void trackOnce(ANALYTICS_EVENTS.JOURNEY_STARTED, lessonProps, activeLang);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list.length > 0]);
+
+  const lessonCompletedProps = () => ({
+    ...lessonProps,
+    total: list.length,
+    full_credit: Object.values(bands).filter((b) => isFullCreditBand(b)).length,
+    duration_s: lessonStartRef.current ? Math.round((Date.now() - lessonStartRef.current.at) / 1000) : 0,
+  });
+
   // --- Silence auto-stop ---
   // A continuous stretch of quiet (metering stays below the threshold) ends
   // the recording on its own — a safety net so the learner never has to
@@ -2077,12 +2113,25 @@ export default function PracticeScreen() {
       // screen and SESSION_COMPLETED event are skipped: nothing was recorded,
       // so there is no session to celebrate yet.
       submitTestoutRun();
+      track(ANALYTICS_EVENTS.LESSON_COMPLETED, lessonCompletedProps());
       setPhaseSync('done');
     } else {
       track(ANALYTICS_EVENTS.SESSION_COMPLETED, {
         language: activeLang,
         total: list.length,
       });
+      track(ANALYTICS_EVENTS.LESSON_COMPLETED, lessonCompletedProps());
+      if (isGroup && lessonStartRef.current) {
+        const fullCredit = new Set(
+          Object.entries(bands)
+            .filter(([, b]) => isFullCreditBand(b))
+            .map(([i]) => list[Number(i)]?.id)
+            .filter((id): id is number => typeof id === 'number'),
+        );
+        if (stationNewlyCompleted(lessonStartRef.current.scores, fullCredit)) {
+          track(ANALYTICS_EVENTS.STATION_COMPLETED, lessonProps);
+        }
+      }
       setPhaseSync('done');
     }
   };

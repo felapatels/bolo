@@ -58,8 +58,8 @@ export function HomeReferralCard() {
               // the link on the clipboard rather than the button doing
               // nothing. Home stays quiet about it — the settings card is
               // where "Copied!" and the visible link live.
-              await copyReferralLink(link);
-            })
+              await copyReferralLink(link, "home_referral_card");
+            }, "home_referral_card")
           }
           className="w-full shrink-0 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto sm:py-2.5"
         >

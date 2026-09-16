@@ -62,6 +62,7 @@ export type ShopDoor = "tailor" | "station";
 
 // The rack split is generated from scripts/wardrobe/manifest.json (build 25).
 import { STATION_IDS } from "@/lib/wardrobeShop.gen";
+import { trackShare } from "@/lib/analytics";
 
 const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: "tailor" | "ticket" }> = {
   tailor: { title: "The Tailor", subtitle: "Dress Bolo for the journey.", stall: "tailor" },
@@ -203,6 +204,7 @@ export default function OutfitsPage({ door = "tailor" }: { door?: ShopDoor } = {
   // "Copied" on the button. The line is the phone's, word for word.
   const [shared, setShared] = useState<"copied" | null>(null);
   const shareLook = async () => {
+    trackShare("outfit");
     const pieces = [wornGarment?.name, wornAccessory?.name].filter(Boolean);
     const line =
       pieces.length > 0 ? `My Bolo is wearing ${pieces.join(" and ")} on Bolo!` : "Come dress your Bolo on Bolo!";

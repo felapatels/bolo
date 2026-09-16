@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackShare } from '@/lib/analytics';
 import {
   ActivityIndicator,
   Alert,
@@ -203,6 +204,7 @@ function OwnerView({ family }: { family: FamilyStatus }) {
   // Native share sheet — the mobile-first way to hand the code to family.
   const onShareCode = async () => {
     if (!family.joinCode) return;
+    trackShare('family_code');
     try {
       await Share.share({
         message: `Join my Bolo! family plan and get full All-Access — open Bolo!, go to Account → Family plan, and enter this join code: ${family.joinCode}`,

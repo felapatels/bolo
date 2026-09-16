@@ -6,6 +6,7 @@
 // comes from @workspace/referral-link via lib/referral-code.
 
 import { REFERRAL_REWARD_CHAI } from "@workspace/referral-link";
+import { trackReferral } from "@/lib/analytics";
 
 /** The message that rides along with the link in the share sheet. */
 export function referralShareText(): string {
@@ -13,7 +14,8 @@ export function referralShareText(): string {
 }
 
 /** Copies the link. Resolves false when the clipboard is unavailable. */
-export async function copyReferralLink(link: string): Promise<boolean> {
+export async function copyReferralLink(link: string, surface = "referral"): Promise<boolean> {
+  trackReferral(surface, "copy");
   try {
     await navigator.clipboard.writeText(link);
     return true;
@@ -33,7 +35,9 @@ export async function copyReferralLink(link: string): Promise<boolean> {
 export async function shareReferralLink(
   link: string,
   fallback?: () => void | Promise<void>,
+  surface = "referral",
 ): Promise<void> {
+  trackReferral(surface, "share");
   if (!navigator.share) {
     await fallback?.();
     return;

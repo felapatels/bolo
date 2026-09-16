@@ -17,6 +17,7 @@ import {
   creditChaiPackFromStore,
 } from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
+import { funnelFromRevenueCat, sendFunnelEvent } from "../lib/posthogCapture";
 
 const router: IRouter = Router();
 
@@ -144,6 +145,9 @@ router.post(
         // non-state event) — acknowledge so RevenueCat stops retrying.
         if (apply) await applyRevenueCatState(apply);
       }
+      // After the state is written, so a failed sync (500, retried) never
+      // reports a trial the database does not have. Fire-and-forget.
+      sendFunnelEvent(funnelFromRevenueCat(event));
     } catch (err) {
       // A 5xx makes RevenueCat retry with backoff, which is what we want on a
       // transient DB error.

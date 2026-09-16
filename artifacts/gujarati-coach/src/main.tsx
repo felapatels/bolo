@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 
 import { initSentry } from './lib/sentry';
-import { initAnalytics } from './lib/analytics';
+import { initAnalytics, track, ANALYTICS_EVENTS } from './lib/analytics';
 import { cleanupStaleDevClerkCookies } from './lib/clerkCookieCleanup';
 import { installStaleBuildRecovery } from './lib/staleBuild';
 
@@ -20,6 +20,16 @@ installStaleBuildRecovery();
 // are present. Initialize before render so early errors are captured.
 initSentry();
 initAnalytics();
+// app_open (audit 2026-09-16): once per browser tab session, so a refresh or a
+// route change does not count as another open.
+try {
+  if (!sessionStorage.getItem('bolo.analytics.app_open')) {
+    sessionStorage.setItem('bolo.analytics.app_open', '1');
+    track(ANALYTICS_EVENTS.APP_OPEN, { cold_start: true });
+  }
+} catch {
+  track(ANALYTICS_EVENTS.APP_OPEN, { cold_start: true });
+}
 
 import './index.css';
 

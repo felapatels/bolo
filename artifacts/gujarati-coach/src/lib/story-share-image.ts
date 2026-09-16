@@ -20,6 +20,7 @@ import {
   withoutMissingStills,
   type StorySharePlan,
 } from "@workspace/story";
+import { trackShare } from "@/lib/analytics";
 
 /** How long one still may take before it is left out of the picture. */
 export const STORY_SHARE_STILL_TIMEOUT_MS = 8000;
@@ -300,6 +301,7 @@ export type StoryShareOutcome = "shared" | "downloaded" | "cancelled";
  * else. A dismissed sheet is the learner changing their mind, not an error.
  */
 export async function shareStoryImage(blob: Blob, fileName: string): Promise<StoryShareOutcome> {
+  trackShare("storybook");
   const file = new File([blob], fileName, { type: "image/jpeg" });
   const nav = typeof navigator !== "undefined" ? navigator : undefined;
   if (nav?.share && nav.canShare?.({ files: [file] })) {

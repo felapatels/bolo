@@ -3,7 +3,7 @@ import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
 import { lazy, Suspense, useEffect, type ComponentType } from 'react';
 // Type only, so the bazaar's page stays a lazy chunk.
 import type { ShopDoor } from '@/pages/bazaar';
-import { identifyUser, trackOnce, ANALYTICS_EVENTS } from './lib/analytics';
+import { identifyUser, trackOnce, currentAcquisition, ANALYTICS_EVENTS } from './lib/analytics';
 import { setSentryUser } from './lib/sentry';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
@@ -723,6 +723,9 @@ function AnalyticsIdentitySync() {
     setSentryUser(user?.id ?? null);
     if (user?.createdAt && Date.now() - user.createdAt.getTime() < 2 * 60 * 1000) {
       trackOnce(ANALYTICS_EVENTS.SIGN_UP_COMPLETED);
+      // The funnel name fires beside the old one during the switch, with
+      // first-touch acquisition inline (audit 2026-09-16).
+      trackOnce(ANALYTICS_EVENTS.SIGNUP_COMPLETED, { ...currentAcquisition() });
     }
   }, [isLoaded, user?.id, user?.createdAt]);
 

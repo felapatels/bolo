@@ -19,6 +19,7 @@ import {
 import { applyStripeState } from "../lib/stripeApply";
 import { chaiPackCreditFromSession, creditChaiPack } from "../lib/chaiPacks";
 import { logger } from "../lib/logger";
+import { funnelFromStripe, sendFunnelEvent } from "../lib/posthogCapture";
 
 export async function stripeWebhookHandler(
   req: Request,
@@ -63,6 +64,8 @@ export async function stripeWebhookHandler(
           event.data.object as Stripe.Subscription,
         );
         if (apply) await applyStripeState(apply);
+        // After the state is written; fire-and-forget (lib/posthogCapture.ts).
+        sendFunnelEvent(funnelFromStripe(event));
         break;
       }
       // One-time Chai pack (web). THE ONLY path that credits bought Chai: the

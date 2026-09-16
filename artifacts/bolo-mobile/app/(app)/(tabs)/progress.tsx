@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackShare } from '@/lib/analytics';
 import {
   Animated as RNAnimated,
   Easing,
@@ -111,6 +112,7 @@ export default function ProgressScreen() {
   // rare day you earn one, and daily is what earns reach.
   const onShareProgress = async () => {
     hapticLight();
+    trackShare('progress', { language: activeLang ?? 'unknown' });
     try {
       await Share.share({
         message: progressShareMessage({

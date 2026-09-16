@@ -10,6 +10,7 @@
 // that module's REFERRAL_REWARD_CHAI — contract-tested against the server's
 // reward constants, never a literal.
 import React from 'react';
+import { trackReferral } from '@/lib/analytics';
 import { Share, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -35,6 +36,7 @@ export function HomeReferralCard() {
 
   const onShare = async () => {
     hapticLight();
+    trackReferral('home_referral_card', 'share');
     try {
       await Share.share({
         message: `Learn your family's language with me on Bolo! Use my link and we both get ${REFERRAL_REWARD_CHAI} Chai. ${link}`,

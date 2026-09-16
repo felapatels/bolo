@@ -68,7 +68,7 @@ export function ReferralCard() {
   const link = referralLink(data.code);
 
   async function copyLink() {
-    if (await copyReferralLink(link)) {
+    if (await copyReferralLink(link, "settings_invite")) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -79,7 +79,7 @@ export function ReferralCard() {
   // itself now lives in lib/referral-share so the home card (Task #1049)
   // shares through the identical path instead of a second copy of it.
   async function shareLink() {
-    await shareReferralLink(link, copyLink);
+    await shareReferralLink(link, copyLink, "settings_invite");
   }
 
   return (

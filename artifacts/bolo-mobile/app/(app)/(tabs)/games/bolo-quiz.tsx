@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { trackShare } from '@/lib/analytics';
 import {
   Alert,
   Pressable,
@@ -473,6 +474,7 @@ export function ResultsScreen({
     const msg = perfect
       ? `I scored ${score}/${total} on today's Bolo Quiz! 🦜🎉 Perfect score!${streakSuffix}`
       : `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage${streakSuffix}`;
+    trackShare('bolo_quiz', { score, total });
     try {
       await Share.share({ message: msg });
     } catch {
@@ -576,6 +578,7 @@ export function AlreadyDoneScreen({
   const handleShare = async () => {
     const streakSuffix = quizStreak >= 2 ? ` 🔥 ${quizStreak}-day streak!` : '';
     const msg = `I scored ${score}/${total} on today's Bolo Quiz! 🦜 #BoloLanguage${streakSuffix}`;
+    trackShare('bolo_quiz', { score, total });
     try {
       await Share.share({ message: msg });
     } catch {

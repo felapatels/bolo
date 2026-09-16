@@ -11,6 +11,7 @@
  * Loading: absent. Error: absent.
  */
 import React from 'react';
+import { trackReferral } from '@/lib/analytics';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -304,6 +305,7 @@ export function HomeSocialStrip() {
   const onShare = async () => {
     hapticLight();
     if (!link) return;
+    trackReferral('home_social_strip', 'share');
     try {
       await Share.share({
         message: `Learn your family's language with me on Bolo! Use my link and we both get ${REFERRAL_REWARD_CHAI} Chai. ${link}`,

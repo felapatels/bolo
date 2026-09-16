@@ -71,6 +71,7 @@ import { storyStillUrl } from '@/lib/mediaUrl';
 import { Sentry } from '@/lib/sentry';
 import { AppFonts } from '@/constants/fonts';
 import { useColors } from '@/hooks/useColors';
+import { trackShare } from '@/lib/analytics';
 
 type SharingModule = typeof import('expo-sharing');
 type ViewShotModule = typeof import('react-native-view-shot');
@@ -325,6 +326,7 @@ export function StoryShareButton({
         });
         stage = 'share';
         if (!aliveRef.current) return;
+        trackShare('storybook');
         await Sharing.shareAsync(uri, {
           mimeType: 'image/jpeg',
           UTI: 'public.jpeg',

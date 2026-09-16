@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '@clerk/expo';
 import { initSentry, setSentryUser, Sentry } from '@/lib/sentry';
 import { installApiFailureBreadcrumbs } from '@/lib/apiErrors';
-import { initAnalytics, identifyUser, trackOnce, ANALYTICS_EVENTS } from '@/lib/analytics';
+import { initAnalytics, identifyUser, track, trackOnce, currentAcquisition, ANALYTICS_EVENTS } from '@/lib/analytics';
+import { AppState } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -68,8 +69,26 @@ function AnalyticsIdentitySync() {
     setSentryUser(user?.id ?? null);
     if (user?.createdAt && Date.now() - user.createdAt.getTime() < 2 * 60 * 1000) {
       void trackOnce(ANALYTICS_EVENTS.SIGN_UP_COMPLETED);
+      // The funnel name (audit 2026-09-16) fires beside the old one during the
+      // switch, carrying first-touch acquisition inline so a signup can be
+      // read by source without a person join.
+      void currentAcquisition().then((acq) => trackOnce(ANALYTICS_EVENTS.SIGNUP_COMPLETED, { ...acq }));
     }
   }, [isLoaded, user?.id, user?.createdAt]);
+
+  // app_open: once at launch, then on every return to the foreground. Mounted
+  // once at the root, so a screen remount cannot double count it.
+  useEffect(() => {
+    track(ANALYTICS_EVENTS.APP_OPEN, { cold_start: true });
+    let last = AppState.currentState;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && last !== 'active') {
+        track(ANALYTICS_EVENTS.APP_OPEN, { cold_start: false });
+      }
+      last = next;
+    });
+    return () => sub.remove();
+  }, []);
 
   return null;
 }

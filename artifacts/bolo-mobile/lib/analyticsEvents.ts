@@ -24,6 +24,34 @@ export const ANALYTICS_EVENTS = {
   // is the card the learner was on (0-based), so a skip rate per card can be
   // read without a second event.
   WALKTHROUGH_FINISHED: 'walkthrough_finished',
+  // THE FUNNEL SET (owner audit, 2026-09-16). Every event also carries the super
+  // properties from analytics.ts: app, platform, app_version, environment and
+  // first-touch acquisition_source / _medium / _campaign / referral_code.
+  // app_open: launch (cold_start true) and each return to the foreground.
+  APP_OPEN: 'app_open',
+  // signup_completed: the new name for sign_up_completed. Both fire during the
+  // switch so existing charts keep working; retire the old one after a month.
+  SIGNUP_COMPLETED: 'signup_completed',
+  // journey_started: the first journey-stop session in a language, once per
+  // install per language (language, category_id, stop_id).
+  JOURNEY_STARTED: 'journey_started',
+  // lesson_started / lesson_completed: EVERY practice session (unlike the
+  // first_* pair), with lesson_type station | topic | sentences | testout.
+  LESSON_STARTED: 'lesson_started',
+  LESSON_COMPLETED: 'lesson_completed',
+  // station_completed: this session carried a journey stop over the server's
+  // completion line (80% of its phrases at a full-credit score).
+  STATION_COMPLETED: 'station_completed',
+  // share_clicked: any share sheet or copy (property: surface).
+  SHARE_CLICKED: 'share_clicked',
+  // referral_clicked: the learner shared or copied their invite link (surface,
+  // action, referral_code).
+  REFERRAL_CLICKED: 'referral_clicked',
+  // trial_started and subscription_started are SERVER events (api-server
+  // lib/posthogCapture.ts, from the store webhooks); they are listed in the web
+  // and mobile sets only so the names are reviewed in one place.
+  TRIAL_STARTED: 'trial_started',
+  SUBSCRIPTION_STARTED: 'subscription_started',
 } as const;
 
 export type AnalyticsEvent =

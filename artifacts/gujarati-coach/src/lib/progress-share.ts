@@ -6,6 +6,8 @@
 // everywhere it does not (desktop Firefox, older Chrome), because the
 // consolation belongs to whichever surface is asking.
 
+import { trackShare } from "@/lib/analytics";
+
 /**
  * What a learner posts from the Progress screen.
  *
@@ -64,6 +66,7 @@ export async function shareProgress(
   message: string,
   fallback?: () => void | Promise<void>,
 ): Promise<void> {
+  trackShare("progress");
   if (typeof navigator === "undefined" || !navigator.share) {
     await fallback?.();
     return;

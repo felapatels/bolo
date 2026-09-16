@@ -1,4 +1,5 @@
 import React from 'react';
+import { trackShare } from '@/lib/analytics';
 import {
   Image,
   Modal,
@@ -225,6 +226,7 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
     hapticLight();
     const pieces = [wornGarment?.name, wornAccessory?.name].filter(Boolean);
     const line = pieces.length > 0 ? `My Bolo is wearing ${pieces.join(' and ')} on Bolo!` : 'Come dress your Bolo on Bolo!';
+    trackShare('outfit');
     try {
       await Share.share({ message: line });
     } catch {
