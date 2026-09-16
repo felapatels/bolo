@@ -1396,6 +1396,18 @@ function AnswerBackProbe({
 export default function JourneyScreen() {
   const colors = useColors();
   const router = useRouter();
+  /**
+   * BACK FROM THE MAP, WHEN THERE IS NOTHING BEHIND IT. Owner, 2026-09-16, on
+   * the iPad simulator: "back arrow from journey to home not working". A stop
+   * exit calls dismissTo('/(app)/journey'), which REPLACES when no map is open
+   * (5071821d: a deep link, a notification), and a replaced map sits alone in
+   * its stack, so back() was a silent no-op. Go back when there is somewhere to
+   * go; otherwise go Home, which is where the arrow says it goes.
+   */
+  const leaveJourney = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(app)/(tabs)');
+  };
   // THE WINDOW, NOT THE COLUMN (build 25): this screen opts out of Screen's
   // column and paints edge to edge, as web does from 768px. The map column
   // centres itself (the zone blocks are mapW wide, alignSelf center) and the
@@ -2946,7 +2958,7 @@ export default function JourneyScreen() {
             },
           })
         }
-        onBack={() => router.back()}
+        onBack={leaveJourney}
       />
     );
   }
@@ -2958,7 +2970,7 @@ export default function JourneyScreen() {
             zoneQueries.forEach((q) => void q.refetch());
           }}
           isRetrying={zoneQueries.some((q) => q.isFetching)}
-          onBack={() => router.back()}
+          onBack={leaveJourney}
         />
       </Screen>
     );
@@ -3006,7 +3018,7 @@ export default function JourneyScreen() {
           accessibilityLabel="Back to home"
           onPress={() => {
             hapticLight();
-            router.back();
+            leaveJourney();
           }}
           style={[styles.backBtn, { backgroundColor: colors.muted }]}
         >
