@@ -26,6 +26,7 @@ import { PressableScale } from '@/components/PressableScale';
 import { ChaiShortfallSheet } from '@/components/ChaiShortfallSheet';
 import { ChaiWalletSheet, shortfallFromSpendError, spendErrorMessage } from '@/components/ChaiWallet';
 import { Mascot } from '@/components/Mascot';
+import { bolo3dSurfaces } from '@/lib/bolo3dFlag';
 import { mascotSource, OUTFIT_POSE_SOURCES } from '@/lib/mascotOutfits';
 import { ChaiGlyph } from '@/components/ChaiStall';
 import { MilestoneToast } from '@/components/MilestoneToast';
@@ -115,6 +116,11 @@ const DOORS: Record<ShopDoor, { title: string; subtitle: string; stall: 'tailor'
 };
 
 export function OutfitShop({ door }: { door: ShopDoor }) {
+  // THE 3D BIRD, only when the build asks for her, and required while this
+  // renders, never at module load: expo-router evaluates every route module at
+  // launch (lib/bolo3dFlag.ts). Null without the flag, so the shop's suites
+  // render today's bird.
+  const Bolo3DSurfaces = bolo3dSurfaces();
   const colors = useColors();
   const queryClient = useQueryClient();
   const windowW = useContentWidth();
@@ -316,8 +322,15 @@ export function OutfitShop({ door }: { door: ShopDoor }) {
                 testID="outfit-kind-accessory"
               />
             </View>
-            <View testID="outfit-preview" style={styles.stage} pointerEvents="none">
-              <Mascot pose="cheer" size={Math.round(sceneH * 0.58)} motion="float" outfit={shownGarment} accessory={shownAccessory} />
+            {/* In 3D she can be turned round to see the back of what she is
+                trying on, so the stage lets touches through to her (box-none:
+                the space around her still belongs to the scene's buttons). */}
+            <View testID="outfit-preview" style={styles.stage} pointerEvents={Bolo3DSurfaces ? 'box-none' : 'none'}>
+              {Bolo3DSurfaces ? (
+                <Bolo3DSurfaces.OutfitPreview3D garment={shownGarment} accessory={shownAccessory} size={Math.round(sceneH * 0.58)} />
+              ) : (
+                <Mascot pose="cheer" size={Math.round(sceneH * 0.58)} motion="float" outfit={shownGarment} accessory={shownAccessory} />
+              )}
               {/* The caption names what she is trying on, under her feet on
                   the scene, so the picture says it before the rail does. */}
               {shownOutfit ? (

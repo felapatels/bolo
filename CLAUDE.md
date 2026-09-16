@@ -32,6 +32,14 @@ pnpm monorepo. Workspaces: `artifacts/*`, `lib/*`, `lib/integrations/*`, `script
   4803-line hand-maintained duplicate in mobile and a script whose only job was
   to police the two for drift.
 - `lib/referral-link`, `lib/train-class`, `lib/integrations-openai-ai-{react,server}`
+- `lib/bolo-character` and `lib/bolo-stage`: **the 3D Bolo runtime** (the
+  commission brief as a contract, lip sync, the three.js stage shown in a
+  WebView), built on Africa and ported here 2026-09-16, switched off unless a
+  build sets `EXPO_PUBLIC_BOLO3D=on`. Read `docs/bolo3d.md` before touching
+  either; the lab is `bolo-mobile://bolo-lab`. **A simulator dev client built
+  with `CODE_SIGNING_ALLOWED=NO` shows a blank white app on iOS 26.5** (Clerk
+  cannot write the keychain): sign it with `CODE_SIGN_IDENTITY=-
+  CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES` (found in Africa).
 
 Database lives in Replit and there are TWO of them, development and production.
 See "THERE ARE TWO DATABASES" under Working rules. **`~/bolo/.env` exists on

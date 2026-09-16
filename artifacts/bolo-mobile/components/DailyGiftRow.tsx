@@ -15,6 +15,11 @@ type Props = {
   busy?: boolean;
   error?: string | null;
   onOpen: () => void;
+  /**
+   * A locked press, handed to the card instead of the wiggle. Only the 3D gift
+   * moment uses it (DailyGiftCard, EXPO_PUBLIC_BOLO3D=on): she says it there.
+   */
+  onLockedPress?: () => void;
   onShop?: () => void;
   testID: string;
   giftTestID?: string;
@@ -25,7 +30,7 @@ type Props = {
 
 /** One horizontal resting row. A locked tap explains; it never claims a gift. */
 export function DailyGiftRow({ art, artWidth = 56, title, range, locked, busy = false,
-  error, onOpen, onShop, testID, giftTestID = `${testID}-art`,
+  error, onOpen, onLockedPress, onShop, testID, giftTestID = `${testID}-art`,
   instructionTestID = `${testID}-locked`, rangeTestID = `${testID}-range`,
   shopTestID = `${testID}-shop`,
 }: Props) {
@@ -45,6 +50,7 @@ export function DailyGiftRow({ art, artWidth = 56, title, range, locked, busy = 
     if (busy) return;
     if (!locked) { onOpen(); return; }
     hapticLight();
+    if (onLockedPress) { onLockedPress(); return; }
     AccessibilityInfo.announceForAccessibility(title);
     animation.current?.stop();
     wiggle.setValue(0);
