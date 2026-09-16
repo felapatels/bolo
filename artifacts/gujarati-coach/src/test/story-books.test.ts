@@ -593,9 +593,15 @@ describe("book 1's words match its new art (2026-09-16)", () => {
 
   test("door-3's setup has not started pouring", () => {
     // The "water" outcome IS the pour, so a setup already pouring leaves that
-    // punchline nothing to show.
+    // punchline nothing to show. INVERTED 2026-09-16 the same day: the text is
+    // read aloud, so it is prose now and no longer carries the illustrator's
+    // "NOT pouring yet"; the setup holds the jug and asks instead.
     const door3 = storyBookFor(1, 1)!.scenes.find((sc) => sc.id === "door-3")!;
-    expect(door3.situation).toMatch(/NOT pouring yet/);
-    expect(door3.situation).not.toMatch(/\bpours\b/i);
+    expect(door3.situation).toMatch(/hugs a big clay jug/);
+    expect(door3.situation).not.toMatch(/\bpour/i);
+    // Nothing an illustrator was told may reach the narrator.
+    for (const sc of storyBookFor(1, 1)!.scenes) {
+      expect(sc.situation).not.toMatch(/viewer|NOT |Setting:/);
+    }
   });
 });
