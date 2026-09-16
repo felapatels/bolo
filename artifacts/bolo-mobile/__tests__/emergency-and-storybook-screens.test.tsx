@@ -501,11 +501,12 @@ describe('the storybook advances on the pick itself', () => {
       await act(async () => { await new Promise((r) => setTimeout(r, 250)); });
       expect(mockCaptureRef).toHaveBeenCalledTimes(1);
       expect(mockCaptureRef.mock.calls[0]![1]).toEqual(
-        expect.objectContaining({ format: 'png', result: 'tmpfile' }),
+        // INVERTED 2026-09-16: JPEG at 0.85, not PNG (a PNG strip was 16 MB).
+        expect.objectContaining({ format: 'jpg', quality: 0.85, result: 'tmpfile' }),
       );
       expect(mockShareAsync).toHaveBeenCalledWith(
         'file:///tmp/story.png',
-        expect.objectContaining({ mimeType: 'image/png', UTI: 'public.png' }),
+        expect.objectContaining({ mimeType: 'image/jpeg', UTI: 'public.jpeg' }),
       );
       // The layout exists only while sharing.
       expect(screen.queryByTestId('story-share-card', HIDDEN)).toBeNull();

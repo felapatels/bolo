@@ -313,7 +313,11 @@ export function StoryShareButton({
         if (!aliveRef.current || !cardRef.current) return;
         const { Sharing, ViewShot } = shareModules();
         const uri = await ViewShot.captureRef(cardRef, {
-          format: 'png',
+          // JPEG, not PNG (owner's share test, 2026-09-16): a 1080 px wide
+          // strip of seven painted stills came out as a 16 MB PNG, too heavy to
+          // send over mobile data. Photographic art compresses far better as JPEG.
+          format: 'jpg',
+          quality: 0.85,
           result: 'tmpfile',
           // Off screen, drawViewHierarchyInRect can come back blank on iOS;
           // renderInContext draws the layer tree wherever it sits.
@@ -322,8 +326,8 @@ export function StoryShareButton({
         stage = 'share';
         if (!aliveRef.current) return;
         await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
-          UTI: 'public.png',
+          mimeType: 'image/jpeg',
+          UTI: 'public.jpeg',
           dialogTitle: STORY_SHARE_CTA,
         });
       } catch (err) {

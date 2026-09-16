@@ -285,7 +285,10 @@ export async function composeStoryShareImage(
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("story share: toBlob returned null"))),
-      "image/png",
+      // JPEG at 0.85, not PNG: the phone's PNG of the same strip was 16 MB
+      // (owner's share test, 2026-09-16). Kept the same on both twins.
+      "image/jpeg",
+      0.85,
     );
   });
 }
@@ -297,7 +300,7 @@ export type StoryShareOutcome = "shared" | "downloaded" | "cancelled";
  * else. A dismissed sheet is the learner changing their mind, not an error.
  */
 export async function shareStoryImage(blob: Blob, fileName: string): Promise<StoryShareOutcome> {
-  const file = new File([blob], fileName, { type: "image/png" });
+  const file = new File([blob], fileName, { type: "image/jpeg" });
   const nav = typeof navigator !== "undefined" ? navigator : undefined;
   if (nav?.share && nav.canShare?.({ files: [file] })) {
     try {

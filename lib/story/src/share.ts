@@ -178,5 +178,5 @@ export function withoutMissingStills(
 /** The file name the picture is saved or shared under. */
 export function storyShareFileName(plan: StorySharePlan): string {
   const slug = plan.bookId.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return `bolo-story-${slug || "book"}.png`;
+  return `bolo-story-${slug || "book"}.jpg`;
 }

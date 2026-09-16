@@ -664,7 +664,9 @@ describe("the book at the end", () => {
 
     const blob = new Blob(["png"], { type: "image/png" });
     await act(async () => { finishDrawing(blob); });
-    await waitFor(() => expect(share.share).toHaveBeenCalledWith(blob, `bolo-story-${BOOK.id}.png`));
+    // INVERTED 2026-09-16: .jpg, not .png. The share picture is a JPEG now (a PNG
+    // of the strip was 16 MB on the owner's phone).
+    await waitFor(() => expect(share.share).toHaveBeenCalledWith(blob, `bolo-story-${BOOK.id}.jpg`));
     await waitFor(() => expect(btn).not.toBeDisabled());
   });
 

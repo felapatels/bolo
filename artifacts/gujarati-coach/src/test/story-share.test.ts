@@ -131,7 +131,9 @@ describe("the footer and the file", () => {
   });
 
   test("the file is a png named for the book", () => {
-    expect(storyShareFileName(plan())).toBe(`bolo-story-${BOOK.id}.png`);
+    // INVERTED 2026-09-16: .jpg, not .png. The share picture is a JPEG now (a PNG
+    // of the strip was 16 MB on the owner's phone).
+    expect(storyShareFileName(plan())).toBe(`bolo-story-${BOOK.id}.jpg`);
     function plan() {
       return storySharePlan(BOOK, [], phraseFor, null);
     }
