@@ -79,7 +79,17 @@ const CONCEPT_ALIASES: Record<string, readonly string[]> = {
   // writes paired with excuse me. Full sentences ("How much is it? I need
   // more.") are deliberately NOT aliases: a concept resolves to a phrase a
   // learner can answer with, not a monologue.
-  "how much is this?": ["how much is it?", "how much?", "how much does this cost?"],
+  //
+  // MEASURED ACROSS THE FIVE REPOS, 2026-09-16 (story-content-gap-census): four
+  // Europe languages (pl, bs, et, fr) card the phrase itself with no question
+  // mark. THIS phrase only: normaliseGloss still keeps a trailing "?" for every
+  // other gloss, because the question mark is how the corpus writes a question.
+  "how much is this?": [
+    "how much is it?",
+    "how much?",
+    "how much does this cost?",
+    "how much is this",
+  ],
   // Kept although CLAUSE_SEPARATORS now reaches both of these on its own: they
   // are the rows the 2026-08-30 measurement actually names, and a literal that
   // says which production row it came from outlives a rule someone narrows.
@@ -120,7 +130,13 @@ const CONCEPT_ALIASES: Record<string, readonly string[]> = {
   // which grandfather, with no bracket for GLOSS_TAILS to find: "grandfather
   // fatherside" (ha, ig, so, ti, yo) and "grandfather fathers side" (am, sw,
   // zu). Same idea the bracketed East rows carry, spelled without the bracket.
+  //
+  // MEASURED IN INDIA'S SEED, 2026-09-16. Gujarati cards the courtyard's
+  // grandfather as "Grandpa (dad's side)", the only row it has, so yard-1 was
+  // a dead opening in the flagship. Same shape as hello/hi and goodbye/bye.
+  // "granddad" was measured too and is NOT here: no request asked for it.
   grandfather: [
+    "grandpa",
     "grandfather fatherside",
     "grandfather motherside",
     "grandfather fathers side",
@@ -129,7 +145,15 @@ const CONCEPT_ALIASES: Record<string, readonly string[]> = {
   // MEASURED IN EUROPE'S SEED, 2026-09-15. Albanian runs the pair together
   // with no separator for CLAUSE_SEPARATORS to split on, where nine African and
   // five Latin American languages write "grandson, or nephew".
+  //
+  // "grandchild" is deliberately NOT an alias, 2026-09-16. It would recover
+  // rows in India, SEA and Europe, but table-1's joke names a grandson and
+  // whether a grandchild card may stand in is a product call nobody has made.
   grandson: ["grandson nephew"],
+  // MEASURED IN EUROPE'S SEED, 2026-09-16: Estonian and Spanish card the bare
+  // line only as "Thanks". The short form of the same line, the way "bye" is to
+  // goodbye. "Thanks a lot" and "Many thanks" stay out: exact equality still.
+  "thank you": ["thanks"],
 };
 
 /**
@@ -212,6 +236,18 @@ const GLOSS_TAILS: readonly string[] = [
 const GLOSS_HEADS: readonly string[] = ["a", "an", "the", "some", "my"];
 
 /**
+ * The in-law relations, however the hyphens are typed.
+ *
+ * MEASURED, 2026-09-16 (story-content-gap-census): thirteen Europe languages
+ * card "father in law" with SPACES, and Bosnian writes "Father\u2011in\u2011law"
+ * with U+2011 non-breaking hyphens, which normaliseGloss has already folded to
+ * a plain hyphen by the time this runs. Every spelling becomes the hyphenated
+ * concept. It only ever JOINS the three words into the relation; it never
+ * splits on the hyphen, so "father-in-law" still does not resolve `father`.
+ */
+const IN_LAW = /\b(father|mother|son|daughter|brother|sister)[ -]in[ -]law\b/g;
+
+/**
  * Display text reduced to the form everything else compares against.
  *
  * Curly apostrophes are the corpus's own ("father's father" is written with U+2019
@@ -224,9 +260,11 @@ function normaliseGloss(text: string): string {
   return text
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
+    .replace(/[\u2010\u2011]/g, "-")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase()
+    .replace(IN_LAW, "$1-in-law")
     .replace(/[!.]+$/, "")
     .trim();
 }

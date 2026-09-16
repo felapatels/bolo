@@ -376,6 +376,62 @@ describe("the matching rules, and what they refuse", () => {
     expect(matchesConcept("hello", "Good day")).toBe(false);
   });
 
+  // ---------------------------------------------------------------------------
+  // 2026-09-16, the spelling half of story-content-gap-census. Every shape
+  // below is a row the corpus already carries under a spelling the rules
+  // above missed.
+  test("an in-law is one relation however its hyphens are typed", () => {
+    // Europe: thirteen languages with spaces, Bosnian with U+2011.
+    expect(matchesConcept("father-in-law", "father in law")).toBe(true);
+    expect(matchesConcept("mother-in-law", "Mother in law")).toBe(true);
+    expect(matchesConcept("son-in-law", "son in law")).toBe(true);
+    expect(matchesConcept("father-in-law", "Father\u2011in\u2011law")).toBe(true);
+    expect(matchesConcept("mother-in-law", "mother\u2010in\u2010law")).toBe(true);
+    expect(matchesConcept("son-in-law", "my son in law (daughter's husband)")).toBe(true);
+    // Still ONE relation, never its first word: table-3 and thali-2 rely on it.
+    expect(matchesConcept("father", "father in law")).toBe(false);
+    expect(matchesConcept("father", "Father\u2011in\u2011law")).toBe(false);
+    expect(matchesConcept("son", "son in law")).toBe(false);
+    expect(matchesConcept("mother", "mother-in-law")).toBe(false);
+    // And the relations stay distinct from each other.
+    expect(matchesConcept("father-in-law", "mother in law")).toBe(false);
+  });
+
+  test("how much is this answers without its question mark, and only it", () => {
+    // Europe: pl, bs, et and fr card the phrase with no "?".
+    expect(matchesConcept("how much is this?", "How much is this")).toBe(true);
+    expect(matchesConcept("how much is this?", "How much is this?")).toBe(true);
+    expect(conceptSpellings("how much is this?")).toContain("how much is this");
+    // The trailing "?" is still KEPT everywhere else: a question is not its
+    // statement, and no other concept gains a question-mark-free spelling.
+    expect(conceptSpellings("how are you?")).toEqual(["how are you?"]);
+    expect(matchesConcept("how are you?", "How are you")).toBe(false);
+    expect(matchesConcept("how much is this?", "How much is that")).toBe(false);
+  });
+
+  test("grandfather answers to Grandpa, and thank you to Thanks", () => {
+    // India: Gujarati's only grandfather row is "Grandpa (dad's side)", which
+    // left yard-1 a dead opening in the flagship. Europe: et and es card the
+    // bare line only as "Thanks".
+    expect(matchesConcept("grandfather", "Grandpa (dad's side)")).toBe(true);
+    expect(matchesConcept("grandfather", "grandpa")).toBe(true);
+    expect(matchesConcept("thank you", "Thanks")).toBe(true);
+    expect(matchesConcept("thank you", "Thanks!")).toBe(true);
+    // Exact equality still: a longer thanks is a different line, and grandpa
+    // is not a grandparent.
+    expect(matchesConcept("thank you", "Thanks a lot")).toBe(false);
+    expect(matchesConcept("thank you", "Many thanks")).toBe(false);
+    expect(matchesConcept("grandfather", "grandparents")).toBe(false);
+    expect(matchesConcept("grandmother", "grandpa")).toBe(false);
+  });
+
+  test("grandchild is NOT a grandson, until the product call is made", () => {
+    // table-1's joke names a grandson. Recovering the grandchild rows is a
+    // product decision nobody has taken, so it stays refused and pinned.
+    expect(matchesConcept("grandson", "grandchild")).toBe(false);
+    expect(matchesConcept("grandson", "my grandchild")).toBe(false);
+  });
+
   test("the fork wordings that motivated each rule", () => {
     // One case per fork, named, so a fork that renarrows a rule sees whose
     // content it broke.
