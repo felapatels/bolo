@@ -37,11 +37,14 @@ export async function shareReferralLink(
   fallback?: () => void | Promise<void>,
   surface = "referral",
 ): Promise<void> {
-  trackReferral(surface, "share");
   if (!navigator.share) {
+    // Not a share: every caller's fallback copies through copyReferralLink,
+    // which logs the copy. Logging "share" here too counted one desktop click
+    // twice (caught porting to SEA, 2026-09-16).
     await fallback?.();
     return;
   }
+  trackReferral(surface, "share");
   try {
     await navigator.share({ text: referralShareText(), url: link });
   } catch {

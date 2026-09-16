@@ -603,9 +603,6 @@ export default function Practice({
   const [state, setState] = useState<SessionState>("intro");
   const [speakingSegment, setSpeakingSegment] = useState<SpokenSegment>(null);
   const [result, setResult] = useState<{ band: Band; passed: boolean; xpAwarded: number; xpBreakdown?: string | null; feedback: string; tip: string; transcript: string; transcriptRomanized: string } | null>(null);
-  // Keyed by phraseId so retrying a phrase overwrites its previous entry
-  // instead of appending a duplicate. The summary derives an ordered list from
-  // `phrases` so phrase ordering is preserved.
   // FUNNEL EVENTS (audit 2026-09-16): every session, not just the first.
   // lessonStartRef keeps the start time and the best scores the session began
   // from, so station_completed can compare before and after even though the
@@ -619,6 +616,9 @@ export default function Practice({
   };
   const lessonStartRef = useRef<{ at: number; scores: { id: number; bestScore?: number | null }[] } | null>(null);
 
+  // Keyed by phraseId so retrying a phrase overwrites its previous entry
+  // instead of appending a duplicate. The summary derives an ordered list from
+  // `phrases` so phrase ordering is preserved.
   const [sessionResults, setSessionResults] = useState<Record<number, {
     phraseId: number;
     band: Band;

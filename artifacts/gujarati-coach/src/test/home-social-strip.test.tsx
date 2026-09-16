@@ -200,6 +200,8 @@ describe("HomeSocialStrip — empty state (no friends)", () => {
     expect(mockShare).toHaveBeenCalledWith(
       "https://bolo.example.com/join/K7XM2P",
       expect.any(Function),
+      // The analytics surface name (funnel set, 2026-09-16).
+      "home_social_strip",
     );
   });
 
