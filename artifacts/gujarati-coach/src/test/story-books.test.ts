@@ -11,6 +11,8 @@ import {
   bookConcepts,
   bookScenePrefix,
   endingStillId,
+  STORY_ART_DIR,
+  storyStillPath,
   GREETINGS_ENDINGS,
   outcomeStillId,
   storyEnding,
@@ -517,6 +519,14 @@ describe("ending pictures", () => {
         expect(scene.id, `${book.id} ${scene.id}`).toMatch(new RegExp(`^${prefix}-\\d+$`));
       }
     }
+  });
+
+  test("stills are served from story/madlib, never the old story/ names (2026-09-16)", () => {
+    // Phones already installed fetch /story/<id>.webp with their OLD words
+    // bundled. New art under those names would put new pictures beside old
+    // narration on every one of them, so the new clients read a new directory.
+    expect(STORY_ART_DIR).toBe("story/madlib");
+    expect(storyStillPath("door--end-chaos")).toBe("story/madlib/door--end-chaos.webp");
   });
 
   test("an ending still is named <prefix>--end-<kind> and never collides with a scene or outcome", () => {

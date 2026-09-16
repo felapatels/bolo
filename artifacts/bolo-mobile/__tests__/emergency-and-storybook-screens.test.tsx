@@ -110,6 +110,7 @@ jest.mock('@workspace/api-client-react', () => ({
 
 import EmergencyScreen from '@/app/(app)/(tabs)/games/emergency';
 import StorybookScreen from '@/app/(app)/(tabs)/games/storybook';
+import { storyStillUrl } from '@/lib/mediaUrl';
 import {
   bookConcepts,
   storyEnding,
@@ -286,8 +287,10 @@ describe('the storybook advances on the pick itself', () => {
     const beat = screen.getByTestId('storybook-punchline');
     expect(beat.props.accessibilityLabel).toBe(first!.outcome!.situation);
     const still = screen.getByTestId('storybook-punchline-still');
+    // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+    // lib/story), so installed builds keep the old art beside their old words.
     expect(still.props.source.uri).toContain(
-      `/story/${outcomeStillId(BOOK.scenes[0]!.id, first!.concept)}.webp`,
+      `/story/madlib/${outcomeStillId(BOOK.scenes[0]!.id, first!.concept)}.webp`,
     );
 
     // A second line pressed during the beat does nothing.
@@ -369,7 +372,9 @@ describe('the storybook advances on the pick itself', () => {
     }
     const book = screen.getByTestId('storybook-book');
     const ending = within(book).getByTestId('storybook-ending');
-    expect(ending.props.source.uri).toContain('/story/door--end-disaster.webp');
+    // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+    // lib/story), so installed builds keep the old art beside their old words.
+    expect(ending.props.source.uri).toContain('/story/madlib/door--end-disaster.webp');
     expect(ending.props.accessibilityLabel).toBe(BOOK.endings!.disaster.situation);
 
     const panels = within(book).getAllByTestId('storybook-book-entry');
@@ -377,7 +382,7 @@ describe('the storybook advances on the pick itself', () => {
     BOOK.scenes.forEach((scene, i) => {
       const choice = scene.choices.find((c) => !c.fits)!;
       const still = within(panels[i]!).getByTestId('storybook-book-still');
-      expect(still.props.source.uri).toContain(`/story/${outcomeStillId(scene.id, choice.concept)}.webp`);
+      expect(still.props.source.uri).toContain(`/story/madlib/${outcomeStillId(scene.id, choice.concept)}.webp`);
       expect(still.props.accessibilityLabel).toBe(choice.outcome!.situation);
       expect(within(panels[i]!).getByText(`native:${choice.concept}`)).toBeTruthy();
       expect(within(panels[i]!).getByText(`english:${choice.concept}`)).toBeTruthy();
@@ -463,9 +468,11 @@ describe('the storybook advances on the pick itself', () => {
         const c = sc.choices.find((x) => !x.fits)!;
         return { sceneId: sc.id, concept: c.concept, fitted: false };
       });
+      // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+      // lib/story), so installed builds keep the old art beside their old words.
       expect(stills.map((st) => st.props.source.uri)).toEqual([
-        expect.stringContaining(`/story/${storyEnding(BOOK, entries)!.stillId}.webp`),
-        ...entries.map((e) => expect.stringContaining(`/story/${outcomeStillId(e.sceneId, e.concept)}.webp`)),
+        expect.stringContaining(`/story/madlib/${storyEnding(BOOK, entries)!.stillId}.webp`),
+        ...entries.map((e) => expect.stringContaining(`/story/madlib/${outcomeStillId(e.sceneId, e.concept)}.webp`)),
       ]);
       const panels = within(card).getAllByTestId('story-share-panel', HIDDEN);
       entries.forEach((e, i) => {
@@ -568,5 +575,33 @@ describe('the storybook advances on the pick itself', () => {
     render(<StorybookScreen />);
     expect(await screen.findByTestId('storybook-short')).toBeOnTheScreen();
     expect(screen.queryByTestId('storybook-frame')).toBeNull();
+  });
+});
+
+// Added 2026-09-16 when stills moved to story/madlib/ (STORY_ART_DIR in
+// lib/story). Installed builds ask for /story/<id>.webp with their old words
+// bundled, so the new art must never be requested there, and the development
+// override must serve the same new layout or the simulator shows the old art.
+describe('storyStillUrl', () => {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  const override = process.env.EXPO_PUBLIC_STORY_MEDIA_HOST;
+  afterEach(() => {
+    process.env.EXPO_PUBLIC_DOMAIN = domain;
+    if (override === undefined) delete process.env.EXPO_PUBLIC_STORY_MEDIA_HOST;
+    else process.env.EXPO_PUBLIC_STORY_MEDIA_HOST = override;
+  });
+
+  it('fetches from story/madlib on its own domain', () => {
+    process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example';
+    delete process.env.EXPO_PUBLIC_STORY_MEDIA_HOST;
+    expect(storyStillUrl('door-1')).toBe('https://bolo.example/story/madlib/door-1.webp');
+  });
+
+  it('keeps the same layout under the development override', () => {
+    process.env.EXPO_PUBLIC_DOMAIN = 'bolo.example';
+    process.env.EXPO_PUBLIC_STORY_MEDIA_HOST = 'http://localhost:8765';
+    expect(storyStillUrl('table--end-chaos')).toBe(
+      'http://localhost:8765/story/madlib/table--end-chaos.webp',
+    );
   });
 });

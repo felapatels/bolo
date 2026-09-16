@@ -23,6 +23,7 @@
  * file the phone asks for under another name.
  */
 import { emergencyFilmPath } from "@workspace/emergency";
+import { storyStillPath } from "@workspace/story";
 
 /**
  * The host the app is pointed at, set from EXPO_PUBLIC_DOMAIN the same way
@@ -46,10 +47,16 @@ function host(): string {
  * published: the art is served from the Mac (for example http://localhost:8765)
  * while the API stays on EXPO_PUBLIC_DOMAIN. Unset in every EAS profile, so a
  * store build always fetches from its own domain.
+ *
+ * THE DIRECTORY COMES FROM lib/story (storyStillPath, STORY_ART_DIR), moved
+ * 2026-09-16 from `/story/` to `/story/madlib/`: the rewritten books bundle
+ * new words, and a build already in the App Store would otherwise fetch the
+ * new pictures beside its old narration. The dev override serves the same
+ * layout: `<override>/story/madlib/<id>.webp`.
  */
 export function storyStillUrl(stillId: string): string {
   const override = process.env.EXPO_PUBLIC_STORY_MEDIA_HOST;
-  return `${override || host()}/story/${stillId}.webp`;
+  return `${override || host()}/${storyStillPath(stillId)}`;
 }
 
 /** A zone's Emergency film. */

@@ -9,7 +9,8 @@
 // the two in step: same order, same sizes (STORY_SHARE_LAYOUT), same words.
 //
 // NO NEW DEPENDENCY. A canvas and the Web Share API are enough, and the stills
-// are same-origin /story/<id>.webp files, so the canvas is never tainted.
+// are same-origin /story/madlib/<id>.webp files (storyStillPath in lib/story,
+// since 2026-09-16), so the canvas is never tainted.
 // crossOrigin is only set for a still served from another origin, where it is
 // the difference between a PNG and a SecurityError at toBlob.
 

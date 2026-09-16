@@ -320,8 +320,10 @@ describe("every choice advances", () => {
     // Inside the same box as the page, covering it, not in the column below.
     expect(beat.parentElement).toContainElement(screen.getByTestId("story-scene"));
     expect(beat.className).toMatch(/\binset-0\b/);
+    // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+    // lib/story), so installed builds keep the old art beside their old words.
     expect(beat.querySelector("img")?.getAttribute("src")).toContain(
-      `story/${BOOK.scenes[0]!.id}--`,
+      `story/madlib/${BOOK.scenes[0]!.id}--`,
     );
     fireEvent.click(beat);
     expect(screen.queryByTestId("story-punchline")).toBeNull();
@@ -568,7 +570,9 @@ describe("the book at the end", () => {
     const wrong = fitted.filter((f) => !f).length;
     const kind = wrong === 0 ? "perfect" : wrong * 2 <= said.length ? "chaos" : "disaster";
     const ending = screen.getByTestId("story-ending");
-    expect(ending.getAttribute("src")).toContain(`story/door--end-${kind}.webp`);
+    // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+    // lib/story), so installed builds keep the old art beside their old words.
+    expect(ending.getAttribute("src")).toContain(`story/madlib/door--end-${kind}.webp`);
     expect(ending.getAttribute("alt")).toBe(BOOK.endings![kind].situation);
     // On TOP of the strip, never under it.
     expect(ending.compareDocumentPosition(book.querySelector("ol")!)).toBe(
@@ -582,7 +586,7 @@ describe("the book at the end", () => {
       const choice = scene.choices.find((c) => c.concept === said[i])!;
       const still = panel.querySelector("img")!;
       expect(still.getAttribute("src")).toContain(
-        `story/${outcomeStillId(scene.id, choice.concept)}.webp`,
+        `story/madlib/${outcomeStillId(scene.id, choice.concept)}.webp`,
       );
       expect(still.getAttribute("alt")).toBe(choice.outcome!.situation);
       expect(panel).toHaveTextContent(`native:${choice.concept}`);
@@ -654,7 +658,9 @@ describe("the book at the end", () => {
       storySharePlan(BOOK, entries, (c) => byConcept.get(c), window.location.host),
     );
     expect(plan.footer.domain).toBe(window.location.host);
-    expect(stillUrl("door-1--x")).toContain("story/door-1--x.webp");
+    // INVERTED 2026-09-16: stills moved from story/ to story/madlib/ (STORY_ART_DIR in
+    // lib/story), so installed builds keep the old art beside their old words.
+    expect(stillUrl("door-1--x")).toContain("story/madlib/door-1--x.webp");
 
     const blob = new Blob(["png"], { type: "image/png" });
     await act(async () => { finishDrawing(blob); });

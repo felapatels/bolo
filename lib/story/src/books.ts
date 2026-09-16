@@ -403,6 +403,27 @@ export function outcomeStillId(sceneId: string, concept: string): string {
 }
 
 /**
+ * The directory, under the web app's public root, that THIS build's stills are
+ * served from. Both clients build every still URL from it: mobile's
+ * storyStillUrl and every web still, including the share canvas.
+ *
+ * WHY A NEW DIRECTORY AND NOT NEW FILES UNDER THE OLD NAMES (2026-09-16). The
+ * mad-lib rewrite gave every book new words AND new pictures, and the words are
+ * bundled while the pictures are fetched. Phones already installed from the
+ * App Store ask for `/story/<id>.webp` with their OLD narration baked in, so
+ * publishing the new art under those names would pair new pictures with old
+ * words on every one of them. New art goes to `/story/madlib/<id>.webp`; the
+ * old files in public/story/ stay exactly where they are for the old builds.
+ * The next time words and art change together, this is the one line to move.
+ */
+export const STORY_ART_DIR = "story/madlib";
+
+/** A still's path relative to the site root: `story/madlib/door-1.webp`. */
+export function storyStillPath(stillId: string): string {
+  return `${STORY_ART_DIR}/${stillId}.webp`;
+}
+
+/**
  * How long a punchline holds the frame after a pick, in milliseconds.
  *
  * THE MAD-LIB RULING, owner 2026-09-16 ("it seems boring"). A pick shows that

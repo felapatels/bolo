@@ -44,6 +44,7 @@ import {
   storyEnding,
   storyShareFileName,
   storySharePlan,
+  storyStillPath,
   STORY_PUNCHLINE_MS,
   STORY_SHARE_CTA,
   STORY_TEASER_END,
@@ -306,7 +307,7 @@ function Book({
 }) {
   const [failed, setFailed] = useState(false);
   const reduceMotion = useReducedMotion();
-  const src = (id: string) => `${import.meta.env.BASE_URL}story/${id}.webp`;
+  const src = storyStillSrc;
 
   // The leaf that turns away is simply the page this component showed LAST.
   // Reading it from a ref during the render where `stillId` changed gives the
@@ -555,7 +556,7 @@ function Punchline({
           </div>
         ) : (
           <img
-            src={`${import.meta.env.BASE_URL}story/${stillId}.webp`}
+            src={storyStillSrc(stillId)}
             alt={situation}
             onError={() => setFailed(true)}
             className="h-full w-full object-cover"
@@ -659,10 +660,13 @@ function TasteEnd({ exit }: { exit: StoryExit }) {
  * brief is kept for a screen reader either way, since it is the only form the
  * picture takes for one.
  */
-/** Where this page serves a still from. The strip and the share picture both
- *  ask here, so the picture can only ever hold what the screen shows. */
+/** Where this page serves a still from. The book, the strip and the share
+ *  picture all ask here, so the picture can only ever hold what the screen
+ *  shows. The directory is lib/story's storyStillPath, `story/madlib/` since
+ *  2026-09-16: the old `story/` files stay for installed phones whose bundled
+ *  words match the old pictures (see STORY_ART_DIR). */
 function storyStillSrc(stillId: string): string {
-  return `${import.meta.env.BASE_URL}story/${stillId}.webp`;
+  return `${import.meta.env.BASE_URL}${storyStillPath(stillId)}`;
 }
 
 function StripStill({

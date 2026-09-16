@@ -26,6 +26,7 @@ import { existsSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  STORY_ART_DIR,
   STORY_BOOKS,
   outcomeStillId,
   setupStillId,
@@ -36,7 +37,10 @@ import { generateImageBuffer } from "@workspace/integrations-openai-ai-server";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(here, "../..");
 const OUT_DIRS = [
-  path.join(REPO, "artifacts/gujarati-coach/public/story"),
+  // STORY_ART_DIR, not a literal "story", since 2026-09-16: the old files in
+  // public/story/ belong to phones already installed with the old words, and a
+  // --force run must not overwrite them.
+  path.join(REPO, "artifacts/gujarati-coach/public", STORY_ART_DIR),
   path.join(REPO, "artifacts/bolo-mobile/assets/story"),
 ];
 
