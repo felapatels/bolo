@@ -254,8 +254,9 @@ export const GREETINGS_START_ID = "door-1";
  * the rooster, the forks, the cash register and the confused old men from the
  * outcomes a learner can have caused.
  *
- * ONLY BOOK 1 HAS THESE. Endings are optional per book, and the other five
- * render no ending picture until their art exists.
+ * EVERY BOOK HAS THESE SINCE 2026-09-16, when books 2 to 6 got their mad-lib
+ * art the same day. Endings stay optional in the type, so a future book can
+ * ship before its ending art does and render no ending picture meanwhile.
  */
 export const GREETINGS_ENDINGS: StoryEndings = {
   perfect: {
@@ -272,11 +273,22 @@ export const GREETINGS_ENDINGS: StoryEndings = {
   },
 };
 
+/**
+ * BOOKS 2 TO 6 WERE REWRITTEN AS WILDER STORIES WITH NEW ART on 2026-09-16,
+ * the owner's approval after book 1's mad-lib pass, and ONLY the words moved.
+ * Every setup `situation` and every outcome `situation` below, and each book's
+ * three endings, is the `prose` field of
+ * ~/bolo-supervisor/storybook-madlib/india-<table|chai|thali|yard|photo>.json,
+ * copied in by script. Prose, not the `brief` beside it, for the reason book 1
+ * learned in 6f891ef0: the narrator reads this aloud and the brief talks to an
+ * illustrator. NO concept, `fits` or `next` changed, and the story-books test
+ * pins every book's graph so that stays deliberate.
+ */
 export const FAMILY_SCENES: readonly Scene[] = [
   {
     id: "table-1",
     situation:
-      "A grandmother sets an empty steel tumbler in front of you at a family table and waits, smiling.",
+      "A cow has taken your seat at the family table. Grandmother holds up a jug and waits for you to say what goes in the tumbler.",
     media: [{ tier: 1, ref: "scene/table-1/still", languageCode: null }],
     choices: [
       {
@@ -285,7 +297,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She fills the tumbler to the brim, beaming at you the whole time.",
+            "She pours water. The cow drinks it very politely.",
         },
       },
       {
@@ -294,7 +306,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Scandalised, one hand at her chest, she pushes the tumbler further towards you to make quite sure it is free.",
+            "Grandmother decides you want to buy the cow, and starts the sale.",
         },
       },
       {
@@ -303,7 +315,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She scans the room for a boy, finds nobody, and pats your cheek anyway.",
+            "Grandmother adopts the cow as her grandson. Bonnet and all.",
         },
       },
     ],
@@ -311,7 +323,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
   {
     id: "table-2",
     situation:
-      "She lifts the lid off a covered dish and steam climbs into the light.",
+      "Grandmother lifts the lid off a pot as big as a bathtub. What would you like?",
     media: [{ tier: 1, ref: "scene/table-2/still", languageCode: null }],
     choices: [
       {
@@ -320,7 +332,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She spoons a mountain of rice onto your plate, then adds more to be safe.",
+            "Rice. She serves it with a garden spade. It is a lot of rice.",
         },
       },
       {
@@ -329,7 +341,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She straightens up very fast and stares at the doorway as though someone has just arrived.",
+            "A very old, very strict great-grandmother bursts out of the pot. Everyone hides.",
         },
       },
       {
@@ -338,7 +350,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks at the dish, then at you, then nods slowly as if that explains everything.",
+            "Apparently it is Thursday Rice Day. Nobody has heard of it, but everyone is celebrating.",
         },
       },
     ],
@@ -346,7 +358,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
   {
     id: "table-3",
     situation:
-      "A man carrying a stack of plates stops beside her and looks at you, waiting to be introduced.",
+      "A man rides a scooter straight into the dining room and waits to be introduced. Who is he?",
     media: [{ tier: 1, ref: "scene/table-3/still", languageCode: null }],
     choices: [
       {
@@ -355,7 +367,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He laughs, sets the plates down and shakes your hand with both of his.",
+            "It is your father. He hugs you with his helmet still on.",
         },
       },
       {
@@ -364,7 +376,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "His eyebrows go up and he turns to the grandmother, who is already thrilled by the idea.",
+            "Grandmother thinks you said he is marrying into the family. The band arrives. So does the veil.",
         },
       },
       {
@@ -373,7 +385,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He glances down at his stack of plates, counts them quickly, and looks back at you baffled.",
+            "Twenty of him ride in. Nobody knows which one is the real one.",
         },
       },
     ],
@@ -381,7 +393,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
   {
     id: "table-4",
     situation:
-      "He sets the plates down and counts them out loud, then pauses on the last one and looks up.",
+      "He juggles the plates, catches four, and holds up the next one. How many?",
     media: [{ tier: 1, ref: "scene/table-4/still", languageCode: null }],
     choices: [
       {
@@ -390,7 +402,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He nods, satisfied, and slides the fifth plate across to you.",
+            "Five. He lands them perfectly. The cow applauds.",
         },
       },
       {
@@ -399,7 +411,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He gathers four plates back up and leaves a single one marooned in the middle of the table.",
+            "One. He throws all the other plates out of the window.",
         },
       },
       {
@@ -408,7 +420,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He looks at the plates as though they might have gone off, and cautiously sniffs the top one.",
+            "He hands you yesterday's plates. Nobody has washed them since. A bat lives there now.",
         },
       },
     ],
@@ -416,7 +428,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
   {
     id: "table-5",
     situation:
-      "Everyone sits. The grandmother raises her tumbler at the full table and waits for you to name what you are all part of.",
+      "Everyone raises a tumbler, even the cow. They wait for you to make the toast.",
     media: [{ tier: 1, ref: "scene/table-5/still", languageCode: null }],
     choices: [
       {
@@ -425,7 +437,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "The whole table raises their glasses back at you at once.",
+            "Family. Everyone cheers, and the cow gets hugged the hardest.",
         },
       },
       {
@@ -434,7 +446,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Every chair scrapes back and the entire family stands up to leave, the food untouched.",
+            "Goodbye. Everyone leaves at once, through every exit, including the chimney.",
         },
       },
       {
@@ -443,7 +455,7 @@ export const FAMILY_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "They look at one another, shrug, and drink to Saturday anyway.",
+            "Saturday! The dinner becomes a dance party. The cow can dance.",
         },
       },
     ],
@@ -453,11 +465,27 @@ export const FAMILY_SCENES: readonly Scene[] = [
 /** Where the family book begins. */
 export const FAMILY_START_ID = "table-1";
 
+/** The three pictures the family book can end on (see GREETINGS_ENDINGS). */
+export const FAMILY_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "A perfect dinner. The cow is now officially part of the family.",
+  },
+  chaos: {
+    situation:
+      "Dinner was loud, messy, and everyone had a wonderful time. The cow fell asleep on the table.",
+  },
+  disaster: {
+    situation:
+      "Scooters, a wedding band, and a great-grandmother on the ceiling fan. Grandmother says it was the best dinner in years.",
+  },
+};
+
 export const CHAI_SCENES: readonly Scene[] = [
   {
     id: "chai-1",
     situation:
-      "A chai stall uncle holds up an empty steel tray and waits to be told how many.",
+      "Your friends today are an elephant, a monkey and a goat. The chai uncle holds up an empty tray. How many glasses?",
     media: [{ tier: 1, ref: "scene/chai-1/still", languageCode: null }],
     choices: [
       {
@@ -466,7 +494,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "In one motion he sets four small glasses onto the tray.",
+            "Four. One each, and one for you.",
         },
       },
       {
@@ -475,7 +503,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Unfazed, he begins covering every surface of the stall with glasses, and starts on the shelf behind him.",
+            "Twenty. A whole zoo shows up to drink them.",
         },
       },
       {
@@ -484,7 +512,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He laughs, waves the question away, and holds the empty tray up again expectantly.",
+            "You ask the price, and the monkey runs off with all the money.",
         },
       },
     ],
@@ -492,7 +520,7 @@ export const CHAI_SCENES: readonly Scene[] = [
   {
     id: "chai-2",
     situation:
-      "He has filled three glasses and looks up, kettle still tilted, waiting.",
+      "A peacock lands and wants chai too. He has poured three. How many altogether?",
     media: [{ tier: 1, ref: "scene/chai-2/still", languageCode: null }],
     choices: [
       {
@@ -501,7 +529,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He pours two more, steam curling up between you.",
+            "Five. He pours from a great height and does not spill a drop.",
         },
       },
       {
@@ -510,7 +538,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "With enormous care he tips two of the poured glasses back into the kettle.",
+            "One. So he drinks all the others himself.",
         },
       },
       {
@@ -519,7 +547,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He stops mid-pour, visibly hurt, and peers into the kettle to check whether the chai is all right.",
+            "He is so sad you said sorry that his tears fill the kettle. The elephant brings a hanky.",
         },
       },
     ],
@@ -527,7 +555,7 @@ export const CHAI_SCENES: readonly Scene[] = [
   {
     id: "chai-3",
     situation:
-      "A neat row of glasses stands along the counter, with one place left empty.",
+      "A row of glasses, with one gap. The monkey is sitting in it, waiting.",
     media: [{ tier: 1, ref: "scene/chai-3/still", languageCode: null }],
     choices: [
       {
@@ -536,7 +564,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He fills the gap with a last glass and steps back to admire the finished row.",
+            "One more glass. The monkey is very civilised about it.",
         },
       },
       {
@@ -545,7 +573,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He looks at the single empty space, then at his own two hands, and shrugs helplessly.",
+            "He stacks nineteen more glasses. The elephant holds the top one.",
         },
       },
       {
@@ -554,7 +582,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He writes something on the wooden counter with his finger, nodding to himself.",
+            "He closes the stall and goes to sleep until Monday.",
         },
       },
     ],
@@ -562,7 +590,7 @@ export const CHAI_SCENES: readonly Scene[] = [
   {
     id: "chai-4",
     situation:
-      "He wipes his hands on a cloth and holds out an open palm to you.",
+      "He wipes his hands and holds out his palm. Time to pay.",
     media: [{ tier: 1, ref: "scene/chai-4/still", languageCode: null }],
     choices: [
       {
@@ -571,7 +599,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He grins and holds up fingers, one at a time.",
+            "He shows you the price on his fingers. The monkey helps.",
         },
       },
       {
@@ -580,7 +608,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He looks down at his own palm, counts his fingers twice, and comes up short.",
+            "Twelve? He runs out of fingers and borrows the elephant's toes.",
         },
       },
       {
@@ -589,7 +617,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He beams, closes his hand entirely, and refuses to be paid at all.",
+            "He is so touched that he gives you the whole chai stall and goes home.",
         },
       },
     ],
@@ -597,7 +625,7 @@ export const CHAI_SCENES: readonly Scene[] = [
   {
     id: "chai-5",
     situation:
-      "He counts coins back into your hand, one at a time, watching your face.",
+      "He counts your change into your hand, one coin at a time.",
     media: [{ tier: 1, ref: "scene/chai-5/still", languageCode: null }],
     choices: [
       {
@@ -606,7 +634,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He touches his heart and presses one more glass of chai on you.",
+            "He touches his heart and gives you one more chai for the road.",
         },
       },
       {
@@ -615,7 +643,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He stops, tips the coins back into his palm, recounts them carefully, and begins again from the top.",
+            "Eight? The tin explodes into a shower of coins.",
         },
       },
       {
@@ -624,7 +652,7 @@ export const CHAI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He pours the change straight back into his own tin and waves you off very cheerfully.",
+            "Goodbye! The whole stall climbs onto the elephant and leaves.",
         },
       },
     ],
@@ -634,11 +662,27 @@ export const CHAI_SCENES: readonly Scene[] = [
 /** Where the chai book begins. */
 export const CHAI_START_ID = "chai-1";
 
+/** The three pictures the chai book can end on (see GREETINGS_ENDINGS). */
+export const CHAI_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "Sunset, a warm glass of chai, and the best customers in town.",
+  },
+  chaos: {
+    situation:
+      "The stall is a mess, the monkey has the towel, and the uncle cannot stop laughing.",
+  },
+  disaster: {
+    situation:
+      "The stall is on the elephant, the money is in the sky, and a camel wants chai. Best day of business ever.",
+  },
+};
+
 export const THALI_SCENES: readonly Scene[] = [
   {
     id: "thali-1",
     situation:
-      "A woman sets an empty steel thali down in front of you and waits, tea towel over her shoulder.",
+      "You brought a jar of crunchy bugs as a gift. Aunty looks at it, then at your empty plate. What would you like?",
     media: [{ tier: 1, ref: "scene/thali-1/still", languageCode: null }],
     choices: [
       {
@@ -647,7 +691,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She heaps rice into the middle of the thali and presses a dent into the top.",
+            "Rice. She serves it, and very politely moves your bugs away.",
         },
       },
       {
@@ -656,7 +700,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She fetches an enormous kitchen knife and lays it across the empty thali.",
+            "A knife? She takes a sword off the wall and deals with the bugs herself.",
         },
       },
       {
@@ -665,7 +709,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks at the empty plate, then at you, pleased and entirely lost.",
+            "Congratulations? She throws your bugs in the air like confetti and dances.",
         },
       },
     ],
@@ -673,7 +717,7 @@ export const THALI_SCENES: readonly Scene[] = [
   {
     id: "thali-2",
     situation:
-      "She holds a small bowl over the thali, tipped and ready to pour.",
+      "She holds up a pot of dal, but there is nowhere to put it. One of your bugs is swimming in it.",
     media: [{ tier: 1, ref: "scene/thali-2/still", languageCode: null }],
     choices: [
       {
@@ -682,7 +726,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She sets the little bowl neatly into the thali's ring.",
+            "A bowl. She pours the dal and rescues the swimming bug.",
         },
       },
       {
@@ -691,7 +735,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She pours water straight over the rice and watches it soak in, unbothered.",
+            "Water? She uses a fire hose. The rice sails away.",
         },
       },
       {
@@ -700,7 +744,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks over her shoulder at the doorway, bowl still hovering in mid-air.",
+            "A strict grandfather arrives. Aunty tries very hard to hide the bugs.",
         },
       },
     ],
@@ -708,7 +752,7 @@ export const THALI_SCENES: readonly Scene[] = [
   {
     id: "thali-3",
     situation:
-      "You have taken one mouthful and gone very still. She nudges a small covered pot towards you.",
+      "You take one bite and go quiet. Aunty slides a little pot towards you.",
     media: [{ tier: 1, ref: "scene/thali-3/still", languageCode: null }],
     choices: [
       {
@@ -717,7 +761,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She taps salt over your food and nods, satisfied.",
+            "Salt. Much better. Even the bug agrees.",
         },
       },
       {
@@ -726,7 +770,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Without hesitating she upends the entire pot of salt onto the thali.",
+            "Twenty? A truck delivers twenty sacks of salt. The bugs go skiing.",
         },
       },
       {
@@ -735,7 +779,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She lifts the thali away and starts washing it while you are still chewing.",
+            "Goodbye? She whips the tablecloth away and the whole meal flies out of the window.",
         },
       },
     ],
@@ -743,7 +787,7 @@ export const THALI_SCENES: readonly Scene[] = [
   {
     id: "thali-4",
     situation:
-      "There is nothing to eat with. She glances pointedly at a kitchen drawer.",
+      "There is nothing to eat with. She opens a drawer and bugs fly out. What do you need?",
     media: [{ tier: 1, ref: "scene/thali-4/still", languageCode: null }],
     choices: [
       {
@@ -752,7 +796,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She hands you a spoon, handle first, with a small nod.",
+            "A spoon. She hands it over with great dignity.",
         },
       },
       {
@@ -761,7 +805,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She stacks a second empty thali on top of the first, food and all.",
+            "A plate? She stacks plates until they go through the ceiling.",
         },
       },
       {
@@ -770,7 +814,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She opens the drawer, looks inside it for Monday, and closes it again.",
+            "Monday? She climbs into the drawer to look for it.",
         },
       },
     ],
@@ -778,7 +822,7 @@ export const THALI_SCENES: readonly Scene[] = [
   {
     id: "thali-5",
     situation:
-      "You have finished. She is already reaching for the serving dish again.",
+      "You have finished. Aunty is already coming with more, and the goat has a second pot.",
     media: [{ tier: 1, ref: "scene/thali-5/still", languageCode: null }],
     choices: [
       {
@@ -787,7 +831,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She withdraws the dish, disappointed but entirely respectful about it.",
+            "No, thank you. The goat is delighted and eats it instead.",
         },
       },
       {
@@ -796,7 +840,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She piles on a second helping considerably larger than the first.",
+            "Please? They pour until the table disappears under food.",
         },
       },
       {
@@ -805,7 +849,7 @@ export const THALI_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She sits down opposite you, pulls the dish towards herself, and settles in to eat too.",
+            "Welcome? Aunty, the goat, twenty neighbours and a buffalo sit down to eat too.",
         },
       },
     ],
@@ -815,11 +859,27 @@ export const THALI_SCENES: readonly Scene[] = [
 /** Where the thali book begins. */
 export const THALI_START_ID = "thali-1";
 
+/** The three pictures the thali book can end on (see GREETINGS_ENDINGS). */
+export const THALI_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "A perfect meal. Aunty keeps your bugs as a souvenir. She will never eat them.",
+  },
+  chaos: {
+    situation:
+      "The kitchen is a mess, the bugs are dancing, and aunty is laughing.",
+  },
+  disaster: {
+    situation:
+      "Salt mountains, floods, a truck in the kitchen. Aunty says you must come every week.",
+  },
+};
+
 export const COURTYARD_SCENES: readonly Scene[] = [
   {
     id: "yard-1",
     situation:
-      "An aunt looks up from a washing line in a sunlit courtyard and asks where you have come from.",
+      "You arrive on a camel. It starts eating the washing. Aunty asks where you have come from.",
     media: [{ tier: 1, ref: "scene/yard-1/still", languageCode: null }],
     choices: [
       {
@@ -828,7 +888,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She nods, pleased, and points at the house immediately next door.",
+            "From here, next door. She laughs. The camel is the neighbour's.",
         },
       },
       {
@@ -837,7 +897,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She shades her eyes and squints at the far horizon, searching a very long way off.",
+            "From there? She climbs on the camel with a telescope to look for it.",
         },
       },
       {
@@ -846,7 +906,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She puts the washing down and scans the whole courtyard for an old man who is not there.",
+            "Grandfather? He jumps out of the laundry basket, flexing.",
         },
       },
     ],
@@ -854,7 +914,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
   {
     id: "yard-2",
     situation:
-      "She holds a peg between her teeth and asks when you arrived.",
+      "Aunty, with a peg in her teeth, asks when you arrived. A monkey is sitting on your suitcase.",
     media: [{ tier: 1, ref: "scene/yard-2/still", languageCode: null }],
     choices: [
       {
@@ -863,7 +923,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She nods and pegs up another shirt without breaking rhythm.",
+            "Yesterday. She nods and gets on with the washing. The monkey helps.",
         },
       },
       {
@@ -872,7 +932,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks startled and cranes past you for the luggage that is plainly not there.",
+            "Now? She panics and a whole welcome parade appears out of nowhere.",
         },
       },
       {
@@ -881,7 +941,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She drops the peg, delighted, and heads straight for the kitchen.",
+            "Rice? The rice pot erupts like a volcano.",
         },
       },
     ],
@@ -889,7 +949,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
   {
     id: "yard-3",
     situation:
-      "She points at the courtyard gate and asks when you are leaving.",
+      "Aunty points at the gate and asks when you are leaving. The camel is already packed.",
     media: [{ tier: 1, ref: "scene/yard-3/still", languageCode: null }],
     choices: [
       {
@@ -898,7 +958,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She looks sad and pegs the next shirt up very slowly.",
+            "Tomorrow. She is a little sad, and gives the camel a long hug.",
         },
       },
       {
@@ -907,7 +967,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She immediately starts pulling the whole washing line down in a hurry.",
+            "Night? She pulls a curtain across the sky to make it night right now.",
         },
       },
       {
@@ -916,7 +976,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks at the gate, then at you, and tries to hold up twenty fingers she does not have.",
+            "Twenty? Twenty camels line up to carry your socks.",
         },
       },
     ],
@@ -924,7 +984,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
   {
     id: "yard-4",
     situation:
-      "She holds out her arm, offering to walk you to the road.",
+      "She holds out her arm to walk you to the road. So does the camel.",
     media: [{ tier: 1, ref: "scene/yard-4/still", languageCode: null }],
     choices: [
       {
@@ -933,7 +993,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She takes your arm at once, thoroughly delighted.",
+            "Please. She takes your arm, and the camel follows along proudly.",
         },
       },
       {
@@ -942,7 +1002,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She withdraws her arm and pats your shoulder consolingly instead.",
+            "Sorry? Everyone cries so much that ducks move in.",
         },
       },
       {
@@ -951,7 +1011,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She throws both arms up in celebration in the middle of the courtyard, washing forgotten.",
+            "Congratulations? Fireworks! The camel dances.",
         },
       },
     ],
@@ -959,7 +1019,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
   {
     id: "yard-5",
     situation:
-      "At the gate she stops and raises one hand.",
+      "At the gate, Aunty raises a hand. So does the camel.",
     media: [{ tier: 1, ref: "scene/yard-5/still", languageCode: null }],
     choices: [
       {
@@ -968,7 +1028,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She waves steadily until you are out of sight.",
+            "Goodbye. She and the camel wave until you are out of sight.",
         },
       },
       {
@@ -977,7 +1037,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She lowers her hand, takes your elbow, and walks you straight back into the courtyard.",
+            "Hello? She hooks you back in with a cane. The visit starts again.",
         },
       },
       {
@@ -986,7 +1046,7 @@ export const COURTYARD_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She leans in close, eyes wide, waiting to hear it, and hears nothing at all.",
+            "Good news? The whole village leans in to hear it. You have no news.",
         },
       },
     ],
@@ -996,11 +1056,27 @@ export const COURTYARD_SCENES: readonly Scene[] = [
 /** Where the courtyard book begins. */
 export const COURTYARD_START_ID = "yard-1";
 
+/** The three pictures the courtyard book can end on (see GREETINGS_ENDINGS). */
+export const COURTYARD_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "A lovely visit. The camel wants to come again.",
+  },
+  chaos: {
+    situation:
+      "The washing is on the camel, the monkey is in a shirt, and everyone is laughing.",
+  },
+  disaster: {
+    situation:
+      "Twenty camels, a rice volcano and fireworks. The neighbours will talk about this for years.",
+  },
+};
+
 export const PHOTOGRAPH_SCENES: readonly Scene[] = [
   {
     id: "photo-1",
     situation:
-      "A boy stands frozen over a broken plate, looking up at you.",
+      "You bump the table. The best plate smashes. Everyone, including the peacock, looks at you.",
     media: [{ tier: 1, ref: "scene/photo-1/still", languageCode: null }],
     choices: [
       {
@@ -1009,7 +1085,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "He lets out a breath, and the grandmother ruffles his hair on her way past.",
+            "Sorry. Grandmother smiles. The peacock forgives you too.",
         },
       },
       {
@@ -1018,7 +1094,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He grins enormously and takes a low bow over the broken pieces.",
+            "Congratulations? The family celebrates the broken plate like a trophy.",
         },
       },
       {
@@ -1027,7 +1103,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He looks at the shards, then goes and fetches a bowl of rice, confused but willing.",
+            "Rice? They glue the plate back together with rice. It is now a sculpture.",
         },
       },
     ],
@@ -1035,7 +1111,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
   {
     id: "photo-2",
     situation:
-      "A woman holds out an opened letter, beaming, her hands shaking slightly.",
+      "Your cousin holds an opened letter. She is beaming and shaking. Something wonderful has happened.",
     media: [{ tier: 1, ref: "scene/photo-2/still", languageCode: null }],
     choices: [
       {
@@ -1044,7 +1120,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "She hugs the letter to her chest with both arms.",
+            "Congratulations! She got in. Everyone cheers.",
         },
       },
       {
@@ -1053,7 +1129,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Her face falls and she turns the letter over to read it again more carefully.",
+            "Sorry? The whole family starts crying. It rains indoors.",
         },
       },
       {
@@ -1062,7 +1138,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "She looks at the letter, then at you, and turns it round to show you there is no price on it.",
+            "How much? The family starts an auction for her letter.",
         },
       },
     ],
@@ -1070,7 +1146,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
   {
     id: "photo-3",
     situation:
-      "A grandfather has fallen asleep bolt upright mid-sentence, one hand still raised.",
+      "Grandfather has fallen asleep standing up, in the middle of the photo. The peacock too.",
     media: [{ tier: 1, ref: "scene/photo-3/still", languageCode: null }],
     choices: [
       {
@@ -1079,7 +1155,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "Someone drapes a shawl over his shoulders without waking him.",
+            "Good night. They tuck him in, standing up.",
         },
       },
       {
@@ -1088,7 +1164,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He jolts awake and starts the entire sentence again from the very beginning.",
+            "Good morning! He wakes up so fast he goes through the ceiling.",
         },
       },
       {
@@ -1097,7 +1173,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "He mutters a number in his sleep and settles deeper into the chair.",
+            "Twenty? Grandfather counts sheep in his sleep. Twenty of them float into the room.",
         },
       },
     ],
@@ -1105,7 +1181,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
   {
     id: "photo-4",
     situation:
-      "Someone presses a wrapped parcel into your hands and steps back to watch.",
+      "An aunty hands you a present. It is wiggling.",
     media: [{ tier: 1, ref: "scene/photo-4/still", languageCode: null }],
     choices: [
       {
@@ -1114,7 +1190,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "They beam and wave your thanks away with both hands.",
+            "Thank you. It is a chicken in a party hat. Everyone cheers.",
         },
       },
       {
@@ -1123,7 +1199,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Every single person in the room turns to look at you at once.",
+            "How much? The whole room goes silent and stares at you.",
         },
       },
       {
@@ -1132,7 +1208,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "They take the parcel back gently and set it on the table for some other day.",
+            "Goodbye? The present flies out of the window.",
         },
       },
     ],
@@ -1140,7 +1216,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
   {
     id: "photo-5",
     situation:
-      "The whole family crowds together for a photograph, leaving a gap in the middle for you.",
+      "Everyone crowds in for the photo, leaving a space for you. What do you say?",
     media: [{ tier: 1, ref: "scene/photo-5/still", languageCode: null }],
     choices: [
       {
@@ -1149,7 +1225,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: true,
         outcome: {
           situation:
-            "Everyone squeezes in around you and the picture is taken.",
+            "Family. Everyone squeezes in, and the photo is perfect.",
         },
       },
       {
@@ -1158,7 +1234,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "Three separate people turn to look at the same man, who shrugs.",
+            "Father-in-law? Everyone points at somebody else. Nobody knows.",
         },
       },
       {
@@ -1167,7 +1243,7 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
         fits: false,
         outcome: {
           situation:
-            "They all hold their smiles, frozen, waiting for you to explain.",
+            "Thursday? They hold the pose until Thursday. The grandfather grows a beard.",
         },
       },
     ],
@@ -1176,4 +1252,20 @@ export const PHOTOGRAPH_SCENES: readonly Scene[] = [
 
 /** Where the photograph book begins. */
 export const PHOTOGRAPH_START_ID = "photo-1";
+
+/** The three pictures the photograph book can end on (see GREETINGS_ENDINGS). */
+export const PHOTOGRAPH_ENDINGS: StoryEndings = {
+  perfect: {
+    situation:
+      "The perfect family photo, framed on the wall.",
+  },
+  chaos: {
+    situation:
+      "The photo is blurry and everyone is laughing. It is their favourite one.",
+  },
+  disaster: {
+    situation:
+      "A hole in the ceiling, sheep, a chicken and a rain cloud. They make copies for everyone.",
+  },
+};
 

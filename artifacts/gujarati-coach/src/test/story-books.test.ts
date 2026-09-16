@@ -538,15 +538,22 @@ describe("ending pictures", () => {
     }
   });
 
-  test("only book 1 has ending art so far, and the others answer null rather than a picture", () => {
-    // OPTIONAL PER BOOK on purpose: a book whose endings were never drawn must
-    // not request three stills that do not exist.
+  test("every book has ending art, and a book without it would answer null rather than a picture", () => {
+    // INVERTED 2026-09-16: this pinned that only book 1 had endings. Books 2 to
+    // 6 were rewritten with new art the same day and all carry three endings
+    // now, each with its own words. OPTIONAL PER BOOK still holds in the type:
+    // a book whose endings were never drawn must not request three stills that
+    // do not exist, so that half is kept against a copy with none.
     const withEndings = STORY_BOOKS.filter((b) => b.endings).map((b) => b.id);
-    expect(withEndings).toEqual(["j1z1-greetings"]);
-    const entry = { sceneId: "table-1", concept: "water", fitted: true };
-    for (const book of STORY_BOOKS.filter((b) => !b.endings)) {
-      expect(storyEnding(book, [entry])).toBeNull();
+    expect(withEndings).toEqual(STORY_BOOKS.map((b) => b.id));
+    for (const book of STORY_BOOKS) {
+      const briefs = Object.values(book.endings!).map((e) => e.situation);
+      expect(new Set(briefs).size, book.id).toBe(3);
     }
+    const entry = { sceneId: "table-1", concept: "water", fitted: true };
+    const table = storyBookFor(1, 2)!;
+    expect(storyEnding({ ...table, endings: undefined }, [entry])).toBeNull();
+    expect(storyEnding(table, [entry])?.stillId).toBe("table--end-perfect");
   });
 
   test("book 1's ending follows the read", () => {
@@ -599,9 +606,96 @@ describe("book 1's words match its new art (2026-09-16)", () => {
     const door3 = storyBookFor(1, 1)!.scenes.find((sc) => sc.id === "door-3")!;
     expect(door3.situation).toMatch(/hugs a big clay jug/);
     expect(door3.situation).not.toMatch(/\bpour/i);
-    // Nothing an illustrator was told may reach the narrator.
-    for (const sc of storyBookFor(1, 1)!.scenes) {
-      expect(sc.situation).not.toMatch(/viewer|NOT |Setting:/);
+    // Nothing an illustrator was told may reach the narrator. Every book and
+    // every line is now checked in the describe below.
+  });
+});
+
+describe("no book narrates the illustrator's prompts (2026-09-16)", () => {
+  // EXTENDED 2026-09-16 from book 1's setups to every line of every book, when
+  // books 2 to 6 were rewritten from the same kind of commissioned file. The
+  // narrator reads setups, outcomes and endings aloud, and each brief sat right
+  // beside the prose it was copied from, so one wrong field reaches a learner's
+  // ears as "the viewer" or "Setting: INSIDE".
+  test("no setup, outcome or ending contains prompt vocabulary", () => {
+    for (const book of STORY_BOOKS) {
+      const lines = [
+        ...book.scenes.flatMap((sc) => [
+          [sc.id, sc.situation],
+          ...sc.choices.map((c) => [`${sc.id} ${c.concept}`, c.outcome.situation]),
+        ]),
+        ...Object.entries(book.endings ?? {}).map(([k, e]) => [`end-${k}`, e.situation]),
+      ];
+      expect(lines.length, book.id).toBe(23);
+      for (const [where, text] of lines) {
+        expect(text, `${book.id} ${where}`).not.toMatch(/viewer|NOT |Setting:/);
+      }
     }
+  });
+});
+
+describe("books 2 to 6: only the words moved (2026-09-16)", () => {
+  // The same pin as book 1's above, for the same reason: every concept was
+  // checked against every language's corpus, so a changed concept, fit or next
+  // silently changes which languages can play the book. Taken from the source
+  // as it stood BEFORE the rewrite.
+  test.each([
+    [
+      2,
+      [
+        ["table-1", ["water|true|table-2", "how much is this?|false|table-2", "grandson|false|table-2"]],
+        ["table-2", ["rice|true|table-3", "mother-in-law|false|table-3", "thursday|false|table-3"]],
+        ["table-3", ["father|true|table-4", "son-in-law|false|table-4", "twenty|false|table-4"]],
+        ["table-4", ["five|true|table-5", "one|false|table-5", "yesterday|false|table-5"]],
+        ["table-5", ["family|true|null", "goodbye|false|null", "saturday|false|null"]],
+      ],
+    ],
+    [
+      3,
+      [
+        ["chai-1", ["four|true|chai-2", "twenty|false|chai-2", "how much is this?|false|chai-2"]],
+        ["chai-2", ["five|true|chai-3", "one|false|chai-3", "sorry|false|chai-3"]],
+        ["chai-3", ["one|true|chai-4", "nineteen|false|chai-4", "monday|false|chai-4"]],
+        ["chai-4", ["how much is this?|true|chai-5", "twelve|false|chai-5", "thank you|false|chai-5"]],
+        ["chai-5", ["thank you|true|null", "eight|false|null", "goodbye|false|null"]],
+      ],
+    ],
+    [
+      4,
+      [
+        ["thali-1", ["rice|true|thali-2", "knife|false|thali-2", "congratulations|false|thali-2"]],
+        ["thali-2", ["bowl|true|thali-3", "water|false|thali-3", "father-in-law|false|thali-3"]],
+        ["thali-3", ["salt|true|thali-4", "twenty|false|thali-4", "goodbye|false|thali-4"]],
+        ["thali-4", ["spoon|true|thali-5", "plate|false|thali-5", "monday|false|thali-5"]],
+        ["thali-5", ["no|true|null", "please|false|null", "welcome|false|null"]],
+      ],
+    ],
+    [
+      5,
+      [
+        ["yard-1", ["here|true|yard-2", "there|false|yard-2", "grandfather|false|yard-2"]],
+        ["yard-2", ["yesterday|true|yard-3", "now|false|yard-3", "rice|false|yard-3"]],
+        ["yard-3", ["tomorrow|true|yard-4", "night|false|yard-4", "twenty|false|yard-4"]],
+        ["yard-4", ["please|true|yard-5", "sorry|false|yard-5", "congratulations|false|yard-5"]],
+        ["yard-5", ["goodbye|true|null", "hello|false|null", "good news|false|null"]],
+      ],
+    ],
+    [
+      6,
+      [
+        ["photo-1", ["sorry|true|photo-2", "congratulations|false|photo-2", "rice|false|photo-2"]],
+        ["photo-2", ["congratulations|true|photo-3", "sorry|false|photo-3", "how much is this?|false|photo-3"]],
+        ["photo-3", ["good night|true|photo-4", "good morning|false|photo-4", "twenty|false|photo-4"]],
+        ["photo-4", ["thank you|true|photo-5", "how much is this?|false|photo-5", "goodbye|false|photo-5"]],
+        ["photo-5", ["family|true|null", "father-in-law|false|null", "thursday|false|null"]],
+      ],
+    ],
+  ] as const)("zone %i's graph is exactly what it was", (zone, expected) => {
+    const book = storyBookFor(1, zone)!;
+    const graph = book.scenes.map((sc) => [
+      sc.id,
+      sc.choices.map((c) => `${c.concept}|${c.fits}|${c.next}`),
+    ]);
+    expect(graph).toEqual(expected);
   });
 });

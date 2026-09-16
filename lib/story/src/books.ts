@@ -1,16 +1,21 @@
 import { conceptSpellings } from "./concepts";
 import {
+  CHAI_ENDINGS,
   CHAI_SCENES,
   CHAI_START_ID,
+  COURTYARD_ENDINGS,
   COURTYARD_SCENES,
   COURTYARD_START_ID,
+  FAMILY_ENDINGS,
   FAMILY_SCENES,
   FAMILY_START_ID,
   GREETINGS_ENDINGS,
   GREETINGS_SCENES,
   GREETINGS_START_ID,
+  PHOTOGRAPH_ENDINGS,
   PHOTOGRAPH_SCENES,
   PHOTOGRAPH_START_ID,
+  THALI_ENDINGS,
   THALI_SCENES,
   THALI_START_ID,
 } from "./scenes";
@@ -44,10 +49,11 @@ export type StoryBook = {
   /**
    * The three ending pictures, OPTIONAL until a book's art exists.
    *
-   * Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"). Only
-   * book 1 carries them so far. A book without them renders no ending picture
-   * at all rather than requesting stills that were never drawn, which is the
-   * grey hole a missing asset leaves on a phone.
+   * Added 2026-09-16 with the mad-lib ruling (owner: "it seems boring"). All
+   * six books carry them since books 2 to 6 were rewritten the same day. A
+   * book without them renders no ending picture at all rather than requesting
+   * stills that were never drawn, which is the grey hole a missing asset leaves
+   * on a phone, so a new book may still ship before its ending art.
    */
   endings?: StoryEndings;
 };
@@ -102,6 +108,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "At the family table",
     scenes: FAMILY_SCENES,
     startId: FAMILY_START_ID,
+    endings: FAMILY_ENDINGS,
   },
   {
     id: "j1z3-chai",
@@ -110,6 +117,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "The chai stall",
     scenes: CHAI_SCENES,
     startId: CHAI_START_ID,
+    endings: CHAI_ENDINGS,
   },
   {
     id: "j1z4-thali",
@@ -118,6 +126,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "The thali",
     scenes: THALI_SCENES,
     startId: THALI_START_ID,
+    endings: THALI_ENDINGS,
   },
   {
     id: "j1z5-courtyard",
@@ -126,6 +135,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "The courtyard",
     scenes: COURTYARD_SCENES,
     startId: COURTYARD_START_ID,
+    endings: COURTYARD_ENDINGS,
   },
   {
     id: "j1z6-photograph",
@@ -134,6 +144,7 @@ export const STORY_BOOKS: readonly StoryBook[] = [
     title: "The photograph",
     scenes: PHOTOGRAPH_SCENES,
     startId: PHOTOGRAPH_START_ID,
+    endings: PHOTOGRAPH_ENDINGS,
   },
 ];
 
