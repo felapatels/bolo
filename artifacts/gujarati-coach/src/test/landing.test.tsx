@@ -1,3 +1,6 @@
+import { APP_STORE_URL, PLAY_STORE_URL, APP_STORE_LIVE, PLAY_STORE_LIVE } from '@/components/app-store-badge';
+import { LANGUAGE_PAGES } from '@/lib/languagePages';
+import { SITE_ORIGIN } from '@/lib/seo';
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { Router, Route } from "wouter";
@@ -373,10 +376,10 @@ describe("Landing page", () => {
     ).toBeTruthy();
 
     // Each chip deep-links to its public per-language page.
-    expect(hindi).toHaveAttribute("href", "/languages/hindi");
+    expect(hindi).toHaveAttribute("href", "/languages/hindi.html");
     expect(
       screen.getByRole("link", { name: /ગુજરાતી\s*Gujarati/i }),
-    ).toHaveAttribute("href", "/languages/gujarati");
+    ).toHaveAttribute("href", "/languages/gujarati.html");
   });
 
   test("renders the five how-it-works steps in order with lazy screenshots", () => {
@@ -532,65 +535,36 @@ describe("Landing page", () => {
   });
 });
 
-describe("Per-language page (/languages/:slug)", () => {
-  function renderLanguagePage(slug: string) {
-    return renderAt(
-      <Route path="/languages/:slug" component={LearnLanguage} />,
-      `/languages/${slug}`,
-    );
+describe("Per-language pages", () => {
+  function renderLanguage(slug: string) {
+    return renderAt(<Route path="/languages/:slug" component={LearnLanguage} />, `/languages/${slug}.html`);
   }
-
-  test("renders a known language with native script, phrases, and signup CTA", () => {
-    renderLanguagePage("gujarati");
-
-    expect(
-      screen.getByRole("heading", { name: /Actually speak Gujarati\./i }),
-    ).toBeInTheDocument();
-    // Native name in script.
-    expect(screen.getByText("ગુજરાતી")).toBeInTheDocument();
-
-    // Sample phrases with romanization from the free starter set.
-    expect(screen.getByText("કેમ છો?")).toBeInTheDocument();
-    expect(screen.getByText(/kem chho\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/How are you\?/i)).toBeInTheDocument();
-
-    // Signup CTAs route to /sign-up.
-    const cta = screen.getByRole("link", {
-      name: /Start speaking Gujarati free/i,
-    });
-    expect(cta).toHaveAttribute("href", "/sign-up");
-
-    // Unique per-page title + view event.
-    expect(document.title).toMatch(/Learn to speak Gujarati \| Bolo!/);
-    expect(h.track).toHaveBeenCalledWith(
-      ANALYTICS_EVENTS.PER_LANGUAGE_PAGE_VIEW,
-      { language: "Gujarati" },
-    );
-
-    // per-language CTA analytics.
+  test.each(LANGUAGE_PAGES)("$name has its own content, canonical URL and regional downloads", lang => {
+    renderLanguage(lang.slug);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Learn to speak${lang.name}.`);
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute('href', `${SITE_ORIGIN}/languages/${lang.slug}.html`);
+    expect(document.title).toContain(lang.name);
+    expect(screen.getByText(lang.nativeName, { selector: 'p' })).toHaveAttribute('dir', lang.rtl ? 'rtl' : 'ltr');
+    expect(screen.getByText(lang.nativeName, { selector: 'p' })).toHaveAttribute('lang', lang.code);
+    for (const phrase of lang.phrases) expect(screen.getAllByText(phrase.nativeScript).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'LARK Enterprises LLC' })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: lang.name, exact: true })).toHaveAttribute('aria-current', 'page');
+    for (const [name, url, live] of [
+      ['Download on the App Store', APP_STORE_URL, APP_STORE_LIVE],
+      ['Get it on Google Play', PLAY_STORE_URL, PLAY_STORE_LIVE],
+    ] as const) {
+      expect(screen.getAllByRole('img', { name })).toHaveLength(2);
+      if (live) for (const link of screen.getAllByRole('link', { name })) expect(link).toHaveAttribute('href', url);
+      else expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+    }
+    const cta = screen.getAllByRole('link', { name: `Start learning ${lang.name}` })[0];
+    expect(cta).toHaveAttribute('href', '/sign-up?redirect_url=%2Fchoose-language');
     fireEvent.click(cta);
-    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.CTA_CLICK, {
-      placement: "per-language-cta",
-    });
-    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.SIGNUP_STARTED, {
-      source: "per-language-cta",
-    });
+    expect(h.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.SIGNUP_STARTED, { source: `language-${lang.slug}`, language: lang.code });
+    expect(document.body.textContent).not.toContain('\u2014');
   });
-
-  test("renders the RTL Urdu page with dir=rtl native text", () => {
-    renderLanguagePage("urdu");
-
-    expect(
-      screen.getByRole("heading", { name: /Actually speak Urdu\./i }),
-    ).toBeInTheDocument();
-    const native = screen.getByText("اردو");
-    expect(native).toHaveAttribute("dir", "rtl");
-  });
-
-  test("unknown slugs fall through to the not-found surface", () => {
-    renderLanguagePage("klingon");
-    expect(
-      screen.queryByRole("heading", { name: /Actually speak/i }),
-    ).not.toBeInTheDocument();
+  test('unknown languages do not render a marketing page', () => {
+    renderLanguage('not-a-language');
+    expect(screen.queryByRole('heading', { name: /Learn to speak/ })).not.toBeInTheDocument();
   });
 });
