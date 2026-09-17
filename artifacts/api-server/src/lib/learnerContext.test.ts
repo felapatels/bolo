@@ -45,28 +45,28 @@ test("mastered phrases are offered for practice, not as a quiz", () => {
   assert.match(block, /rather than as a list or a quiz/i);
 });
 
-test("the shop is raised only when the learner can actually afford something", () => {
+test("Bolo never pitches the shop, even to a learner who can afford something", () => {
   const rich = buildLearnerContextBlock({
     ...EMPTY,
     chaiBalance: 500,
     affordable: [{ name: "Navratri kediyu", cost: 100 }],
   });
   assert.match(rich, /500 chai/);
-  assert.match(rich, /Navratri kediyu/);
-  assert.match(rich, /Bolo Bazaar/);
-  // The whole point of the nudge is that it is a nudge.
-  assert.match(rich, /never push it twice/i);
+  // Owner, 2026-09-17: the chat still opened with "your chai are enough for the
+  // marigold pagdi" after his 2026-08-28 ruling removed Bolo's suggestions.
+  assert.doesNotMatch(rich, /Navratri kediyu/);
+  assert.doesNotMatch(rich, /Bazaar is on/i);
+  assert.match(rich, /Never suggest spending it/);
+  assert.match(rich, /Only mention their chai if they ask/);
 });
 
-test("a learner who cannot afford anything is not sent to the shop", () => {
+test("a learner who cannot afford anything is not sent to the shop either", () => {
   const poor = buildLearnerContextBlock({
     ...EMPTY,
     chaiBalance: 3,
     affordable: [],
   });
-  // Telling somebody about a shop they cannot buy from is the exact behaviour
-  // that makes a helper feel like an advert.
-  assert.match(poor, /Do not raise the Bazaar/i);
+  assert.match(poor, /never bring up the Bazaar/i);
 });
 
 test("chai and phrases are independent, so either alone still renders", () => {
@@ -76,5 +76,5 @@ test("chai and phrases are independent, so either alone still renders", () => {
     affordable: [{ name: "Diwali kurta", cost: 100 }],
   });
   assert.doesNotMatch(onlyChai, /phrase\(s\) on their journey/);
-  assert.match(onlyChai, /Diwali kurta/);
+  assert.match(onlyChai, /200 chai/);
 });

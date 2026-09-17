@@ -156,10 +156,8 @@ export async function loadLearnerSnapshot(
  * persona stays byte-identical and OpenAI's prompt cache keeps hitting.
  *
  * SAYS WHAT BOLO MAY DO WITH EACH PART, because a bare data dump gets recited.
- * The phrases are for practising; the chai is for one nudge when there is
- * something the learner can actually afford, never a sales pitch; and a
- * learner at zero is told nothing at all rather than being nagged toward a
- * shop they cannot use.
+ * The phrases are for practising; the chai is only for answering a question
+ * about it, never for a suggestion; and a learner at zero is told nothing.
  */
 export function buildLearnerContextBlock(snap: LearnerSnapshot): string {
   const parts: string[] = [];
@@ -178,18 +176,16 @@ export function buildLearnerContextBlock(snap: LearnerSnapshot): string {
     );
   }
 
-  if (snap.chaiBalance > 0 && snap.affordable.length > 0) {
-    const names = snap.affordable
-      .slice(0, 4)
-      .map((a) => `${a.name} (${a.cost})`)
-      .join(", ");
+  // THE CHAI IS CONTEXT, NEVER A PITCH (owner, 2026-09-17, restating his
+  // 2026-08-28 "turn off Bolo's suggestions" ruling). This block used to name
+  // the outfits the learner could afford and send them to the Bazaar "once in a
+  // while". The persona prompt dropped every nudge on 2026-08-28, but this block
+  // lives in the user message and kept pitching, so Bolo opened a chat with
+  // "your 34 chai are enough for the marigold pagdi". Bolo may know the balance
+  // so a question about it gets a true answer; he never raises it himself.
+  if (snap.chaiBalance > 0) {
     parts.push(
-      `This learner has ${snap.chaiBalance} chai saved up, which is enough for: ${names}. ` +
-        "ONCE IN A WHILE, and only at a natural lull, you may mention that they have enough chai for one of these and that the Bolo Bazaar is on the Home screen. Say it once and drop it; never push it twice in a conversation and never make it the whole reply.",
-    );
-  } else if (snap.chaiBalance > 0) {
-    parts.push(
-      `This learner has ${snap.chaiBalance} chai saved up, not yet enough for anything in the Bolo Bazaar. Do not raise the Bazaar.`,
+      `This learner has ${snap.chaiBalance} chai saved up. Only mention their chai if they ask about it. Never suggest spending it, never name anything they could buy, and never bring up the Bazaar, the shop, outfits or any other part of the app.`,
     );
   }
 
