@@ -45,8 +45,22 @@ export const TTS_PROVIDER = "elevenlabs" as TtsProvider;
  * own ttsConfig warns about: the danger is not silence, it is a confident
  * reading in the wrong phonology. Widening this set is a separate decision.
  */
+/*
+ * NARROWED TO HINDI AND TAMIL ON 2026-09-17, owner's choice after listening.
+ * ElevenLabs' own model page lists eleven_multilingual_v2 at 29 languages, and
+ * of India's only Hindi and Tamil are among them. The other nine this set held
+ * (gu bn ur mr pa te kn ml ne) were read by a model that does not speak them:
+ * the live API answers 400 "Model 'eleven_multilingual_v2' does not support
+ * language_code 'gu'", and the client sends language_id, which is not a real
+ * parameter and is ignored, so the model guessed from the script. The owner
+ * heard Gujarati chat and said it did not sound right; eleven_v3 and
+ * gpt-4o-mini-tts both sounded much better, and gpt-4o-mini-tts is the cheaper
+ * (about $12 per 1M audio tokens against ElevenLabs' $0.10 per 1,000
+ * characters). Before widening this set again, check the model's language list
+ * on elevenlabs.io/docs/models, never LANGUAGE_ID_MAP.
+ */
 export const ELEVENLABS_LANGUAGES: ReadonlySet<string> = new Set([
-  "hi", "gu", "ta", "bn", "ur", "mr", "pa", "te", "kn", "ml", "ne",
+  "hi", "ta",
 ]);
 
 /** True when the configured ElevenLabs model can speak this language. */

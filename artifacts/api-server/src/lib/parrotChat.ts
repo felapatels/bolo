@@ -769,7 +769,8 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
   // Primary synthesizer selected by TTS_PROVIDER:
   //   'gpt-audio'       → boloTTS directly (current behavior, no fallback wrapper).
   //   'gpt-4o-mini-tts' → boloTTSMini with boloTTS as automatic fallback.
-  //   'elevenlabs'      → ElevenLabs (Laura, eleven_multilingual_v2) with boloTTS fallback.
+  //   'elevenlabs'      → ElevenLabs (Laura, eleven_multilingual_v2) for the languages it speaks
+  //                       (ttsConfig ELEVENLABS_LANGUAGES), gpt-4o-mini-tts for the rest.
   // The [tts] log line fires inside each synthesis function on the path that
   // actually produced the audio, so the logged model name is always correct
   // even when makeSynthesizeWithFallback routes to the fallback.
@@ -777,7 +778,17 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
     TTS_PROVIDER === "gpt-4o-mini-tts"
       ? makeSynthesizeWithFallback(boloTTSMini, boloTTS)
       : TTS_PROVIDER === "elevenlabs"
-        ? makeSynthesizeWithFallback(
+        ? // GATED PER LANGUAGE, like the streaming path below (2026-09-17). The
+          // buffered path used to hand every language to ElevenLabs, so a
+          // language its model does not speak was read anyway whenever a turn
+          // fell back from streaming. Those languages take the same OpenAI
+          // voice the streaming path already uses for them.
+          ((elevenLabsSynthesize, miniSynthesize) =>
+            (text: string, languageName: string, languageCode: string) =>
+              elevenLabsSpeaks(languageCode)
+                ? elevenLabsSynthesize(text, languageName, languageCode)
+                : miniSynthesize(text, languageName, languageCode))(
+            makeSynthesizeWithFallback(
             async (text, languageName, languageCode) => {
               const t0 = Date.now();
               try {
@@ -790,6 +801,8 @@ export const defaultParrotChatDeps: ParrotChatDeps = {
               }
             },
             boloTTS,
+          ),
+            makeSynthesizeWithFallback(boloTTSMini, boloTTS),
           )
         : boloTTS,
 

@@ -1695,3 +1695,21 @@ test("every language ElevenLabs speaks resolves to an ElevenLabs phrase identity
   // Santali is in no model's inventory and LANGUAGE_ID_MAP deliberately omits it.
   assert.notEqual(phraseAudioIdentity("sat").provider, "elevenlabs", "Santali must not reach ElevenLabs");
 });
+
+test("ElevenLabs is used only for the languages its model speaks: Hindi and Tamil (2026-09-17)", async () => {
+  // eleven_multilingual_v2 lists 29 languages on elevenlabs.io/docs/models and,
+  // of India's, only Hindi and Tamil. The other nine the set used to hold were
+  // read by a model without them, and the owner heard it in Gujarati chat.
+  const { ELEVENLABS_LANGUAGES, phraseAudioIdentity } = await import("./ttsConfig");
+  assert.deepEqual([...ELEVENLABS_LANGUAGES].sort(), ["hi", "ta"]);
+  for (const code of ["gu", "bn", "ur", "mr", "pa", "te", "kn", "ml", "ne"]) {
+    assert.equal(phraseAudioIdentity(code).provider, "gpt-4o-mini-tts", `${code} must not reach ElevenLabs`);
+  }
+});
+
+test("the buffered chat voice gates on elevenLabsSpeaks too, not only the stream", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("./parrotChat.ts", import.meta.url), "utf8");
+  const buffered = source.slice(source.indexOf("synthesize:"), source.indexOf("synthesizeStream:"));
+  assert.match(buffered, /elevenLabsSpeaks\(languageCode\)/, "the buffered path must gate before ElevenLabs");
+});
