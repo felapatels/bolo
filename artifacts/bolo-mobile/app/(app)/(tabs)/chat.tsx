@@ -56,6 +56,9 @@ import {
   SILENCE_THRESHOLD_DB,
   SILENCE_DURATION_MS,
   reportAudioSessionFailure,
+  reportSilentRecording,
+  beginRecording,
+  METERING_FLOOR_DB,
   type PlaybackHandle,
 } from '@/lib/audio';
 
@@ -401,6 +404,10 @@ export default function ChatScreen() {
   const [cantHearMsg, setCantHearMsg] = React.useState<string | null>(null);
   const heardSpeechRef = React.useRef(false);
   const sawMeteringRef = React.useRef(false);
+  // What the level readings of the current hold looked like, so a hold judged
+  // silent can say WHY: a quiet room, or a recorder hearing nothing at all.
+  // Sent with reportSilentRecording; see lib/audio.ts for how to read them.
+  const meterStatsRef = React.useRef({ count: 0, min: 0, max: 0, floor: 0 });
   const metering = recorderState?.metering;
 
   const scrollRef = React.useRef<ScrollView>(null);
@@ -456,8 +463,11 @@ export default function ChatScreen() {
           sessionReadyRef.current = true;
         }
         if (!recorderPreparedRef.current) {
-          await prepareRecorderInSession(recorder);
-          recorderPreparedRef.current = true;
+          // False means the recorder was CAPTURING, so no prepare ran: it
+          // must not be marked prepared, or the next record() finds a native
+          // recorder that was never prepared and silently does nothing.
+          const prepared = await prepareRecorderInSession(recorder);
+          recorderPreparedRef.current = prepared !== false;
         }
         return true;
       } catch (err) {
@@ -563,6 +573,13 @@ export default function ChatScreen() {
     }
     if (typeof metering !== 'number') return;
     sawMeteringRef.current = true;
+    {
+      const st = meterStatsRef.current;
+      st.min = st.count === 0 ? metering : Math.min(st.min, metering);
+      st.max = st.count === 0 ? metering : Math.max(st.max, metering);
+      st.count += 1;
+      if (metering <= METERING_FLOOR_DB) st.floor += 1;
+    }
     const now = Date.now();
     if (metering > SILENCE_THRESHOLD_DB) {
       heardSpeechRef.current = true;
@@ -697,7 +714,12 @@ export default function ChatScreen() {
       setCantHearMsg(null);
       heardSpeechRef.current = false;
       sawMeteringRef.current = false;
-      recorder.record();
+      meterStatsRef.current = { count: 0, min: 0, max: 0, floor: 0 };
+      // beginRecording, not a bare record(): it registers the live recording
+      // so a playback flip queued behind this hold cannot stop it natively,
+      // and it throws into the catch below when the recorder did not start,
+      // instead of leaving the learner holding a mic that records nothing.
+      await beginRecording(recorder);
       recorderPreparedRef.current = false;
       setPhase('recording');
       hapticMedium();
@@ -735,6 +757,24 @@ export default function ChatScreen() {
     setPhase('idle');
   };
 
+  /**
+   * The can't-hear tease is the only thing a dead capture ever showed
+   * (India iPad, 2026-09-17), so every hold that ends in it is reported with
+   * the level readings and the session state. Fire and forget.
+   */
+  const reportSilentHold = (source: 'client' | 'server') => {
+    const st = meterStatsRef.current;
+    void reportSilentRecording({
+      source,
+      meteringReadings: st.count,
+      meteringMinDb: st.count ? st.min : null,
+      meteringMaxDb: st.count ? st.max : null,
+      floorReadings: st.floor,
+      holdMs: Math.max(0, Date.now() - recordingStartTimeRef.current),
+      recorder,
+    });
+  };
+
   const handleStopRecording = async () => {
     if (finishingRef.current) return;
     // R6 (32.1) leg 2: minimum-duration guard. A sub-300ms hold is a tap,
@@ -753,6 +793,7 @@ export default function ChatScreen() {
     // absence of evidence of speech: if metering never reported at all, this
     // must not fire, or a platform without it loses every recording.
     if (sawMeteringRef.current && !heardSpeechRef.current) {
+      reportSilentHold('client');
       setCantHearMsg(pickCantHearLine());
       void abortRecording();
       return;
@@ -1328,6 +1369,7 @@ export default function ChatScreen() {
       // events server-side, so only the pending placeholder needs removing.
       if (payload.noSpeech === true) {
         if (activeTurnRef.current !== myTurn) return;
+        reportSilentHold('server');
         finishingRef.current = false;
         setMessages((prev) => prev.filter((m) => !m.pending));
         setErrorMsg(null);
@@ -1513,10 +1555,21 @@ export default function ChatScreen() {
             replyAudioBase64,
             format,
             () => {
+              // A newer hold owns the screen now. Without this check a late
+              // clip finishing flipped a live recording's phase to idle.
+              if (activeTurnRef.current !== myTurn) return;
               playbackRef.current = null;
               setPhase('idle');
             },
           );
+          // playBase64Audio awaits a file write before it plays, and a new
+          // hold can start inside that window. Adopting the handle then would
+          // play the old reply over the learner and hand the new turn a
+          // handle it never asked for.
+          if (activeTurnRef.current !== myTurn || !isFocusedRef.current) {
+            handle.stop();
+            return;
+          }
           playbackRef.current = handle;
         }
       }

@@ -78,6 +78,11 @@ jest.mock('@/lib/audio', () => ({
   hasRecordingPermission: jest.fn(async () => true),
   prepareRecordingSession: jest.fn(async () => true),
   prepareRecorderInSession: jest.fn(async () => undefined),
+  // chat.tsx starts capture through beginRecording (lib/audio.ts); the mock
+  // keeps the recorder double's record() as the observable call.
+  beginRecording: jest.fn(async (r: { record: () => void }) => { r.record(); }),
+  reportSilentRecording: jest.fn(async () => undefined),
+  METERING_FLOOR_DB: -120,
   ensureRecordingMode: jest.fn(async () => undefined),
   stopAndReadRecording: jest.fn(async () => 'base64audio'),
   playBase64Audio: jest.fn(async () => ({ stop: jest.fn() })),

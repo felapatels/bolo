@@ -1113,8 +1113,9 @@ export default function ReviewScreen() {
           sessionReadyRef.current = true;
         }
         if (!recorderPreparedRef.current) {
-          await prepareRecorderInSession(recorder);
-          recorderPreparedRef.current = true;
+          // False: the recorder was capturing and no prepare ran (lib/audio.ts).
+          recorderPreparedRef.current =
+            (await prepareRecorderInSession(recorder)) !== false;
         }
         return true;
       } catch (err) {

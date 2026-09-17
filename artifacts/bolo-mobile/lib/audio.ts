@@ -150,7 +150,8 @@ export type AudioSessionStage =
   | 'prepare_recorder'
   | 'start_record'
   | 'flip_playback'
-  | 'restore_recording';
+  | 'restore_recording'
+  | 'silent_recording';
 
 /** Which alert line the learner is looking at, when a report follows one. */
 export type AudioAlertSite = 'prepare_failed' | 'record_threw';
@@ -282,11 +283,25 @@ export async function prepareRecordingSession(): Promise<boolean> {
  */
 export function prepareRecorderInSession(
   recorder: AudioRecorder,
-): Promise<void> {
+): Promise<boolean> {
   return enqueueSessionOp(async () => {
     // Breadcrumb at ENTRY, not on success: a prepare that hangs or throws is
     // the interesting one, and it would leave no trace from the far side.
     noteAudioSessionOp('prepare');
+    // NEVER PREPARE A RECORDER THAT IS CAPTURING (India iPad, 2026-09-17: two
+    // chat turns worked, the third came back as the can't-hear tease). The
+    // native prepare in expo-audio 1.1.1 (ios/AudioRecorder.swift prepare())
+    // STOPS a recording recorder and swaps in a brand new AVAudioRecorder.
+    // JS is told nothing: the hold carries on, metering now reads the idle
+    // replacement at the floor, and the screen calls it silence. A pre-warm
+    // that lands after record() is enough to do it. Skipping returns false so
+    // the caller does NOT mark the recorder prepared: once this recording
+    // stops, the next record() needs a real prepare, and a record() on an
+    // unprepared native recorder is a silent no-op too.
+    if (recorderIsCapturing(recorder)) {
+      noteAudioSessionOp('prepare skipped recorder capturing');
+      return false;
+    }
     // Assert the mode rather than claim it. This used to be a bare
     // `modeIsRecording = true`, which made a prepare landing AFTER a playback
     // flip claim recording mode while the native session stayed playback-only;
@@ -298,7 +313,163 @@ export function prepareRecorderInSession(
     // Pass the preset explicitly: metering must be enabled at prepare time or
     // recorder state never reports levels and silence auto-stop can't work.
     await recorder.prepareToRecordAsync(RECORDING_PRESET);
+    return true;
   });
+}
+
+/**
+ * Native truth about one recorder, read defensively. `isRecording` is
+ * AVAudioRecorder.isRecording on iOS. Only a strict `true` counts: a released
+ * shared object throws, and test doubles that never model it read undefined.
+ */
+function recorderIsCapturing(recorder: AudioRecorder | null): boolean {
+  if (!recorder) return false;
+  try {
+    return recorder.isRecording === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The recorder most recently started through `beginRecording`. Held only so a
+ * playback flip can ask it, natively, whether it is still capturing; a stale
+ * reference answers false and costs nothing.
+ */
+let liveRecorder: AudioRecorder | null = null;
+
+/**
+ * Start capturing on a prepared recorder, AFTER `ensureRecordingMode` has
+ * resolved. Use this instead of a bare `recorder.record()`.
+ *
+ * Two things a bare record() cannot do:
+ *
+ * 1. REGISTER THE RECORDING, so `activatePlaybackMode` refuses to flip the
+ *    session while it is live. expo-audio's setAudioMode with
+ *    allowsRecording false calls AVAudioRecorder.stop() on every recording
+ *    recorder (ios/AudioModule.swift setAudioMode) and tells JS nothing.
+ *
+ * 2. VERIFY IT STARTED. expo-audio's startRecording returns an empty status,
+ *    without throwing, when the native recorder is not in its prepared state,
+ *    and AVAudioRecorder.record() returning false is ignored. Either way the
+ *    learner holds a button over a recorder that is not recording. Where the
+ *    platform reports `isRecording === false` straight after record(), the
+ *    recorder is prepared again once and retried; a second refusal throws, so
+ *    the caller's "Recording failed" path runs instead of a silent hold.
+ */
+export async function beginRecording(recorder: AudioRecorder): Promise<void> {
+  recorder.record();
+  liveRecorder = recorder;
+  if (readIsRecording(recorder) !== false) {
+    noteAudioSessionOp('record started');
+    return;
+  }
+  noteAudioSessionOp('record did not start, re-preparing');
+  const prepared = await prepareRecorderInSession(recorder);
+  if (prepared) await ensureRecordingMode();
+  recorder.record();
+  if (readIsRecording(recorder) === false) {
+    noteAudioSessionOp('record did not start after re-prepare');
+    throw new Error('recorder did not start capturing');
+  }
+  noteAudioSessionOp('record started after re-prepare');
+}
+
+/** `isRecording` as the platform reports it, or undefined when unreadable. */
+function readIsRecording(recorder: AudioRecorder): boolean | undefined {
+  try {
+    const v = recorder.isRecording;
+    return typeof v === 'boolean' ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** What the screen measured during a hold it is about to call silent. */
+export type SilentRecordingEvidence = {
+  /** 'client' = metering never cleared the bar; 'server' = noSpeech reply. */
+  source: 'client' | 'server';
+  meteringReadings: number;
+  meteringMinDb: number | null;
+  meteringMaxDb: number | null;
+  /** Readings at or below METERING_FLOOR_DB: a recorder hearing nothing at all. */
+  floorReadings: number;
+  holdMs: number;
+  recorder: AudioRecorder | null;
+};
+
+/**
+ * dBFS at or below which a reading is digital silence rather than a quiet
+ * room. AVAudioRecorder reports -160 when it is not capturing; a live built-in
+ * mic in a quiet room sits far above this. UNMEASURED ON A DEVICE: it is used
+ * only to label a report, never to change what the learner sees.
+ */
+export const METERING_FLOOR_DB = -120;
+
+/**
+ * SEND THE SILENT HOLD TO SENTRY. The can't-hear line used to be the end of
+ * the trail: no exception, no breadcrumb, and a production iPad report
+ * (2026-09-17) that nobody could place. A quiet learner and a dead capture
+ * look identical on screen, and these fields are what tell them apart:
+ *
+ *   - `floorReadings` against `meteringReadings`: a room is never at the floor.
+ *   - `recorderIsRecording` at the moment of the verdict: false means
+ *     something stopped the native recorder mid-hold.
+ *   - `inputPortType`: absent (lookup throws) means the session had no input
+ *     route, which is what a playback-only category looks like.
+ *   - the three session flags, as every other audio report carries.
+ *
+ * Level warning: a learner who genuinely said nothing lands here too, which is
+ * why the floor flag is a TAG, so the dead-capture cases can be filtered out.
+ * PII: numbers, flags and a port TYPE only. No audio, text or port name.
+ */
+export async function reportSilentRecording(
+  evidence: SilentRecordingEvidence,
+): Promise<void> {
+  try {
+    const state = sessionState();
+    let inputPortType: string | null = null;
+    try {
+      const r = evidence.recorder as unknown as {
+        getCurrentInput?: () => unknown;
+      } | null;
+      const input = (await Promise.resolve(r?.getCurrentInput?.())) as
+        | { type?: string }
+        | undefined;
+      inputPortType = input?.type ?? null;
+    } catch {
+      inputPortType = 'none';
+    }
+    const recorderIsRecording = evidence.recorder
+      ? readIsRecording(evidence.recorder) ?? null
+      : null;
+    const atFloor =
+      evidence.meteringReadings > 0 &&
+      evidence.floorReadings === evidence.meteringReadings;
+    Sentry.captureMessage('audio silent recording', {
+      level: 'warning',
+      tags: {
+        audioStage: 'silent_recording',
+        platform: state.platform,
+        silentSource: evidence.source,
+        meteringAtFloor: atFloor ? 'yes' : 'no',
+      },
+      extra: {
+        audioStage: 'silent_recording',
+        ...state,
+        silentSource: evidence.source,
+        meteringReadings: evidence.meteringReadings,
+        meteringMinDb: evidence.meteringMinDb,
+        meteringMaxDb: evidence.meteringMaxDb,
+        floorReadings: evidence.floorReadings,
+        holdMs: evidence.holdMs,
+        recorderIsRecording,
+        inputPortType,
+      },
+    });
+  } catch {
+    // A report must never break the turn it is describing.
+  }
 }
 
 /**
@@ -329,7 +500,20 @@ export function ensureRecordingMode(): Promise<void> {
 /** Flip to playback-only mode so iOS routes audio to the speaker. */
 function activatePlaybackMode(): Promise<void> {
   modeIsRecording = false;
-  return enqueueSessionOp(() => setAudioModeAsync(PLAYBACK_MODE)).then(() => {
+  return enqueueSessionOp(async () => {
+    // A LIVE RECORDING WINS OVER SPEAKER ROUTING. setAudioModeAsync with
+    // allowsRecording false stops every recording AVAudioRecorder natively
+    // and tells JS nothing (expo-audio 1.1.1 ios/AudioModule.swift). A flip
+    // that lands after record() used to leave the learner holding a dead mic
+    // until the can't-hear tease. Checked INSIDE the queued op, against the
+    // native recorder, so it reads what is true when the flip would apply.
+    // The clip still plays, just on the playAndRecord route.
+    if (recorderIsCapturing(liveRecorder)) {
+      modeIsRecording = true;
+      noteAudioSessionOp('flip refused recording live');
+      return;
+    }
+    await setAudioModeAsync(PLAYBACK_MODE);
     noteAudioSessionOp('mode:playback');
   });
 }

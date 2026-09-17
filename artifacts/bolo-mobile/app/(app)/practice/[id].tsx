@@ -1583,8 +1583,9 @@ export default function PracticeScreen() {
         if (!recorderPreparedRef.current) {
           // Serialized with audio-mode flips: the native prepare re-asserts
           // the playAndRecord category, which must not land mid-playback.
-          await prepareRecorderInSession(recorder);
-          recorderPreparedRef.current = true;
+          // False: the recorder was capturing and no prepare ran (lib/audio.ts).
+          recorderPreparedRef.current =
+            (await prepareRecorderInSession(recorder)) !== false;
         }
         return true;
       } catch (err) {

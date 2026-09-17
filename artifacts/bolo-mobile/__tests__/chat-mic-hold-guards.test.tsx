@@ -78,9 +78,14 @@ jest.mock('@workspace/api-client-react', () => ({
   getGetProgressSummaryQueryKey: jest.fn(() => ['progress']),
 }));
 
+// Level reading the recorder reports while a hold is live. Undefined (no
+// metering at all) unless a test sets it, which is what every older test here
+// assumes.
+const mockMeter: { value: number | undefined } = { value: undefined };
+
 jest.mock('expo-audio', () => ({
   useAudioRecorder: () => mockRecorder,
-  useAudioRecorderState: () => ({}),
+  useAudioRecorderState: () => ({ metering: mockMeter.value }),
   createAudioPlayer: jest.fn(() => ({ play: jest.fn(), remove: jest.fn() })),
 }));
 
@@ -90,6 +95,11 @@ jest.mock('@/lib/audio', () => ({
   prepareRecordingSession: (...args: unknown[]) =>
     mockState.prepareRecordingSession(...args),
   prepareRecorderInSession: jest.fn(async () => undefined),
+  // chat.tsx starts capture through beginRecording (lib/audio.ts); the mock
+  // keeps the recorder double's record() as the observable call.
+  beginRecording: jest.fn(async (r: { record: () => void }) => { r.record(); }),
+  reportSilentRecording: jest.fn(async () => undefined),
+  METERING_FLOOR_DB: -120,
   ensureRecordingMode: (...args: unknown[]) =>
     mockState.ensureRecordingMode(...args),
   stopAndReadRecording: (...args: unknown[]) =>
@@ -218,6 +228,7 @@ const xhrMock = {
 
 // Imported after all mocks are declared.
 import ChatScreen from '@/app/(app)/(tabs)/chat';
+import { reportSilentRecording } from '@/lib/audio';
 
 const holdButton = () => screen.getByRole('button', { name: 'Hold to speak' });
 const releaseButton = () =>
@@ -225,6 +236,7 @@ const releaseButton = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockMeter.value = undefined;
   mockState.hasRecordingPermission.mockResolvedValue(true);
   mockState.prepareRecordingSession.mockResolvedValue(true);
   mockState.ensureRecordingMode.mockResolvedValue(undefined);
@@ -395,5 +407,65 @@ describe('R6 leg 4 - idle pre-warm never prompts', () => {
     await act(async () => {});
 
     expect(mockState.prepareRecordingSession).toHaveBeenCalled();
+  });
+});
+
+describe('a hold judged silent is reported, never just teased (India iPad, 2026-09-17)', () => {
+  // The production report: turn three came back as the can't-hear line with
+  // nothing in Sentry. The line is still shown, but the hold now leaves a
+  // report carrying what the recorder measured, so a dead capture (every
+  // reading at the floor) can be told apart from a quiet learner.
+  test('a hold whose every reading sat at the floor sends the evidence', async () => {
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    mockMeter.value = -160;
+
+    render(<ChatScreen />);
+    await act(async () => {});
+
+    await act(async () => {
+      fireEvent(holdButton(), 'pressIn');
+    });
+    expect(mockRecorder.record).toHaveBeenCalledTimes(1);
+
+    now += 900;
+    await act(async () => {
+      fireEvent(releaseButton(), 'pressOut');
+    });
+
+    // The tease path: nothing submitted.
+    expect(mockState.stopAndReadRecording).not.toHaveBeenCalled();
+    expect(reportSilentRecording).toHaveBeenCalledTimes(1);
+    expect(reportSilentRecording).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'client',
+        floorReadings: 1,
+        meteringReadings: 1,
+        meteringMinDb: -160,
+        holdMs: 900,
+        recorder: mockRecorder,
+      }),
+    );
+    nowSpy.mockRestore();
+  });
+
+  test('a hold that heard speech sends nothing', async () => {
+    let now = 1_700_000_000_000;
+    const nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    mockMeter.value = -20;
+
+    render(<ChatScreen />);
+    await act(async () => {});
+    await act(async () => {
+      fireEvent(holdButton(), 'pressIn');
+    });
+    now += 900;
+    await act(async () => {
+      fireEvent(releaseButton(), 'pressOut');
+    });
+
+    expect(mockState.stopAndReadRecording).toHaveBeenCalledTimes(1);
+    expect(reportSilentRecording).not.toHaveBeenCalled();
+    nowSpy.mockRestore();
   });
 });
