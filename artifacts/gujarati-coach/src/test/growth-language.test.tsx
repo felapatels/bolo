@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Router } from 'wouter';
 import { memoryLocation } from 'wouter/memory-location';
-import { growthSignupHref, GROWTH_PAGES, type GrowthLanguage } from '@/lib/growth-pages';
+import { growthSignupHref, type GrowthLanguage } from '@/lib/growth-pages';
 
 const state = vi.hoisted(() => ({ signedIn: false, track: vi.fn() }));
 vi.mock('@clerk/react', () => ({ useUser: () => ({ isSignedIn: state.signedIn }) }));
@@ -23,9 +23,9 @@ function show(slug: GrowthLanguage, query = '') {
 describe('growth landing pages', () => {
   it.each(['gujarati', 'punjabi', 'hindi'] as const)('%s has distinct copy, canonical and real screenshots', slug => {
     show(slug);
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(GROWTH_PAGES[slug].headline);
-    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute('href', `https://bolo-india.app/${slug}`);
-    expect(screen.getAllByRole('img', { name: /Real Bolo/ })).toHaveLength(4);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(`Learn to speak${slug[0].toUpperCase() + slug.slice(1)}.`);
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute('href', `https://bolo-india.app/languages/${slug}.html`);
+    expect(screen.getByRole('img', { name: /app home shown in Hindi/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: new RegExp(`^${slug}$`, 'i') })).toHaveAttribute('aria-current', 'page');
     for (const link of screen.getAllByRole('link', { name: 'Download on the App Store' })) {
       expect(link).toHaveAttribute('href', 'https://apps.apple.com/app/id6790907772');
@@ -47,7 +47,7 @@ describe('growth landing pages', () => {
     expect(target.searchParams.get('utm_campaign')).toBe('family');
     expect(target.searchParams.get('redirect_url')).toBe('/choose-language');
     fireEvent.click(link);
-    expect(state.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.SIGNUP_STARTED, { source: 'growth-gujarati', language: 'gu' });
+    expect(state.track).toHaveBeenCalledWith(ANALYTICS_EVENTS.SIGNUP_STARTED, { source: 'language-gujarati', language: 'gu' });
   });
 
   it('opens the app for an existing learner without claiming a new signup', () => {

@@ -202,6 +202,7 @@ export default function Support() {
           </p>
         </Section>
       </main>
+      <footer className="px-6 pb-10 text-center text-sm text-muted-foreground"><a href="https://LARKEnterprisesLLC.com" className="underline underline-offset-4 hover:text-primary">LARK Enterprises LLC</a></footer>
     </div>
   );
 }

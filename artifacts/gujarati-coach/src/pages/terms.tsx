@@ -238,6 +238,7 @@ export default function Terms() {
 
       <footer className="px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
         Bolo! — stop tapping, start talking.
+      <p className="mt-4"><a href="https://LARKEnterprisesLLC.com" className="underline underline-offset-4 hover:text-primary">LARK Enterprises LLC</a></p>
       </footer>
     </div>
   );

@@ -1,3 +1,4 @@
+import { languagePageHref } from '@/lib/language-marketing';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Link } from 'wouter';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -510,7 +511,7 @@ export default function Landing({
             {displayLangs.map((lang, i) => {
               const native = nativeTextProps(lang);
               const page = LANGUAGE_PAGES.find((p) => p.code === lang.code);
-              const href = page ? `/languages/${page.slug}` : '/sign-up';
+              const href = page ? languagePageHref(page.slug) : '/sign-up';
               return (
                 <RevealChild key={lang.code} from="scale" y={14} spring="poppy">
                 <FloatingTag
@@ -991,9 +992,9 @@ export default function Landing({
       <footer className="relative px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
         <p>Bolo! - stop tapping, start talking.</p>
         <nav aria-label="Featured language guides" className="mt-4 flex flex-wrap items-center justify-center gap-4">
-          <Link href="/gujarati" className="hover:text-foreground transition-colors">Learn Gujarati</Link>
-          <Link href="/punjabi" className="hover:text-foreground transition-colors">Learn Punjabi</Link>
-          <Link href="/hindi" className="hover:text-foreground transition-colors">Learn Hindi</Link>
+          <Link href="/languages/gujarati.html" className="hover:text-foreground transition-colors">Learn Gujarati</Link>
+          <Link href="/languages/punjabi.html" className="hover:text-foreground transition-colors">Learn Punjabi</Link>
+          <Link href="/languages/hindi.html" className="hover:text-foreground transition-colors">Learn Hindi</Link>
         </nav>
         <nav className="mt-3 flex items-center justify-center gap-4">
           <Link href="/privacy" className="hover:text-foreground transition-colors">
@@ -1004,6 +1005,7 @@ export default function Landing({
             Terms
           </Link>
         </nav>
+      <p className="mt-4"><a href="https://LARKEnterprisesLLC.com" className="underline underline-offset-4 hover:text-primary">LARK Enterprises LLC</a></p>
       </footer>
 
       {/* The sticky get-the-app bar. Fixed to the bottom, so the footer above
