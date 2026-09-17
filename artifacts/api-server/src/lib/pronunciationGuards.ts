@@ -85,12 +85,22 @@ export function normalizeLatin(text: string): string {
  *     form already loses the anusvara; this step removes the nasal consonant
  *     letter (ङ U+0919, ञ U+091E, ण U+0923, न U+0928, म U+092E) when it is
  *     immediately followed by virama (् U+094D), so both spellings reduce to
- *     the same string (हिंदी → हद, हिन्दी → हद). The same pattern exists in
+ *     the same string (हिंदी → हिदी, हिन्दी → हिदी). The same pattern exists in
  *     other Indic script families; those are handled separately.
  *
- *  5. Non-letter strip: matras, virama, and all other Unicode marks (category
- *     M) are not letters, so they are removed here. Only base letter codepoints
- *     (category L) survive.
+ *  5. Optional marks dropped: Devanagari visarga (U+0903, so दुःख and दुख
+ *     fold), Arabic harakat and superscript alef (U+064B-065F, U+0670; Urdu and
+ *     Sindhi seed text carries them and transcripts usually do not), and any
+ *     leftover Latin combining accents (U+0300-036F) NFC could not compose.
+ *
+ *  6. Everything that is neither a letter nor a mark is stripped (punctuation,
+ *     digits, spaces). VOWEL SIGNS AND VIRAMA ARE KEPT. Until 2026-09-17 this
+ *     step removed every mark, which deleted every Indic vowel sign, so बेटा
+ *     (son) and बेटी (daughter), दादा and दादी, मुलगा and मुलगी all compared as
+ *     identical and a learner who said the wrong word passed. Measured on 576
+ *     synthetic clips in six Indian languages (supervisor scoring bake-off,
+ *     2026-09-17): keeping marks raised wrong real-word takes caught from 79%
+ *     to 94% with correct takes failed unchanged.
  */
 export function normalizeNative(text: string): string {
   return (
@@ -105,8 +115,11 @@ export function normalizeNative(text: string): string {
       //    Covers ङ् ञ् ण् न् म् so that "हिन्दी" and "हिंदी" collapse
       //    identically once marks are stripped in the next step.
       .replace(/[\u0919\u091E\u0923\u0928\u092E]\u094D/g, "")
-      // 5. Strip everything that is not a Unicode letter (marks, digits, etc.).
-      .replace(/[^\p{L}]/gu, "")
+      // 5. Drop optional marks that do not change the word.
+      .replace(/[\u0903\u064B-\u065F\u0670\u0300-\u036F]/g, "")
+      // 6. Strip everything that is neither a letter nor a mark. Vowel signs
+      //    and virama stay: they are the difference between बेटा and बेटी.
+      .replace(/[^\p{L}\p{M}]/gu, "")
       .toLowerCase()
   );
 }

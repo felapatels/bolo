@@ -457,3 +457,32 @@ test("normalizeNative: ZWJ and ZWNJ are stripped and do not affect the key", () 
     "ZWJ inside a word must not change the normalized key",
   );
 });
+
+// ---------------------------------------------------------------------------
+// normalizeNative keeps vowel signs (2026-09-17 scoring bake-off)
+// ---------------------------------------------------------------------------
+
+test("normalizeNative: a changed vowel sign is a different word (son is not daughter)", () => {
+  // Until 2026-09-17 every mark was stripped, so each pair below normalised to
+  // the same key and a learner who said the wrong word passed.
+  const pairs: [string, string][] = [
+    ["बेटा", "बेटी"], // Hindi son / daughter
+    ["दादा", "दादी"], // Hindi grandfather / grandmother
+    ["मुलगा", "मुलगी"], // Marathi boy / girl
+    ["అన్నం", "అన్న"], // Telugu rice / elder brother
+    ["ছেলে", "ছেলো"], // Bengali vowel sign change
+    ["દાદા", "દાદી"], // Gujarati grandfather / grandmother
+    ["அம்மா", "அம்மி"], // Tamil final vowel sign change
+  ];
+  for (const [a, b] of pairs) {
+    assert.notEqual(normalizeNative(a), normalizeNative(b), `${a} and ${b} must not fold together`);
+  }
+});
+
+test("normalizeNative: spelling variants of one word still fold", () => {
+  assert.equal(normalizeNative("हिंदी"), normalizeNative("हिन्दी"));
+  assert.equal(normalizeNative("दुःख"), normalizeNative("दुख"));
+  // Urdu seed text may carry harakat that a transcript leaves out.
+  assert.equal(normalizeNative("شُکْرِیَہ"), normalizeNative("شکریہ"));
+  assert.equal(normalizeNative("नमस्ते!"), normalizeNative("नमस्ते"));
+});
