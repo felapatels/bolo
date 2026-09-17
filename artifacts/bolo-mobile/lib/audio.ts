@@ -726,8 +726,17 @@ function applySpeechRate(player: unknown, targetLanguage = true): void {
  * it fires mid-sentence, calls onDone, and the chat screen moves on while Bolo
  * is still talking. Every duration-derived timeout is divided by the rate.
  */
-export function stallBoundMs(seconds: number): number {
-  const rate = currentSpeechRate() || NORMAL_SPEECH_RATE;
+/*
+ * THE RATE IS THE ONE THE CLIP WAS BORN WITH, when the caller has it. Since
+ * 2026-09-17 the speed pill sits on the very screens that are playing, so a
+ * learner can move Slower to Normal WHILE a clip is sounding. The player keeps
+ * the rate it was created at, but a bound armed a moment later from
+ * currentSpeechRate() would be computed for Normal and cut the slowed clip
+ * off. Callers pass the rate captured at player creation; the default remains
+ * for anything that has no player of its own.
+ */
+export function stallBoundMs(seconds: number, clipRate: number = currentSpeechRate()): number {
+  const rate = clipRate || NORMAL_SPEECH_RATE;
   return (seconds * 1000 * PLAYBACK_STALL_FACTOR) / rate + PLAYBACK_STALL_SLACK_MS;
 }
 
@@ -1001,7 +1010,7 @@ export async function playBase64Audio(
       if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
       const secs = Number.isFinite(audio.duration) ? audio.duration : 0;
       if (secs > 0) {
-        playTimer = setTimeout(settle, stallBoundMs(secs));
+        playTimer = setTimeout(settle, stallBoundMs(secs, webRate));
       }
     };
     audio.onerror = settle;
@@ -1059,6 +1068,9 @@ export async function playBase64Audio(
   // keepAudioSessionActive: prevent expo-audio's automatic session
   // deactivation when this clip finishes or pauses; see playStreamingAudio
   // for the full explanation of the build 29 loudness seam.
+  // Captured in the same synchronous tick newCoachPlayer applies it, so this
+  // is the rate the clip actually plays at. See stallBoundMs.
+  const clipRate = opts?.targetLanguage !== false ? currentSpeechRate() : NORMAL_SPEECH_RATE;
   const player = newCoachPlayer(
     () =>
     createAudioPlayer({ uri }, { keepAudioSessionActive: true }),
@@ -1123,7 +1135,7 @@ export async function playBase64Audio(
       if (loadTimer) { clearTimeout(loadTimer); loadTimer = null; }
       playTimer = setTimeout(
         () => settle('play-timeout'),
-        stallBoundMs(secs),
+        stallBoundMs(secs, clipRate),
       );
     }
   });

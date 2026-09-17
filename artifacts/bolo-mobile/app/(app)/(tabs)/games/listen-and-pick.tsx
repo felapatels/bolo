@@ -37,6 +37,7 @@ import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 import { GAME_CONFIG } from '@/lib/game-config';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
@@ -706,7 +707,11 @@ export default function ListenAndPickScreen() {
             <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>{activeLanguage.name}</Text>
           )}
         </View>
-        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
+        </View>
       </View>
 
       {phase === 'picker' && (

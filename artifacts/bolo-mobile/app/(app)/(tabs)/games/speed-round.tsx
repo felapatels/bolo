@@ -32,6 +32,7 @@ import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import { hapticMedium, hapticNotify } from '@/lib/haptics';
 import * as Haptics from 'expo-haptics';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 import { confirmDiscardRun } from '@/lib/gameExit';
@@ -472,7 +473,11 @@ function PlayingScreen({
           <Feather name="award" size={14} color={colors.primary} />
           <Text style={[styles.pointsText, { color: colors.primary }]}>{stats.points}</Text>
         </View>
-        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        </View>
       </View>
 
       {/* Combo burst overlay — springs in when streak hits 3 / 5 / 10 */}

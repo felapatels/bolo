@@ -197,3 +197,26 @@ describe("web chat — the memory disclosure", () => {
     );
   });
 });
+
+// OWNER, 2026-09-17: "where is the coach and bolo speed setting on the chat
+// screen?" It sits beside the language pill, reads the stored setting the
+// account page writes, and a tap changes the next clip's speed.
+describe("web chat: the speaking-speed pill", () => {
+  test("sits in the language row and shows the stored speed as a word", () => {
+    localStorage.setItem("bolo.speechRate", "0.65");
+    renderChat();
+    const pill = screen.getByTestId("chat-speed-pill");
+    expect(pill).toHaveTextContent("Slower");
+    expect(pill).toHaveAccessibleName("Speaking speed: Slower");
+    localStorage.removeItem("bolo.speechRate");
+  });
+
+  test("a tap writes the shared preference", () => {
+    localStorage.removeItem("bolo.speechRate");
+    renderChat();
+    fireEvent.click(screen.getByTestId("chat-speed-pill"));
+    expect(localStorage.getItem("bolo.speechRate")).toBe("0.8");
+    expect(screen.getByTestId("chat-speed-pill")).toHaveTextContent("Slow");
+    localStorage.removeItem("bolo.speechRate");
+  });
+});

@@ -50,6 +50,7 @@ import { FunFactLoader } from '@/components/FunFactLoader';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { FlashbackLightbox } from '@/components/FlashbackLightbox';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -592,7 +593,11 @@ function AnswerBackRound({
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Answer Back</Text>
           {stopLabel ? <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>{stopLabel}</Text> : null}
         </View>
-        <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+        </View>
       </View>
 
       {state.status === 'over' ? (

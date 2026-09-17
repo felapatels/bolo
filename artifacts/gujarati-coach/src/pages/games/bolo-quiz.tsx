@@ -4,6 +4,7 @@ import { Link, Redirect } from "wouter";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import {
   MissReviewCta,
@@ -824,6 +825,8 @@ export default function BoloQuizPage() {
             <p className="text-xs text-muted-foreground">{activeLanguage.name}</p>
           )}
         </div>
+        {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+        <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
         <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
         <Award className="h-6 w-6 text-primary" />
       </div>

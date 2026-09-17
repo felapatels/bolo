@@ -50,16 +50,72 @@ export function currentSpeechRate(): number {
   return cachedRate;
 }
 
+/**
+ * EVERY SURFACE THAT SHOWS THE SPEED LISTENS HERE. Owner, 2026-09-17: the
+ * control belongs "on chat screen and lesson screens, wherever bolo or coach
+ * speaks", as well as on the account screen. Tab screens stay mounted, so a
+ * pill on chat that only read the value at mount would still say "Normal"
+ * after the learner chose "Slower" in a lesson. Every save and every load
+ * notifies, and components/SpeechSpeedPill.tsx's useSpeechRate subscribes.
+ */
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+export function subscribeSpeechRate(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function notify(): void {
+  for (const l of Array.from(listeners)) {
+    try {
+      l();
+    } catch {
+      // One broken listener must not stop the others hearing the change.
+    }
+  }
+}
+
+/**
+ * Bumped by every save. A load that started before a save must not overwrite
+ * it: the boot hydration reads disk asynchronously, and a learner who taps the
+ * pill while that read is in flight would otherwise watch their choice snap
+ * back to the stored value a moment later.
+ */
+let saveGeneration = 0;
+
+/** The option after `rate`, wrapping from the slowest back to normal. */
+export function nextSpeechRate(rate: number): number {
+  const i = SPEECH_RATE_OPTIONS.findIndex((o) => o.rate === rate);
+  const next = SPEECH_RATE_OPTIONS[(i + 1) % SPEECH_RATE_OPTIONS.length];
+  return next ? next.rate : NORMAL_SPEECH_RATE;
+}
+
+/** The learner-facing word for a rate, the same words the account screen shows. */
+export function speechRateLabel(rate: number): string {
+  return (SPEECH_RATE_OPTIONS.find((o) => o.rate === rate) ?? SPEECH_RATE_OPTIONS[0]!).label;
+}
+
 export async function loadSpeechRatePref(): Promise<number> {
+  const generationAtStart = saveGeneration;
+  let loaded: number;
   try {
     const raw = await AsyncStorage.getItem(SPEECH_RATE_PREF_KEY);
     const parsed = raw === null ? NORMAL_SPEECH_RATE : Number(raw);
     // An unrecognised stored value reads as normal rather than being clamped
     // to the nearest option: a value this module did not write is corruption
     // or a future version's, and guessing would apply a rate nobody chose.
-    cachedRate = ALLOWED.has(parsed) ? parsed : NORMAL_SPEECH_RATE;
+    loaded = ALLOWED.has(parsed) ? parsed : NORMAL_SPEECH_RATE;
   } catch {
-    cachedRate = NORMAL_SPEECH_RATE;
+    loaded = NORMAL_SPEECH_RATE;
+  }
+  // A save landed while the read was in flight: the save is newer, keep it.
+  if (generationAtStart !== saveGeneration) return cachedRate;
+  if (loaded !== cachedRate) {
+    cachedRate = loaded;
+    notify();
   }
   return cachedRate;
 }
@@ -67,7 +123,11 @@ export async function loadSpeechRatePref(): Promise<number> {
 export async function saveSpeechRatePref(rate: number): Promise<void> {
   // The cache moves first so the very next play is at the new rate even if
   // the write is slow or fails.
-  cachedRate = ALLOWED.has(rate) ? rate : NORMAL_SPEECH_RATE;
+  saveGeneration += 1;
+  const next = ALLOWED.has(rate) ? rate : NORMAL_SPEECH_RATE;
+  const changed = next !== cachedRate;
+  cachedRate = next;
+  if (changed) notify();
   try {
     await AsyncStorage.setItem(SPEECH_RATE_PREF_KEY, String(cachedRate));
   } catch {

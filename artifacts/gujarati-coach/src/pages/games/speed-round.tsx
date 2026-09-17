@@ -9,6 +9,7 @@ import { useQuickLaunch } from "./quick-game-frame";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import {
   MissReviewCta,
@@ -450,7 +451,11 @@ function PlayingScreen({
             <Trophy className="h-4 w-4" />
             {stats.points}
           </div>
-          <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+            <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
+            <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+          </div>
         </div>
       </div>
 

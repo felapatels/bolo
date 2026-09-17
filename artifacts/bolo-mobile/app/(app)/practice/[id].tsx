@@ -33,6 +33,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { BandLadder } from '@/components/BandLadder';
 import {
   isAdvanceUnlocked,
@@ -3471,7 +3472,15 @@ function PracticeHeader({
         <Feather name="x" size={22} color={colors.foreground} />
       </Pressable>
       <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-        <Text style={[styles.headerLabel, { color: colors.foreground }]}>
+        {/* ONE LINE, shrinking a little if it must (2026-09-17). The speed pill
+            took 50pt of this row, and on an iPhone SE the encore label
+            "10 of 10 · another go" wrapped to two lines and grew the header. */}
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+          style={[styles.headerLabel, { color: colors.foreground }]}
+        >
           {label}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -3479,6 +3488,13 @@ function PracticeHeader({
           <ChaiPill compact />
         </View>
       </View>
+      {hasSettings ? (
+        // How fast the coach speaks. Owner, 2026-09-17: "it should be on chat
+        // screen and lesson screens, wherever bolo or coach speaks". Left of
+        // the language chip, and only where the gear is: the loading, express
+        // and summary variants speak nothing and keep their bare row.
+        <SpeechSpeedPill variant="stacked" testID="practice-speed-pill" style={{ marginRight: 6 }} />
+      ) : null}
       {hasSettings && languageCode ? (
         // Display-only language code. Deliberately inert: no press handler and
         // no role that implies interactivity — the language cannot be changed

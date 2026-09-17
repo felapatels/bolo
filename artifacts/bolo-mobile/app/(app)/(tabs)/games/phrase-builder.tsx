@@ -29,6 +29,7 @@ import { useColors } from '@/hooks/useColors';
 import { AppFonts, nativeTextStyle } from '@/constants/fonts';
 import * as Haptics from 'expo-haptics';
 import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 
@@ -401,7 +402,11 @@ function PlayingScreen({
           Phrase {phraseIdx + 1} of {round.length}
         </Text>
         <Text style={[styles.correctCounter, { color: '#6366F1' }]}>{correctCount} correct</Text>
-        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.playContent} showsVerticalScrollIndicator={false}>

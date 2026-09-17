@@ -44,6 +44,7 @@ import {
   MissReviewDialog,
   type GameMiss,
 } from "@/components/game-miss-review";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -678,6 +679,7 @@ export function QuickGameShell({
               <HelpCircle className="h-5 w-5" />
             </button>
           )}
+          {usesAudio && <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />}
           {usesAudio && (
             <GameMuteButton
               soundOn={soundOn}

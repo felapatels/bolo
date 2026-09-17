@@ -79,6 +79,7 @@ import { playBase64Audio, type PlaybackHandle } from '@/lib/audio';
 // THE ONLY IMPORTER OF StoryShareButton, and it must stay that way: that file
 // carries react-native-view-shot and expo-sharing, and native modules stay off
 // the launch path in this app (CLAUDE.md, expo-video and expo-image).
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { StoryShareButton } from '@/components/games/StoryShareButton';
 import { loadGameAudioPref, saveGameAudioPref } from '@/lib/gameAudioPref';
 
@@ -973,7 +974,10 @@ export default function StorybookScreen() {
                 removed page back under another name, so it ends on a timer. */}
           </View>
 
-          {/* MUTE, not "hear". Sound is on by default. */}
+          {/* MUTE, not "hear". Sound is on by default. The speaking speed sits
+              beside it (owner, 2026-09-17: wherever the coach speaks), the
+              same stored setting as the account screen. */}
+          <View style={s.soundRow}>
           <Pressable
             testID="storybook-mute"
             onPress={() => {
@@ -987,6 +991,8 @@ export default function StorybookScreen() {
               {soundOn ? 'Mute the Story' : 'Unmute the Story'}
             </Text>
           </Pressable>
+          <SpeechSpeedPill variant="labelled" testID="storybook-speed-pill" style={{ minWidth: 0 }} />
+          </View>
 
           {/* WHAT YOU SAID, carried onto the next beat rather than given a
               page of its own (owner, 2026-09-15). Script and meaning. The
@@ -1093,6 +1099,7 @@ const s = StyleSheet.create({
   stripCard: { borderWidth: 1, borderRadius: 16, overflow: 'hidden' },
   stripText: { padding: 12, gap: 2 },
   upsell: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 8, alignItems: 'center' },
+  soundRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   mute: {
     alignSelf: 'center',
     borderWidth: 1,

@@ -63,6 +63,7 @@ import { FunFactLoader } from '@/components/FunFactLoader';
 import { LessonError } from '@/components/LessonError';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
 import { FlashbackLightbox } from '@/components/FlashbackLightbox';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useColors } from '@/hooks/useColors';
@@ -1113,8 +1114,14 @@ function LastCallRound({
                 <Text style={[styles.headerSub, TEXT_SHADOW, { color: ON_FILM_MUTED }]}>{stopLabel}</Text>
               ) : null}
             </View>
-            <View style={styles.plaque}>
-              <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+              <View style={styles.plaque}>
+                <SpeechSpeedPill variant="stacked" testID="game-speed-pill" style={{ borderWidth: 0, backgroundColor: 'transparent' }} />
+              </View>
+              <View style={styles.plaque}>
+                <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+              </View>
             </View>
           </View>
 

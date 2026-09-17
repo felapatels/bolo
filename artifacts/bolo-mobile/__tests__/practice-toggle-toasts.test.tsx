@@ -417,6 +417,31 @@ describe('the audio settings gear', () => {
   });
 });
 
+describe('the speaking-speed pill in the lesson header', () => {
+  // Owner, 2026-09-17: "it should be on chat screen and lesson screens,
+  // wherever bolo or coach speaks".
+  test('sits in the lesson header beside the language chip and shows the speed as a word', async () => {
+    await renderReady();
+    expect(screen.getByTestId('practice-speed-pill')).toBeOnTheScreen();
+    expect(screen.getByTestId('practice-speed-pill-label')).toHaveTextContent('Normal');
+  });
+
+  test('a press changes the shared setting without leaving the lesson', async () => {
+    await renderReady();
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('practice-speed-pill'));
+    });
+    expect(screen.getByTestId('practice-speed-pill-label')).toHaveTextContent('Slow');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    expect(require('@/lib/speechRatePref').currentSpeechRate()).toBe(0.8);
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem('bolo.speechRate')).toBe('0.8'),
+    );
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    await act(async () => { await require('@/lib/speechRatePref').saveSpeechRatePref(1); });
+  });
+});
+
 describe('the display-only language chip', () => {
   test('renders the active language code uppercased, with no press handler', async () => {
     await renderReady();
@@ -442,5 +467,7 @@ describe('the display-only language chip', () => {
     );
     expect(screen.queryByTestId('lesson-language-chip')).toBeNull();
     expect(screen.queryByTestId('practice-settings-trigger')).toBeNull();
+    // Nothing speaks on the bare variant, so no speed pill either.
+    expect(screen.queryByTestId('practice-speed-pill')).toBeNull();
   });
 });
