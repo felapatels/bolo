@@ -58,6 +58,7 @@ import {
 } from '@workspace/script-trace';
 import { Screen, TAB_BAR_CLEARANCE } from '@/components/Screen';
 import { ChunkyButton } from '@/components/ChunkyButton';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { PressableScale } from '@/components/PressableScale';
 import { useColors } from '@/hooks/useColors';
@@ -623,7 +624,11 @@ export default function LetterStopScreen() {
               : `Zone ${stop.zone} · ${Math.min(stop.characters.length, LETTER_STOP_LENGTH)} letters`}
           </Text>
         </View>
-        <GameMuteButton soundOn={soundOn} onToggle={toggle} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={toggle} />
+        </View>
       </View>
 
       {result ? (

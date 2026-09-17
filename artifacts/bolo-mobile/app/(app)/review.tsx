@@ -38,6 +38,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { BandPill, type Band } from '@/components/BandPill';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { BandLadder } from '@/components/BandLadder';
 import {
   isAdvanceUnlocked,
@@ -374,6 +375,9 @@ function ReviewHeader({
         </Pressable>
       ) : settingsItems ? (
         <View style={styles.headerRight}>
+          {/* How fast the coach speaks (owner, 2026-09-17). Same stored
+              setting as the account screen and the practice header. */}
+          <SpeechSpeedPill variant="stacked" testID="review-speed-pill" style={{ marginRight: 6 }} />
           {languageCode ? <LanguageChip code={languageCode} /> : null}
           <LessonSettingsMenu items={settingsItems} />
         </View>

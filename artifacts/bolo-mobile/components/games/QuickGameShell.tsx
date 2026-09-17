@@ -67,6 +67,7 @@ import { AppFonts } from '@/constants/fonts';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { markSignalCleared } from '@/lib/signalMemory';
 import { markCloseoutGranted } from '@/lib/closeoutMemory';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { confirmDiscardRun } from '@/lib/gameExit';
 import { topicLockState, type QuickGameDef } from '@/lib/quick-games';
@@ -653,7 +654,11 @@ export function QuickGameShell({
             </Pressable>
           )}
           {usesAudio ? (
-            <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+            <>
+              {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+              <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
+              <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+            </>
           ) : (
             // Layout ballast only, no control: the header is space-between, so
             // dropping the toggle outright would slide the title off centre.

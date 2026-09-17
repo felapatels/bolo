@@ -48,6 +48,7 @@ import {
   type TraceStopCharacter,
 } from "@workspace/script-trace";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { useEntitlements } from "@/lib/entitlements";
 import { useLanguage, useNativeText } from "@/lib/language-context";
@@ -544,7 +545,11 @@ export default function LetterStopPage() {
                   : `Zone ${stop.zone} · ${asked} letters`}
             </p>
           </div>
-          <GameMuteButton soundOn={soundOn} onToggle={toggle} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+            <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
+            <GameMuteButton soundOn={soundOn} onToggle={toggle} />
+          </div>
         </div>
       </div>
 

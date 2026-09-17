@@ -274,6 +274,15 @@ describe('free chat is untouched by scenario mode', () => {
     renderChat();
     expect(screen.getByText('Chat with Bolo')).toBeTruthy();
   });
+
+  // Owner, 2026-09-17: "where is the coach and bolo speed setting on the chat
+  // screen?" It sits beside the language pill, as a word, not a multiplier.
+  it('shows the speaking speed beside the language pill', () => {
+    renderChat();
+    expect(screen.getByTestId('chat-speed-pill')).toBeTruthy();
+    expect(screen.getByTestId('chat-speed-pill-label')).toHaveTextContent('Normal');
+    expect(screen.getByLabelText('Speaking speed: Normal')).toBeTruthy();
+  });
 });
 
 describe('scenario mode', () => {
@@ -284,6 +293,8 @@ describe('scenario mode', () => {
 
   it('puts the scene title in the header and the framing in a banner', () => {
     renderChat();
+    // A scenario is still Bolo speaking, so the speed stays reachable.
+    expect(screen.getByTestId('chat-speed-pill')).toBeTruthy();
     expect(screen.getByText('At the chai stall')).toBeTruthy();
     expect(screen.getByTestId('scenario-banner')).toBeTruthy();
     expect(

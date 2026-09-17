@@ -105,7 +105,12 @@ vi.mock("@workspace/api-client-react", async () => ({
 vi.mock("@/hooks/useSpeakAndScore", () => ({ useSpeakAndScore: () => h.speak }));
 vi.mock("@/hooks/useInputLevel", () => ({ useInputLevel: () => ({ amplitude: 0, level: 0, noInput: false }) }));
 vi.mock("@/lib/iosAudio", () => ({ getCoachAudioElement: () => h.el, blessAudioPlayback: vi.fn() }));
-vi.mock("@/lib/speechRatePref", () => ({ applySpeechRate: vi.fn() }));
+// Spread the real module so the header's speaking-speed pill (2026-09-17),
+// which subscribes to it, still has its exports; only the play-time call is stubbed.
+vi.mock("@/lib/speechRatePref", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/speechRatePref")>()),
+  applySpeechRate: vi.fn(),
+}));
 vi.mock("@/lib/language-context", () => ({
   useLanguage: () => ({ activeLang: "hi", activeLanguage: { code: "hi", name: "Hindi", nativeName: "हिन्दी" } }),
   useNativeText: () => ({ style: {}, dir: "ltr" as const, isNastaliq: false }),

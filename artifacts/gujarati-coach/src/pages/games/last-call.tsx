@@ -65,6 +65,7 @@ import {
   type LastCallState,
   type TakeOutcome,
 } from "@workspace/script-trace";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { FlashbackLightbox } from "@/components/flashback-lightbox";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
@@ -1078,8 +1079,12 @@ function LastCallRound({
           </div>
           {/* A card plaque: the mute icon is drawn in the theme's foreground
               colour, which would vanish into the dark scrim. */}
-          <div className="rounded-xl border border-border bg-card">
-            <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+            <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
+            <div className="rounded-xl border border-border bg-card">
+              <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+            </div>
           </div>
         </div>
 

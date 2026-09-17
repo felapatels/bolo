@@ -83,9 +83,9 @@ import { loadCoachVoicePref, saveCoachVoicePref } from "@/lib/coachVoicePref";
 import {
   SPEECH_RATE_OPTIONS,
   NORMAL_SPEECH_RATE,
-  loadSpeechRatePref,
   saveSpeechRatePref,
 } from "@/lib/speechRatePref";
+import { useSpeechRate } from "@/components/speech-speed-pill";
 import { loadMeaningAudio, saveMeaningAudio } from "@/lib/meaning-audio";
 import { TimezoneSelect, detectedTimezone } from "@/components/timezone-select";
 import { ReferralCard } from "@/components/referral-card";
@@ -249,9 +249,10 @@ export default function Account() {
   /** HOW FAST THE LANGUAGE IS SPOKEN. Owner request 2026-09-13. A playback
    *  rate, not a synthesis setting: it re-plays the clip already cached, so it
    *  costs nothing and takes effect on the very next phrase. */
-  const [speechRate, setSpeechRate] = useState(loadSpeechRatePref);
+  //  SUBSCRIBED, NOT READ ONCE (2026-09-17): the same setting now has a pill on
+  //  chat, practice and the games, so a copy taken at mount would go stale.
+  const speechRate = useSpeechRate();
   function handleChangeSpeechRate(rate: number) {
-    setSpeechRate(rate);
     saveSpeechRatePref(rate);
   }
 

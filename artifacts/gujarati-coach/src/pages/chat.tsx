@@ -33,7 +33,8 @@ import { webHaptic } from "@/lib/haptics";
 import { loadSoundPref } from "@/lib/soundPref";
 import { loadCoachVoicePref } from "@/lib/coachVoicePref";
 import { chatChipsFor } from "@/lib/chat-chips";
-import { applySpeechRate } from "@/lib/speechRatePref";
+import { applySpeechRate, loadSpeechRatePref } from "@/lib/speechRatePref";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 
 // How many previous turns to include in each request.
 const HISTORY_WINDOW = 6;
@@ -531,7 +532,14 @@ export default function ChatPage() {
           const secs = Number.isFinite(s.audio.duration) ? s.audio.duration : 0;
           if (secs <= 0) return;
           if (guard) clearTimeout(guard);
-          guard = setTimeout(release, secs * 1500 + 5000);
+          // DIVIDED BY THE CLIP'S OWN RATE (X96, 2026-09-17). `duration` is the
+          // unslowed length, so at Slower (0.65) the clip runs about 54% longer
+          // and an undivided bound can hand the turn back while Bolo is still
+          // talking. The element's rate, not the stored one: the speed pill now
+          // sits on this screen and can change mid-clip, but this clip keeps
+          // the rate applySpeechRate gave it before play().
+          const clipRate = s.audio.playbackRate > 0 ? s.audio.playbackRate : 1;
+          guard = setTimeout(release, (secs * 1500) / clipRate + 5000);
         };
         s.audio.onerror = () => { s.failed = true; release(); };
         guard = setTimeout(release, 8000);
@@ -1072,7 +1080,10 @@ export default function ChatPage() {
 
               getAudioDuration().then((duration) => {
                 if (activeTurnRef.current !== capturedTurn) return;
-                const msPerWord = Math.max(100, Math.min(900, (duration * 1000) / replyWords.length));
+                // The probe reports the unslowed length; the reply plays at the
+                // learner's speaking speed, so the reveal is paced to match.
+                const paceRate = loadSpeechRatePref() || 1;
+                const msPerWord = Math.max(100, Math.min(900, (duration * 1000) / paceRate / replyWords.length));
                 let revealed = 1;
 
                 // Show the first word immediately.
@@ -1663,8 +1674,10 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Language picker pill */}
-      <div className="flex justify-center pb-3">
+      {/* Language picker pill, and beside it how fast Bolo speaks (owner,
+          2026-09-17: the speed belongs where Bolo talks). Wraps rather than
+          overflowing when a long language name meets a narrow phone. */}
+      <div className="flex flex-wrap items-center justify-center gap-2 px-4 pb-3">
         <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
           <DialogTrigger asChild>
             <button
@@ -1737,6 +1750,7 @@ export default function ChatPage() {
             </div>
           </DialogContent>
         </Dialog>
+        <SpeechSpeedPill variant="labelled" testId="chat-speed-pill" />
       </div>
 
       {/* Persistent bilingual hint — always visible so beginners know they

@@ -382,3 +382,36 @@ describe("the display-only language chip", () => {
     ).toBeNull();
   });
 });
+
+// OWNER, 2026-09-17: "it should be on chat screen and lesson screens, wherever
+// bolo or coach speaks". The lesson header carries the speaking-speed pill,
+// left of the language chip, and it is the SAME stored setting the account
+// page writes.
+describe("the speaking-speed pill in the lesson header", () => {
+  test("renders the stored speed as a word and cycles it in place", async () => {
+    localStorage.setItem("bolo.speechRate", "0.8");
+    await reachIdle();
+
+    const pill = screen.getByTestId("practice-speed-pill");
+    expect(pill).toHaveTextContent("Slow");
+    expect(pill.nextElementSibling).toBe(screen.getByTestId("lesson-language-chip"));
+
+    fireEvent.click(pill);
+    expect(localStorage.getItem("bolo.speechRate")).toBe("0.65");
+    expect(screen.getByTestId("practice-speed-pill")).toHaveTextContent("Slower");
+  });
+
+  test("does not appear on the loading header variant", async () => {
+    h.categoryPhrases = {
+      data: undefined,
+      isLoading: true,
+      isError: false,
+      error: null,
+      isFetching: true,
+      refetch: vi.fn(),
+    };
+    renderPage(<Practice />);
+    await waitFor(() => expect(document.querySelector("header")).not.toBeNull());
+    expect(screen.queryByTestId("practice-speed-pill")).toBeNull();
+  });
+});

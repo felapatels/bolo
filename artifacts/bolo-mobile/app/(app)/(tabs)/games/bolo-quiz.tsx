@@ -32,6 +32,7 @@ import {
   type OrderWordsQuestion,
 } from '@workspace/api-client-react';
 import { playBase64Audio } from '@/lib/audio';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
 import { GameMuteButton, useGameAudio } from '@/components/GameMuteButton';
 import { MissReviewCta, MissReviewModal, type GameMiss } from '@/components/GameMissReview';
 import { confirmDiscardRun } from '@/lib/gameExit';
@@ -786,6 +787,8 @@ export default function BoloQuizScreen() {
           )}
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testID="game-speed-pill" />
           <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
           <Feather name="award" size={22} color={colors.primary} />
         </View>

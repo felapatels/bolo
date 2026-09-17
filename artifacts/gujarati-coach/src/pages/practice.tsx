@@ -89,6 +89,7 @@ import { ChaiGlyph } from "@/components/chai-stall";
 import { DailyGiftCard } from "@/components/daily-gift";
 import { glyphsForLanguage } from "@/lib/scriptGlyphs";
 import { applySpeechRate } from "@/lib/speechRatePref";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 
 type SessionState = "intro" | "playing_coach" | "idle" | "recording" | "evaluating" | "result" | "error" | "summary" | "compare" | "capture_saved";
 
@@ -2498,6 +2499,9 @@ export default function Practice({
             never reflows between a two-letter code (HI) and a three-letter
             one (SAT); codes are NEVER truncated, since "sat" clipped to "SA"
             collides with Sanskrit. */}
+        {/* How fast the coach speaks (owner, 2026-09-17: "it should be on chat
+            screen and lesson screens"). Same stored setting as the account page. */}
+        <SpeechSpeedPill testId="practice-speed-pill" />
         <span
           data-testid="lesson-language-chip"
           className="shrink-0 w-9 h-8 flex items-center justify-center rounded-full bg-muted text-muted-foreground text-[11px] font-bold uppercase tracking-wide leading-none"

@@ -238,6 +238,8 @@ describe('review header: settings gear and menu (#1045)', () => {
   test('the gear sits in the review header and opens the menu', async () => {
     await openReview();
     expect(screen.getByTestId('lesson-settings-button')).toBeOnTheScreen();
+    // The speaking speed rides in the same header (owner, 2026-09-17).
+    expect(screen.getByTestId('review-speed-pill-label')).toHaveTextContent('Normal');
     expect(screen.queryByTestId('lesson-settings-sheet')).toBeNull();
 
     await openMenu();

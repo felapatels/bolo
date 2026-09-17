@@ -18,6 +18,7 @@ import {
   MissReviewDialog,
   type GameMiss,
 } from "@/components/game-miss-review";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { Mascot } from "@/components/mascot";
 import { cn } from "@/lib/utils";
@@ -725,7 +726,9 @@ export default function WordMatchPage() {
           </Link>
         )}
         <h1 className="text-lg font-extrabold text-foreground">{phaseTitle[phase]}</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
           <GameMuteButton soundOn={soundOn} onToggle={toggleSound} />
         </div>
       </div>

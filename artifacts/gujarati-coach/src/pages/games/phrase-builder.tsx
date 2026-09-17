@@ -13,6 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useLanguage, useNativeText } from "@/lib/language-context";
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import {
   MissReviewCta,
@@ -384,7 +385,11 @@ function PlayingScreen({
         <span className="ml-auto text-sm font-bold text-indigo-500">
           {correctCount} correct
         </span>
-        <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+          <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
+          <GameMuteButton soundOn={soundOn} onToggle={onToggleSound} />
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col gap-6 px-4 pt-2">

@@ -16,6 +16,7 @@
 // that does not fit is a different thing to have said rather than a wrong
 // answer, and the ledger records what was said.
 
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import {
   useCallback,
   useEffect,
@@ -1642,7 +1643,10 @@ export default function StorybookPage() {
                 opt-in button. It sits between the book and the answers because
                 that is where they asked for it, and because a control over the
                 picture competes with the picture. */}
-            <div className="flex justify-center">
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {/* The speaking speed beside it (owner, 2026-09-17: wherever the
+                  coach speaks). The same stored setting as the account page. */}
+              <SpeechSpeedPill variant="labelled" testId="storybook-speed-pill" />
               <button
                 type="button"
                 onClick={toggleSound}

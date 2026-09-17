@@ -77,9 +77,9 @@ import { loadCoachVoicePref, saveCoachVoicePref } from '@/lib/coachVoicePref';
 import {
   SPEECH_RATE_OPTIONS,
   NORMAL_SPEECH_RATE,
-  loadSpeechRatePref,
   saveSpeechRatePref,
 } from '@/lib/speechRatePref';
+import { useSpeechRate } from '@/components/SpeechSpeedPill';
 import { BlockedLearnersList } from '@/components/BoardScope';
 import { hapticLight } from '@/lib/haptics';
 import { rateBolo, rateDestination } from '@/lib/store';
@@ -206,21 +206,15 @@ export default function AccountScreen() {
   // playback rate, not a synthesis setting, so it re-plays the clip already
   // cached and costs nothing. It sits beside Bolo's voice because a learner
   // reaching for one is usually reaching for the other.
-  const [speechRate, setSpeechRate] = React.useState<number>(NORMAL_SPEECH_RATE);
-  React.useEffect(() => {
-    let cancelled = false;
-    loadSpeechRatePref().then((rate) => {
-      if (!cancelled) setSpeechRate(rate);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  //
+  // SUBSCRIBED, NOT LOADED ONCE (2026-09-17). The same setting now has a pill
+  // on the chat, lesson and game screens, so a copy read at mount would show
+  // a stale speed after the learner changed it elsewhere. The root layout
+  // hydrates the store at boot; this reads it live.
+  const speechRate = useSpeechRate();
   const changeSpeechRate = (value: string) => {
-    const rate = Number(value);
     hapticLight();
-    setSpeechRate(rate);
-    void saveSpeechRatePref(rate);
+    void saveSpeechRatePref(Number(value));
   };
 
   type VoiceMode = 'on' | 'tap' | 'off';

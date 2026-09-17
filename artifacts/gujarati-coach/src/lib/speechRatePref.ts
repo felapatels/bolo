@@ -58,6 +58,58 @@ export function saveSpeechRatePref(rate: number): void {
   } catch {
     // Persistence is best-effort; the in-session choice still applies.
   }
+  notify();
+}
+
+/**
+ * EVERY SURFACE THAT SHOWS THE SPEED LISTENS HERE. Owner, 2026-09-17: the
+ * control belongs "on chat screen and lesson screens, wherever bolo or coach
+ * speaks", as well as on the account screen. A pill that read the value once
+ * at mount would still say "Normal" after the learner chose "Slower" in
+ * another pill, so every save notifies, and so does a write from another tab
+ * (the browser's storage event). components/speech-speed-pill.tsx subscribes.
+ * The mobile twin is bolo-mobile/lib/speechRatePref.ts.
+ */
+type Listener = () => void;
+const listeners = new Set<Listener>();
+
+function notify(): void {
+  for (const l of Array.from(listeners)) {
+    try {
+      l();
+    } catch {
+      // One broken listener must not stop the others hearing the change.
+    }
+  }
+}
+
+function onStorage(e: StorageEvent): void {
+  if (e.key === null || e.key === SPEECH_RATE_PREF_KEY) notify();
+}
+
+export function subscribeSpeechRate(listener: Listener): () => void {
+  listeners.add(listener);
+  if (listeners.size === 1 && typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
+/** The option after `rate`, wrapping from the slowest back to normal. */
+export function nextSpeechRate(rate: number): number {
+  const i = SPEECH_RATE_OPTIONS.findIndex((o) => o.rate === rate);
+  const next = SPEECH_RATE_OPTIONS[(i + 1) % SPEECH_RATE_OPTIONS.length];
+  return next ? next.rate : NORMAL_SPEECH_RATE;
+}
+
+/** The learner-facing word for a rate, the same words the account screen shows. */
+export function speechRateLabel(rate: number): string {
+  return (SPEECH_RATE_OPTIONS.find((o) => o.rate === rate) ?? SPEECH_RATE_OPTIONS[0]!).label;
 }
 
 /**

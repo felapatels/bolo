@@ -34,6 +34,8 @@ import {
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import { Screen, TAB_BAR_CLEARANCE, RAISED_PARROT_CLEARANCE } from '@/components/Screen';
 import { UpgradeRequiredScreen } from '@/components/UpgradeRequiredScreen';
+import { SpeechSpeedPill } from '@/components/SpeechSpeedPill';
+import { currentSpeechRate } from '@/lib/speechRatePref';
 import { SoundBars, TalkingMascot, type TalkingMascotMode } from '@/components/TalkingMascot';
 import { Mascot } from '@/components/Mascot';
 import { bolo3dSurfaces } from '@/lib/bolo3dFlag';
@@ -1467,8 +1469,12 @@ export default function ChatScreen() {
       if (shouldAnimate) {
         clearWordReveal();
         const capturedTurn = myTurn;
-        const msPerWord = Math.max(120, Math.min(800, Math.round(
-          (replyWords.length <= 5 ? 400 : replyWords.length <= 10 ? 350 : 300),
+        // Divided by the speaking speed (2026-09-17, web parity): at Slower the
+        // reply sounds about 54% longer, and a reveal paced for Normal would
+        // run ahead of Bolo's voice.
+        const msPerWord = Math.max(120, Math.min(1200, Math.round(
+          (replyWords.length <= 5 ? 400 : replyWords.length <= 10 ? 350 : 300) /
+            (currentSpeechRate() || 1),
         )));
         let revealed = 1;
 
@@ -2160,6 +2166,10 @@ export default function ChatScreen() {
           </Text>
           <Feather name="chevron-down" size={14} color={colors.mutedForeground} />
         </Pressable>
+        {/* How fast Bolo speaks. Owner, 2026-09-17: the speed belongs where
+            Bolo talks, not only on the account screen. Same stored setting,
+            so a change here is a change there. */}
+        <SpeechSpeedPill variant="labelled" testID="chat-speed-pill" />
       </View>
 
       {/* Free-tier time remaining bar */}
@@ -3044,8 +3054,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Language and speaking speed side by side, centred. Wraps rather than
+  // overflowing if a long language name meets a narrow phone.
   langPillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
     paddingBottom: 8,
   },
   langPill: {

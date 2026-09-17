@@ -50,6 +50,7 @@ import {
 } from "@workspace/script-trace";
 import { STALL_ASSETS } from "@/components/chai-stall";
 import { Confetti } from "@/components/ui/confetti";
+import { SpeechSpeedPill } from "@/components/speech-speed-pill";
 import { GameMuteButton, useGameAudio } from "@/components/game-mute-button";
 import { FlashbackLightbox } from "@/components/flashback-lightbox";
 import { LessonBuildingScreen, LessonErrorScreen } from "@/components/lesson-states";
@@ -547,7 +548,11 @@ function AnswerBackRound({
             <h1 className="truncate text-lg font-extrabold leading-tight text-foreground">Answer Back</h1>
             {stopLabel ? <p className="truncate text-xs text-muted-foreground">{stopLabel}</p> : null}
           </div>
-          <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* Speaking speed beside the mute (owner, 2026-09-17: wherever the coach speaks). */}
+            <SpeechSpeedPill variant="stacked" testId="game-speed-pill" />
+            <GameMuteButton soundOn={soundOn} onToggle={toggleSound} active={audioPlaying} />
+          </div>
         </div>
       </div>
 
