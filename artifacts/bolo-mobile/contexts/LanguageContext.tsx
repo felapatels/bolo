@@ -90,6 +90,24 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
 
   const [activeLang, setActiveLangState] = useState<string>(DEFAULT_LANG);
+  /**
+   * The code this provider last applied, readable synchronously. Effects that
+   * run in the same commit (reconcile, then the validity guard) would otherwise
+   * each see the render's stale `activeLang`, and the guard could overwrite a
+   * server value the reconcile had just adopted.
+   */
+  const currentLang = useRef<string>(DEFAULT_LANG);
+  /**
+   * True only when the current code is a REAL choice: read back from storage
+   * (which only ever holds picks and adopted account values) or applied through
+   * applyLocal. False for DEFAULT_LANG and for the validity fallback.
+   *
+   * ONLY A REAL CHOICE MAY BE WRITTEN TO THE ACCOUNT. Traced 2026-09-17 from
+   * "my language keeps getting set back to assamese": the guard below used to
+   * PATCH languages[0], which is Assamese because /languages sorts by
+   * sortOrder, and the account carried it to every other device.
+   */
+  const localIsChoice = useRef(false);
   // Gate server reconciliation on the local load so we compare against the
   // stored choice, not the transient default.
   const [hydrated, setHydrated] = useState(false);
@@ -103,7 +121,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     Promise.all([AsyncStorage.getItem(STORAGE_KEY), AsyncStorage.getItem(UNSYNCED_KEY)])
       .then(([stored, dirty]) => {
         if (cancelled) return;
-        if (stored) setActiveLangState(stored);
+        if (stored) {
+          currentLang.current = stored;
+          localIsChoice.current = true;
+          setActiveLangState(stored);
+        }
         unsynced.current = dirty === '1';
       })
       .catch(() => {
@@ -148,6 +170,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Update just the local mirror (in-memory + AsyncStorage) without touching the
   // server — used when adopting the server's own value during reconciliation.
   const applyLocal = (code: string) => {
+    currentLang.current = code;
+    localIsChoice.current = true;
     setActiveLangState(code);
     AsyncStorage.setItem(STORAGE_KEY, code).catch(() => {});
   };
@@ -160,20 +184,34 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Reconcile the local choice with the account once, after both have loaded.
   // A language saved on another device wins here; if the account has never
   // recorded one, seed it from the local choice so future devices inherit it.
+  //
+  // Also waits for the language list, so it can tell a real, supported local
+  // choice from a code the list does not carry. Only the former is ever pushed.
   useEffect(() => {
-    if (!hydrated || reconciled.current || !account.data) return;
+    if (!hydrated || reconciled.current || !account.data || languages.length === 0) return;
     reconciled.current = true;
     const server = account.data.preferences.learning.activeLanguage;
+    const local = currentLang.current;
+    const localIsPushable =
+      localIsChoice.current && languages.some((l) => l.code === local);
+    if (unsynced.current && !localIsPushable) {
+      // The unsaved code is not a supported choice any more, so it can never
+      // be saved. Drop the flag rather than let it block the account's value.
+      unsynced.current = false;
+      AsyncStorage.removeItem(UNSYNCED_KEY).catch(() => {});
+    }
     // AN UNSYNCED LOCAL CHOICE WINS. The learner picked it on this device and
     // the save failed; the server's value is simply older, not authoritative.
     // Retrying here is also the only repair path, since reconciliation runs
     // once per mount and nothing else ever revisits it.
     if (unsynced.current) {
-      pushRemote(activeLang);
+      pushRemote(local);
     } else if (server) {
-      if (server !== activeLang) applyLocal(server);
-    } else {
-      pushRemote(activeLang);
+      if (server !== local) applyLocal(server);
+    } else if (localIsPushable) {
+      // Seed an account that has never recorded a language, but only from this
+      // device's own earlier choice. A default or a fallback is not a choice.
+      pushRemote(local);
     }
 
     // Also report the device's IANA time zone so the server buckets streak days
@@ -188,11 +226,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       // Intl zone lookup unavailable — leave the server value untouched.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, account.data]);
+  }, [hydrated, account.data, languages]);
 
-  // Keep the active language valid for the supported list: if the stored code
-  // isn't supported at all, fall back to the first available (synced to the
-  // backend via setActiveLang).
+  // Keep the active language valid for the supported list: if the current code
+  // isn't supported at all, fall back LOCALLY, for display only.
+  //
+  // NEVER WRITTEN ANYWHERE. Not to the account (this used to call setActiveLang,
+  // which PATCHed languages[0], Assamese, over the learner's real language on
+  // every device), and not to AsyncStorage (a stored fallback would look like a
+  // real choice next launch and be seeded to the account one step removed).
+  // The fallback prefers DEFAULT_LANG, so a stray code shows Hindi rather than
+  // whatever happens to sort first.
   //
   // Deliberately NOT corrected here: a supported-but-locked language (free
   // caller). The journey-map showroom (Spec D1b-M, mirroring the web ruling
@@ -202,11 +246,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // guard silently flipping the language back.
   useEffect(() => {
     if (languages.length === 0) return;
-
-    if (!languages.some((l) => l.code === activeLang)) {
-      setActiveLang(languages[0].code);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const current = currentLang.current;
+    if (languages.some((l) => l.code === current)) return;
+    const fallback = languages.some((l) => l.code === DEFAULT_LANG)
+      ? DEFAULT_LANG
+      : languages[0].code;
+    currentLang.current = fallback;
+    localIsChoice.current = false;
+    setActiveLangState(fallback);
   }, [languages, activeLang]);
 
   const activeLanguage = languages.find((l) => l.code === activeLang);
