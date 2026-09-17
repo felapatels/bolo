@@ -182,9 +182,10 @@ describe("language-context plan-locked languages", () => {
     });
   });
 
-  test("an unsupported stored language still falls back to the first supported", async () => {
-    // The supported-list guard is unchanged: a code missing from /languages
-    // (e.g. a removed language) reverts to the first available.
+  test("an unsupported stored language still falls back for display", async () => {
+    // A code missing from /languages (e.g. a removed language) falls back
+    // locally, to DEFAULT_LANG when listed, else the first available. It is
+    // never stored or sent: see language-fallback-never-persists.test.tsx.
     localStorage.setItem("bolo.activeLang", "xx");
 
     renderWithProvider();
