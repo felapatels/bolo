@@ -127,6 +127,7 @@ const Terms = lazyRoute(() => import('@/pages/terms'));
 const Support = lazyRoute(() => import('@/pages/support'));
 // Public per-language SEO pages (/languages/<slug>), no auth required.
 const LearnLanguage = lazyRoute(() => import('@/pages/learn-language'));
+const GrowthLanguage = lazyRoute(() => import('@/pages/growth-language'));
 // Public: a shared referral link lands here, signed in or not.
 const Join = lazyRoute(() => import('@/pages/join'));
 const NotFound = lazyRoute(() => import('@/pages/not-found'));
@@ -399,6 +400,9 @@ function AppRouter() {
       {/* Public per-language marketing/SEO pages. The /languages prefix is
           deliberate: /learn/:categoryId is the authenticated CategoryDetail. */}
       <Route path="/languages/:slug" component={LearnLanguage} />
+      <Route path="/gujarati"><GrowthLanguage slug="gujarati" /></Route>
+      <Route path="/punjabi"><GrowthLanguage slug="punjabi" /></Route>
+      <Route path="/hindi"><GrowthLanguage slug="hindi" /></Route>
       {/* Referral landing. Deliberately NOT behind Guard: a signed-out visitor
           arriving here is the whole point, and the family invite link shows
           what guarding costs (Guard bounces to "/" and the token is lost). */}
