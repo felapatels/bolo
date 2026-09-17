@@ -990,6 +990,11 @@ export default function Landing({
 
       <footer className="relative px-6 pb-10 text-center text-sm text-muted-foreground font-medium">
         <p>Bolo! - stop tapping, start talking.</p>
+        <nav aria-label="Featured language guides" className="mt-4 flex flex-wrap items-center justify-center gap-4">
+          <Link href="/gujarati" className="hover:text-foreground transition-colors">Learn Gujarati</Link>
+          <Link href="/punjabi" className="hover:text-foreground transition-colors">Learn Punjabi</Link>
+          <Link href="/hindi" className="hover:text-foreground transition-colors">Learn Hindi</Link>
+        </nav>
         <nav className="mt-3 flex items-center justify-center gap-4">
           <Link href="/privacy" className="hover:text-foreground transition-colors">
             Privacy Policy
