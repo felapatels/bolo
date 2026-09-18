@@ -6,6 +6,7 @@ import {
   transferRecipients,
   type RevenueCatWebhookBody,
 } from "../lib/revenuecatSync";
+import { recordSubscriptionEvent } from "../lib/subscriptionLedger.js";
 import {
   applyRevenueCatState,
   reconcileFromRevenueCat,
@@ -62,6 +63,18 @@ router.post(
       res.status(400).json({ error: "Missing event" });
       return;
     }
+
+    // THE LEDGER IS WRITTEN FIRST, and for every type, including the ones the
+    // entitlement code below ignores. The users row says who is paying right
+    // now; only this table can say who converted, who cancelled, what they
+    // paid and whether it was real money or a sandbox purchase. See
+    // lib/subscriptionLedger.ts. It never throws, so a bookkeeping failure
+    // cannot cost a learner the thing they just bought.
+    // AWAITED, not fire-and-forget. This runs on autoscale: once the response
+    // is sent the instance can be frozen or reclaimed, and a promise nobody
+    // waited for is a row that silently never lands. One insert is cheaper than
+    // a ledger with holes in it.
+    await recordSubscriptionEvent(event, req.log);
 
     // EVERY event, named, before any branching.
     //

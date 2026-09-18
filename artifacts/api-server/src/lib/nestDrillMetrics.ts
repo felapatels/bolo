@@ -22,11 +22,31 @@ export const DRILL_METRICS: Record<
   paid: {
     label: "Paid",
     note:
-      "tier is not free AND subscription_status is active, right now. A sandbox " +
-      "or TestFlight purchase looks identical here and bills nothing: RevenueCat " +
-      "sends the environment on every webhook and nothing stores it yet, so check " +
-      "the provider and the dates by eye.",
+      "tier is not free AND subscription_status is active, right now, with the " +
+      "owner and the tester accounts removed. It says who has access, NOT who " +
+      "paid: a sandbox or TestFlight purchase reaches this number too. For money, " +
+      "read Revenue and Conversions, which come from the subscription ledger and " +
+      "count production purchases only.",
     windowed: false,
+  },
+  conversions: {
+    label: "Conversions",
+    note:
+      "Purchases and renewals that were real money, in this window: production " +
+      "environment, not a trial, not a promotional grant. Sandbox and TestFlight " +
+      "purchases are excluded by construction rather than by a list of tester " +
+      "ids. The ledger begins 2026-09-18, so an earlier window reads zero because " +
+      "the table did not exist, not because nobody bought anything.",
+    windowed: true,
+  },
+  cancellations: {
+    label: "Cancellations",
+    note:
+      "Auto-renew turned off, in this window. It is NOT the end of access: the " +
+      "learner keeps what they paid for until it expires, so a cancellation today " +
+      "costs nothing today and shows up as revenue missing a year later. The " +
+      "ledger begins 2026-09-18.",
+    windowed: true,
   },
   free: {
     label: "Free",

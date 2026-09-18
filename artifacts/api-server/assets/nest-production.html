@@ -2580,7 +2580,31 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
     var r = state.range;
     if (!r) {
       win.innerHTML = tile("-", "Waiting on the numbers", "Reading /api/nest/range.");
-      snap.innerHTML = ""; chart.innerHTML = "";
+      /* MONEY, 2026-09-18. Three questions that could not be answered at all
+       before the subscription ledger existed: what came in, who converted, who
+       cancelled. They are WINDOWED, because every one of them is an event
+       rather than a state, and they sit above the snapshots for that reason.
+
+       REVENUE IS PRODUCTION AND USD ONLY, by construction rather than by a
+       list of tester ids. That is the fix for the complaint that started this:
+       "none of these are actually paid".
+
+       THE LEDGER STARTS 2026-09-18. A window reaching before that reads zero
+       because the table did not exist, and the note says so rather than
+       letting an empty tile read as a dead product. */
+    const money =
+      tile(r.revenueUsdCents ? "$" + (r.revenueUsdCents / 100).toFixed(2) : "$0",
+           "Revenue",
+           "Real money in this window: production purchases and renewals, in USD. Trials, promos and sandbox purchases are excluded. The ledger starts 2026-09-18.",
+           false, null) +
+      tile(fmt(r.conversions), "Conversions",
+           "Purchases and renewals that were real money in this window. Open it to see who.",
+           r.conversions > 0, "conversions") +
+      tile(fmt(r.cancellations), "Cancellations",
+           "Auto-renew turned off in this window. Access runs to the paid expiry, so this costs nothing today and shows up as a renewal that never comes.",
+           r.cancellations > 0, "cancellations");
+
+    snap.innerHTML = money + ""; chart.innerHTML = "";
       return;
     }
     var days = Math.max(1, Math.round((new Date(r.to) - new Date(r.from)) / 86400000));
@@ -2604,7 +2628,7 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     snap.innerHTML =
       tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts and the App Review tester already removed." : "Including your own accounts and the tester.", false, "accounts") +
-      tile(fmt(r.paidTotal), "Paid", "Right now. A sandbox or TestFlight purchase looks identical here and bills nothing, so open this and check the dates.", r.paidTotal > 0, "paid") +
+      tile(fmt(r.paidTotal), "Paid", "Who has access right now, which is not the same as who paid: a sandbox or TestFlight purchase reaches this number too. For money, read Revenue and Conversions.", r.paidTotal > 0, "paid") +
       tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.", false, "free") +
       tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.", false, "trialing") +
       /* THE DAILY GIFT. Both of these are snapshots and sit with the other

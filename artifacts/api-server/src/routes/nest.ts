@@ -730,6 +730,24 @@ router.get("/nest/drill", async (req: Request, res: Response): Promise<void> => 
   } else if (metric === "remindersOn") {
     selector = sql`select u.id, 0 from users u
       where u.daily_reminder_enabled ${notOwner("u.id")}`;
+  } else if (metric === "conversions" || metric === "cancellations") {
+    // WHO, not how many, which is the whole point of a drill. One row per
+    // learner with their most recent such event in the window, so a renewal a
+    // year from now does not list somebody twice.
+    //
+    // The metric_value is the amount in USD cents for a conversion and 0 for a
+    // cancellation, because the panel ranks by it and "who paid most" is the
+    // useful order for one and meaningless for the other.
+    const wanted =
+      metric === "conversions"
+        ? sql`e.is_revenue and e.event_type in ('INITIAL_PURCHASE', 'RENEWAL')`
+        : sql`e.event_type = 'CANCELLATION'`;
+    selector = sql`select e.user_id, coalesce(max(e.price_usd_cents), 0)::int
+      from subscription_events e
+      where ${wanted}
+        and e.occurred_at >= ${from} and e.occurred_at <= ${to}
+        ${notOwner("e.user_id")}
+      group by 1`;
   } else if (metric === "trialing") {
     selector = sql`select u.id, 0 from users u
       where u.subscription_status = 'trialing' ${notOwner("u.id")}`;
@@ -1459,6 +1477,29 @@ type NestRange = {
   freeTotal: number;
   trialingTotal: number;
   /**
+   * WINDOWED MONEY AND ITS TWO EVENTS, from subscription_events, added
+   * 2026-09-18 because none of the three could be answered at all.
+   *
+   * The users table holds STATE. It cannot say who converted last week, who
+   * cancelled, or what anybody paid, and the owner asked all three on the same
+   * day. The ledger is written by the RevenueCat webhook: see
+   * lib/subscriptionLedger.ts.
+   *
+   * REVENUE IS PRODUCTION-ONLY AND USD-ONLY, by construction. `is_revenue` is
+   * false for anything sandbox, trial or promotional, which is what made the
+   * old paid tile untrustworthy, and only rows whose currency IS USD carry a
+   * usd figure, because a made-up exchange rate in a revenue total is worse
+   * than a smaller honest one.
+   *
+   * THE LEDGER STARTS ON 2026-09-18. Every purchase before that date happened
+   * before the table existed and is not in it, so a window reaching further
+   * back reads zero rather than history. That is a gap, not a fault, and it is
+   * named here so nobody reports the product as having earned nothing.
+   */
+  revenueUsdCents: number;
+  conversions: number;
+  cancellations: number;
+  /**
    * Gift boxes opened TODAY, in UTC.
    *
    * DELIBERATELY NOT WINDOWED, and the reason is the feature's own: the box
@@ -1634,7 +1675,32 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
           ${notOwner("id")})::int                                    as free_total,
         (select count(*) from users
           where subscription_status = 'trialing'
-          ${notOwner("id")})::int                                    as trialing_total
+          ${notOwner("id")})::int                                    as trialing_total,
+        -- MONEY AND ITS EVENTS, windowed, from the subscription ledger.
+        -- coalesce because sum() over no rows is NULL, and a NULL here would
+        -- render as an empty tile rather than as a zero.
+        (select coalesce(sum(price_usd_cents), 0) from subscription_events
+          where is_revenue and currency = 'USD'
+            and occurred_at >= ${from} and occurred_at <= ${to}
+          ${notOwner("user_id")})::int                               as revenue_usd_cents,
+        -- A CONVERSION IS A TRIAL TURNING INTO MONEY. RevenueCat sends it as a
+        -- RENEWAL carrying is_trial_conversion, and we do not store that flag,
+        -- so it is derived the same way the revenue rule is: the first paid
+        -- event for a user in the window. INITIAL_PURCHASE covers a purchase
+        -- with no trial in front of it.
+        (select count(*) from subscription_events
+          where is_revenue
+            and event_type in ('INITIAL_PURCHASE', 'RENEWAL')
+            and occurred_at >= ${from} and occurred_at <= ${to}
+          ${notOwner("user_id")})::int                               as conversions,
+        -- A CANCELLATION IS AUTO-RENEW TURNED OFF, not access ending. The
+        -- learner keeps what they paid for until it expires, which is why this
+        -- is counted separately from EXPIRATION and why a cancellation today
+        -- costs nothing today.
+        (select count(*) from subscription_events
+          where event_type = 'CANCELLATION'
+            and occurred_at >= ${from} and occurred_at <= ${to}
+          ${notOwner("user_id")})::int                               as cancellations
     `);
     const t = ((totals as unknown as { rows?: Record<string, unknown>[] }).rows ??
       (totals as unknown as Record<string, unknown>[]))[0];
@@ -1689,6 +1755,9 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
       paidTotal: n("paid_total"),
       freeTotal: n("free_total"),
       trialingTotal: n("trialing_total"),
+      revenueUsdCents: n("revenue_usd_cents"),
+      conversions: n("conversions"),
+      cancellations: n("cancellations"),
       series: rows.map((r) => ({
         day: String(r.day),
         signups: Number(r.signups ?? 0),

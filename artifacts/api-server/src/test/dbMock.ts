@@ -113,6 +113,7 @@ export function createDbMockExports(
     scriptTraceContributionsTable: {},
     voiceContributionsTable: {},
     passageFeedbackTable: {},
+    subscriptionEventsTable: {},
     // Lesson phrase verdicts, migration 0062 (2026-09-15). Caught here the same
     // way as the three above: the schema commit landed without this line.
     voiceContributionReviewsTable: {},
