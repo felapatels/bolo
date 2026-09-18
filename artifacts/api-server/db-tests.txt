@@ -7,6 +7,7 @@ src/lib/chatLimits.test.ts
 src/lib/feedbackTts.test.ts
 src/lib/freeTierContentPolicy.test.ts
 src/lib/pricingCatalog.test.ts
+src/lib/streakPush.test.ts
 src/lib/stripeReconcile.test.ts
 src/lib/ttsPrewarm.test.ts
 src/routes/account.test.ts
