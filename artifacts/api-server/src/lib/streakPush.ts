@@ -34,6 +34,35 @@ type Candidate = {
 };
 
 /**
+ * Runs `operation` once, and if it throws, waits `delayMs` and tries exactly
+ * once more before letting the error through.
+ *
+ * WHY THIS EXISTS. candidates() below has failed in production with
+ * "Authentication timed out" and, separately, "Client network socket
+ * disconnected before secure TLS connection was established" (Sentry
+ * NODE-EXPRESS-5 and NODE-EXPRESS-M, first seen 2026-08-27 and repeating in
+ * every sibling fork since). Both are the shape of a serverless Postgres
+ * (Neon) compute waking from idle on the first connection after a quiet
+ * stretch. Uncaught, that killed the WHOLE hourly sweep rather than one
+ * learner's row, so every candidate in that run's send window went
+ * unreminded that day. One retry survives the ordinary wake-up; a second
+ * failure still propagates exactly as before, so a real outage is not hidden.
+ */
+export async function withRetryOnce<T>(
+  operation: () => Promise<T>,
+  delayMs: number,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return await operation();
+  }
+}
+
+const CANDIDATES_QUERY_RETRY_DELAY_MS = 1000;
+
+/**
  * Learners who practised yesterday, have not practised today, and carry a live
  * push token.
  *
@@ -43,16 +72,20 @@ type Candidate = {
  */
 async function candidates(now: Date): Promise<Candidate[]> {
   const since = new Date(now.getTime() - 48 * 60 * 60 * 1000);
-  const rows = await db
-    .select({
-      userId: attemptsTable.userId,
-      createdAt: attemptsTable.createdAt,
-      timezone: usersTable.timezone,
-    })
-    .from(attemptsTable)
-    .innerJoin(usersTable, eq(usersTable.id, attemptsTable.userId))
-    .where(gte(attemptsTable.createdAt, since))
-    .orderBy(desc(attemptsTable.createdAt));
+  const rows = await withRetryOnce(
+    () =>
+      db
+        .select({
+          userId: attemptsTable.userId,
+          createdAt: attemptsTable.createdAt,
+          timezone: usersTable.timezone,
+        })
+        .from(attemptsTable)
+        .innerJoin(usersTable, eq(usersTable.id, attemptsTable.userId))
+        .where(gte(attemptsTable.createdAt, since))
+        .orderBy(desc(attemptsTable.createdAt)),
+    CANDIDATES_QUERY_RETRY_DELAY_MS,
+  );
 
   // First row per user is their most recent attempt, because the query is
   // ordered. Done in memory rather than with a window function: at this size it
