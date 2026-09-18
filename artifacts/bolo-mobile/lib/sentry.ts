@@ -90,6 +90,28 @@ export function initSentry(): void {
     environment: __DEV__ ? 'development' : 'production',
     sendDefaultPii: false,
     tracesSampleRate: 0,
+    // APP HANG TRACKING, on 2026-09-18 by the owner's ruling, to answer a
+    // question fourteen WatchdogTermination reports could not.
+    //
+    // WHY THOSE REPORTS ARE NOT ENOUGH. sentry-cocoa cannot see the OS kill a
+    // watchdog termination. It INFERS one at the next launch when the previous
+    // session ended with no crash, no clean exit and the app in the foreground,
+    // so a reviewer swiping the app away looks identical to a real kill. The
+    // tombstone carries no stack trace and never will. Apple held no crash
+    // report for any of the fourteen (testflight_crashes, both live bundles),
+    // which is the other half of the doubt.
+    //
+    // A HANG IS OBSERVABLE WHERE A KILL IS NOT: the SDK watches the main thread
+    // itself, so a blocked main thread arrives with a stack and a screen name.
+    // If the watchdog reports are real, hangs appear alongside them and name
+    // the cause. If no hang ever appears, the reports were the SDK guessing,
+    // and that is an answer too.
+    //
+    // Two seconds, not the default one: this app animates a splash film on the
+    // launch path and a one-second threshold on a cold start would report the
+    // splash rather than a fault.
+    enableAppHangTracking: true,
+    appHangTimeoutInterval: 2,
     beforeSend(event) {
       if (event.user) event.user = { id: event.user.id };
       return scrubEvent(event);
