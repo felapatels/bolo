@@ -1170,12 +1170,14 @@ export default function ChatScreen() {
         streamStarted = true;
         try {
           if (activeTurnRef.current !== myTurn || !isFocusedRef.current) return;
-          // Squawk first (fire-and-forget intro), same ordering as the
-          // buffered path — it overlaps the start of speech.
-          if (turnSquawkVariant !== null && !squawkPlayed) {
-            squawkPlayed = true;
-            playSquawk(turnSquawkVariant);
-          }
+          // NO SQUAWK ON A REPLY SINCE 2026-09-18. The owner's words were
+          // "we can leave the squawk if it's just the one time", and it was
+          // never once: the server sets squawkVariant whenever the model wrote
+          // a squawk token into its own text, so the chirp arrived on reply
+          // after reply and how often was the model's decision, not a rule.
+          // The greeting still chirps, which is where the character lives.
+          // turnSquawkVariant and squawkPlayed are kept because the server
+          // still sends the field and the stream path still reads it.
           if (!coachVoiceRef.current) {
             // Coach voice off: mark stream as done so the buffered fallback
             // path below also skips audio.
@@ -1545,14 +1547,8 @@ export default function ChatScreen() {
         setPhase('playing');
         if (!streamStarted) hapticHeavy();
 
-        // Play the squawk as a fire-and-forget intro — don't await its full
-        // duration before starting Bolo's voice reply. The squawk acts as a
-        // brief "I'm here!" chirp that overlaps naturally with the start of
-        // speech, rather than a blocker adding 1–1.5 s of silence. Skipped if
-        // the streaming path already chirped this turn.
-        if (squawkVariant !== null && squawkVariant !== undefined && !squawkPlayed) {
-          playSquawk(squawkVariant);
-        }
+        // NO SQUAWK ON A REPLY, 2026-09-18. See the note on the streaming
+        // path: the greeting keeps its chirp and a reply no longer has one.
 
         if (!coachVoiceRef.current) {
           setPhase('idle');

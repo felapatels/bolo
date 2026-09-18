@@ -546,23 +546,11 @@ export default function ChatPage() {
         applySpeechRate(s.audio);
         s.audio.play().catch(() => { s.failed = true; release(); });
       };
-      if (s.squawkVariant !== null && s.squawkVariant !== undefined) {
-        const sfxFile = ["squawk_a", "squawk_b", "squawk_c"][s.squawkVariant];
-        const sfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${sfxFile}.mp3`);
-        // One-shot guard: whichever of onended / onerror / play().catch fires
-        // first wins; subsequent callbacks are silently dropped.
-        let sfxFired = false;
-        const oncePlay = () => {
-          if (sfxFired) { console.log('[audio] duplicate blocked path=stream'); return; }
-          sfxFired = true;
-          play();
-        };
-        sfx.onended = oncePlay;
-        sfx.onerror = oncePlay;
-        sfx.play().catch(oncePlay);
-      } else {
-        play();
-      }
+      // NO SQUAWK ON A REPLY SINCE 2026-09-18, the owner's ruling. The chirp
+      // arrived on reply after reply, because the server sets squawkVariant
+      // whenever the model writes a squawk token into its own text, so how
+      // often you heard it was the model's decision. The greeting keeps it.
+      play();
     };
 
     // Tracks whether a transcript SSE event arrived before any error; used in
@@ -674,7 +662,15 @@ export default function ChatPage() {
 
           const gSfxIdx = greeting!.squawkVariant ?? 0;
           const gSfxFile = ["squawk_a", "squawk_b", "squawk_c"][gSfxIdx];
-          const gSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${gSfxFile}.mp3`);
+          // THE PATH WAS WRONG AND THE CHIRP HAS NEVER PLAYED ON WEB. It asked
+          // for /gujarati-coach/sounds/, which is the ARTIFACT's directory name
+          // inside the repo, not a served path: BASE_PATH is "/" and the files
+          // are in public/sounds. The request 404'd or got the SPA's HTML, the
+          // onerror handler started the voice anyway, and nobody heard a
+          // difference. Found by the fork audit, 2026-09-18, and fixed here
+          // rather than deleted because the greeting chirp is the one the owner
+          // chose to keep.
+          const gSfx = acquireAudio(sfxPoolRef, `/sounds/${gSfxFile}.mp3`);
           gSfx.onended = startGreetingAudio;
           gSfx.onerror = startGreetingAudio;
           // Sound effects gate: if off, skip the squawk SFX and start the
@@ -809,21 +805,8 @@ export default function ChatPage() {
                     if (activeTurnRef.current === myTurn) setPhase("idle");
                   });
                 };
-                if (rSquawk !== null && rSquawk !== undefined) {
-                  const rSfxFile = ["squawk_a", "squawk_b", "squawk_c"][rSquawk];
-                  const rSfx = acquireAudio(sfxPoolRef, `/gujarati-coach/sounds/${rSfxFile}.mp3`);
-                  let rSfxFired = false;
-                  const onceRealAudio = () => {
-                    if (rSfxFired) { console.log('[audio] duplicate blocked path=reply'); return; }
-                    rSfxFired = true;
-                    playRealAudio();
-                  };
-                  rSfx.onended = onceRealAudio;
-                  rSfx.onerror = onceRealAudio;
-                  if (loadSoundPref()) { rSfx.play().catch(onceRealAudio); } else { onceRealAudio(); }
-                } else {
-                  playRealAudio();
-                }
+                // NO SQUAWK ON A REPLY, 2026-09-18. See the streaming path.
+                playRealAudio();
               };
 
               if (greetingEnded) {

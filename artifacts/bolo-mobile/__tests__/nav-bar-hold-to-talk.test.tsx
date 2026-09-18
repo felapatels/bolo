@@ -934,16 +934,22 @@ describe('Barge-in during playing via the registered start wrapper', () => {
     expect(mockState.streamStop).toHaveBeenCalled();
   });
 
-  test('squawk chirp player keeps the audio session active (loudness seam guard)', async () => {
+  // INVERTED 2026-09-18. This asserted that a reply's chirp player was created
+  // with keepAudioSessionActive. A reply no longer chirps at all: the owner
+  // ruled the squawk down to the greeting only, because the server sets
+  // squawkVariant whenever the model writes a squawk token, so it arrived reply
+  // after reply rather than once.
+  //
+  // WHAT THIS TEST NO LONGER COVERS, said rather than quietly dropped: the
+  // keepAudioSessionActive seam (build 29's quiet replies) still matters for
+  // the GREETING chirp, and this suite reaches a reply, not a greeting. The
+  // option is still passed in playSquawk; nothing here proves it.
+  test('a reply does not chirp', async () => {
     await reachPlayingPhase();
 
-    // playSquawk fired on the audioStream launch (squawkVariant 0). Its
-    // player must be created with keepAudioSessionActive so the chirp
-    // finishing while the reply is still buffering cannot deactivate the
-    // audio session mid-turn (the build 29 quiet-replies seam).
-    expect(createAudioPlayer).toHaveBeenCalledWith(
-      expect.anything(),
-      { keepAudioSessionActive: true },
+    const chirps = (createAudioPlayer as jest.Mock).mock.calls.filter(
+      ([, opts]) => opts?.keepAudioSessionActive === true,
     );
+    expect(chirps).toHaveLength(0);
   });
 });
