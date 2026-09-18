@@ -45,36 +45,34 @@ test("mastered phrases are offered for practice, not as a quiz", () => {
   assert.match(block, /rather than as a list or a quiz/i);
 });
 
-test("Bolo never pitches the shop, even to a learner who can afford something", () => {
+test("the balance is not in the prompt at all, however rich the learner", () => {
+  // THE RULE BECAME A DELETION, 2026-09-18. Three rounds of forbidding Bolo to
+  // pitch the shop in words ended with the owner saying the suggestions were
+  // still annoying. A number the model never receives cannot be turned into an
+  // offer, so the sentence is gone rather than guarded.
   const rich = buildLearnerContextBlock({
     ...EMPTY,
     chaiBalance: 500,
     affordable: [{ name: "Navratri kediyu", cost: 100 }],
   });
-  assert.match(rich, /500 chai/);
-  // Owner, 2026-09-17: the chat still opened with "your chai are enough for the
-  // marigold pagdi" after his 2026-08-28 ruling removed Bolo's suggestions.
+  assert.doesNotMatch(rich, /500/);
+  // Every currency word the fleet uses, so a fork that renames its token
+  // cannot quietly start mentioning it again.
+  for (const word of [/chai/i, /kopi/i, /caj/i, /cowrie/i, /cacao/i]) {
+    assert.doesNotMatch(rich, word);
+  }
   assert.doesNotMatch(rich, /Navratri kediyu/);
-  assert.doesNotMatch(rich, /Bazaar is on/i);
-  assert.match(rich, /Never suggest spending it/);
-  assert.match(rich, /Only mention their chai if they ask/);
+  assert.doesNotMatch(rich, /Bazaar/i);
 });
 
-test("a learner who cannot afford anything is not sent to the shop either", () => {
-  const poor = buildLearnerContextBlock({
-    ...EMPTY,
-    chaiBalance: 3,
-    affordable: [],
-  });
-  assert.match(poor, /never bring up the Bazaar/i);
-});
-
-test("chai and phrases are independent, so either alone still renders", () => {
-  const onlyChai = buildLearnerContextBlock({
+test("a learner with a balance and nothing else gets an empty block", () => {
+  // The block used to render for a balance alone. With the sentence gone there
+  // is nothing left to say about a learner who has only earned currency, and an
+  // empty string is the honest answer rather than a heading with no content.
+  const onlyBalance = buildLearnerContextBlock({
     ...EMPTY,
     chaiBalance: 200,
     affordable: [{ name: "Diwali kurta", cost: 100 }],
   });
-  assert.doesNotMatch(onlyChai, /phrase\(s\) on their journey/);
-  assert.match(onlyChai, /200 chai/);
+  assert.equal(onlyBalance, "");
 });

@@ -176,18 +176,24 @@ export function buildLearnerContextBlock(snap: LearnerSnapshot): string {
     );
   }
 
-  // THE CHAI IS CONTEXT, NEVER A PITCH (owner, 2026-09-17, restating his
-  // 2026-08-28 "turn off Bolo's suggestions" ruling). This block used to name
-  // the outfits the learner could afford and send them to the Bazaar "once in a
-  // while". The persona prompt dropped every nudge on 2026-08-28, but this block
-  // lives in the user message and kept pitching, so Bolo opened a chat with
-  // "your 34 chai are enough for the marigold pagdi". Bolo may know the balance
-  // so a question about it gets a true answer; he never raises it himself.
-  if (snap.chaiBalance > 0) {
-    parts.push(
-      `This learner has ${snap.chaiBalance} chai saved up. Only mention their chai if they ask about it. Never suggest spending it, never name anything they could buy, and never bring up the Bazaar, the shop, outfits or any other part of the app.`,
-    );
-  }
+  // THE CHAI IS NOT IN THE PROMPT AT ALL, and that is the third and last
+  // version of this block. The owner's ruling, 2026-09-18: "they are annoying".
+  //
+  // 2026-08-28 removed the nudges from the PERSONA prompt, and Bolo went on
+  // pitching, because this block lives in the user message.
+  // 2026-09-17 kept the balance and forbade every use of it in words: only
+  // answer if asked, never suggest spending, never name the shop. That is a
+  // rule handed to a model, and a rule handed to a model is a preference, not
+  // a guarantee.
+  // 2026-09-18 removes the number. A balance Bolo was never given is a balance
+  // he cannot raise, cannot round up into a suggestion and cannot hallucinate a
+  // price against.
+  //
+  // WHAT THIS COSTS, stated plainly: "how much chai do I have" is now answered
+  // by the wallet, not by Bolo, and he will say he does not know. The owner
+  // chose that over being sold to mid-lesson. `chaiBalance` stays on the snapshot
+  // because the encounter code and the tests still read it; only the sentence
+  // is gone.
 
   if (parts.length === 0) return "";
   return parts.join("\n\n") + "\n\n";
