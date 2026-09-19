@@ -52,7 +52,10 @@ interface SubscriberPayload {
       string,
       { product_identifier?: string; expires_date?: string | null }
     >;
-    subscriptions?: Record<string, { is_sandbox?: boolean }>;
+    subscriptions?: Record<
+      string,
+      { is_sandbox?: boolean; store?: string }
+    >;
   };
 }
 
@@ -112,24 +115,57 @@ async function environmentFor(userId: string): Promise<string | null> {
     return null;
   }
   const body = (await res.json()) as SubscriberPayload;
-  const subs = body.subscriber?.subscriptions ?? {};
-  const flags = Object.values(subs)
-    .map((s) => s?.is_sandbox)
-    .filter((v): v is boolean => typeof v === "boolean");
+  const subs = Object.entries(body.subscriber?.subscriptions ?? {});
 
-  // A REAL SUBSCRIPTION WINS, whatever else the account also holds.
-  if (flags.length > 0) {
-    return flags.some((isSandbox) => isSandbox) ? "SANDBOX" : "PRODUCTION";
+  // STORE IS THE DISCRIMINATOR, NOT THE PRODUCT NAME. The second dry run
+  // answered PRODUCTION for all five again, because a granted entitlement DOES
+  // appear under `subscriptions`, with is_sandbox false, so checking the
+  // entitlement's product id only when the subscriptions map was empty never
+  // ran. RevenueCat marks a grant with store "promotional", which is the fact
+  // that separates given from bought.
+  //
+  // The tell was in the dates the whole time: two of the three expire on
+  // 2027-07-29, twenty-three seconds apart, which is a yearly grant handed out
+  // in one sitting rather than two people buying a subscription.
+  const isGrant = (s: { store?: string; is_sandbox?: boolean }, id: string) =>
+    (s?.store ?? "").toLowerCase() === "promotional" ||
+    id.startsWith(GRANT_PREFIX);
+
+  const bought = subs.filter(([id, s]) => !isGrant(s, id));
+
+  // A REAL PURCHASE WINS over a grant, and sandbox wins over production among
+  // purchases: one TestFlight purchase is enough to keep an account out of a
+  // revenue number.
+  if (bought.length > 0) {
+    return bought.some(([, s]) => s?.is_sandbox === true)
+      ? "SANDBOX"
+      : "PRODUCTION";
   }
+  if (subs.length > 0) return "GRANTED";
 
-  // No subscription object at all. If an entitlement is present and its product
-  // is a grant, that is the answer rather than a gap: we know exactly how this
-  // account got its access, and it was not by paying.
+  // No subscription object at all. An entitlement whose product is a grant is
+  // still an answer rather than a gap: we know exactly how this account got its
+  // access, and it was not by paying.
   const entitlements = Object.values(body.subscriber?.entitlements ?? {});
   const granted = entitlements.some((e) =>
     (e?.product_identifier ?? "").startsWith(GRANT_PREFIX),
   );
   return granted ? "GRANTED" : null;
+}
+
+/** A one-line description of what the subscriber actually holds, for the log. */
+async function detailFor(userId: string): Promise<string> {
+  const res = await fetch(
+    `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
+    { headers: { Authorization: `Bearer ${KEY}` } },
+  );
+  if (!res.ok) return `no detail (HTTP ${res.status})`;
+  const body = (await res.json()) as SubscriberPayload;
+  const subs = Object.entries(body.subscriber?.subscriptions ?? {});
+  if (subs.length === 0) return "no subscriptions on the RevenueCat subscriber";
+  return subs
+    .map(([id, s]) => `${id} store=${s?.store ?? "?"} sandbox=${s?.is_sandbox ?? "?"}`)
+    .join("; ");
 }
 
 async function main(): Promise<number> {
@@ -179,6 +215,12 @@ async function main(): Promise<number> {
     console.log(
       `${(env ?? "UNKNOWN").padEnd(10)} ${row.tier}/${row.status ?? "none"}  ${row.email ?? row.id}`,
     );
+    // SHOW THE WORKING when a verdict is surprising. Two dry runs said
+    // PRODUCTION for five accounts and there was no way, from the output, to
+    // see what it had read. Printing the store and the product for anything
+    // that is not a plain purchase makes the next wrong answer visible rather
+    // than merely wrong.
+    if (env !== "PRODUCTION") console.log(`           via ${await detailFor(row.id)}`);
 
     if (WRITE && env) {
       await db
