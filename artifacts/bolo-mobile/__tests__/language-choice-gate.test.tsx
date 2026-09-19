@@ -73,6 +73,8 @@ jest.mock('@clerk/expo', () => ({
     isSignedIn: true,
     getToken: jest.fn().mockResolvedValue('mock-token'),
   }),
+  // The layout mounts MarketingConsentSync (2026-09-19), which reads the user.
+  useUser: () => ({ isLoaded: true, user: null }),
 }));
 
 jest.mock('expo-router', () => {

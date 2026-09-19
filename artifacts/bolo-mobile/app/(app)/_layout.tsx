@@ -8,6 +8,7 @@ import { firstRunHref, useWalkthroughDismissed } from '@/lib/walkthrough';
 import { reportSessionVanished } from '@/lib/authErrors';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { ReminderScheduler } from '@/components/ReminderScheduler';
+import { MarketingConsentSync } from '@/components/MarketingConsent';
 import { NotificationPrimer } from '@/components/NotificationPrimer';
 import { Mascot } from '@/components/Mascot';
 import { EntitlementsProvider } from '@/contexts/EntitlementsContext';
@@ -98,6 +99,7 @@ export default function AppLayout() {
         <LanguageProvider>
           <AiConsentBoundary>
             <ReminderScheduler />
+            <MarketingConsentSync />
             <FirstRunBootstrapper />
             {/* Asks about notifications in Bolo's own words before the OS is
                 ever involved, so the single iOS dialog is spent on a learner

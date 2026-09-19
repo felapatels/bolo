@@ -4,6 +4,7 @@ import { useClerk, useSignUp } from '@clerk/expo';
 import { Link, useRouter } from 'expo-router';
 import { AuthShell, Field, fieldError } from '@/components/AuthShell';
 import { PasswordChecklist } from '@/components/PasswordChecklist';
+import { MarketingConsentCheckbox } from '@/components/MarketingConsent';
 import { passwordMeetsAll, PASSWORD_MIN_LENGTH } from '@/lib/passwordRules';
 import { ChunkyButton } from '@/components/ChunkyButton';
 import { AppleAuthButton } from '@/components/AppleAuthButton';
@@ -317,6 +318,9 @@ export default function SignUpScreen() {
       {/* Build 19: the rules, ticked live as they type (lib/passwordRules.ts).
           The button waits for all three. */}
       <PasswordChecklist password={password} />
+      {/* Optional marketing email consent, unticked, inline (owner,
+          2026-09-19). Saved onto the account by MarketingConsentSync. */}
+      <MarketingConsentCheckbox />
 
       {formErrorLine ? (
         <Text

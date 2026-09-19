@@ -42,6 +42,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useRouter } from 'expo-router';
 import { useUser, useClerk } from '@clerk/expo';
+import { MarketingEmailsSetting } from '@/components/MarketingConsent';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useGetAccount,
@@ -948,6 +949,8 @@ export default function AccountScreen() {
                 trackColor={{ true: colors.primary }}
               />
             </View>
+            <Divider />
+            <MarketingEmailsSetting />
           </View>
 
           {/* Social */}
