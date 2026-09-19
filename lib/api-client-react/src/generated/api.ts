@@ -52,6 +52,8 @@ import type {
   ChatTurnInput,
   ChatTurnResult,
   CompleteDailyQuizInput,
+  CompleteLastCall200,
+  CompleteLastCallBody,
   CompleteLetterMatchInput,
   CompleteLetterStopInput,
   ContactFormInput,
@@ -191,6 +193,81 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getCompleteLastCallUrl = (id: number,) => {
+
+
+
+
+  return `/api/lesson-groups/${id}/last-call-completion`
+}
+
+/**
+ * An all-aboard or three-miss ending advances the accessible lesson group.
+ * Idempotent. Does not change pronunciation scores, mastery, or award game XP.
+ * Applies the same access checks as the lesson-group phrases endpoint.
+ * @summary Save a finished Last Call round as journey completion
+ */
+export const completeLastCall = async (id: number,
+    completeLastCallBody: CompleteLastCallBody, options?: RequestInit): Promise<CompleteLastCall200> => {
+
+  return customFetch<CompleteLastCall200>(getCompleteLastCallUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(completeLastCallBody)
+  }
+);}
+
+
+
+
+
+export const getCompleteLastCallMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLastCall>>, TError,{id: number;data: BodyType<CompleteLastCallBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeLastCall>>, TError,{id: number;data: BodyType<CompleteLastCallBody>}, TContext> => {
+
+const mutationKey = ['completeLastCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeLastCall>>, {id: number;data: BodyType<CompleteLastCallBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  completeLastCall(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteLastCallMutationResult = NonNullable<Awaited<ReturnType<typeof completeLastCall>>>
+    export type CompleteLastCallMutationBody = BodyType<CompleteLastCallBody>
+    export type CompleteLastCallMutationError = ErrorType<void>
+
+    /**
+ * @summary Save a finished Last Call round as journey completion
+ */
+export const useCompleteLastCall = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeLastCall>>, TError,{id: number;data: BodyType<CompleteLastCallBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeLastCall>>,
+        TError,
+        {id: number;data: BodyType<CompleteLastCallBody>},
+        TContext
+      > => {
+      return useMutation(getCompleteLastCallMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

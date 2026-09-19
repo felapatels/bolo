@@ -1,3 +1,5 @@
+// 2026-09-19: finished Last Call games advance the journey independently
+// of pronunciation mastery; hints are available during recall.
 // LAST CALL, slice 1. A voice stop, played as a boarding game.
 //
 // Owner rulings, 2026-09-14:
@@ -47,6 +49,7 @@ import Animated, {
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ApiError,
+  useLastCallCompletion,
   useGetAccount,
   useListLessonGroupPhrases,
   getListLessonGroupPhrasesQueryKey,
@@ -592,6 +595,22 @@ function LastCallRound({
     ids,
     (initial: number[]) => initLastCall(initial, shuffle(initial)),
   );
+  const completion = useLastCallCompletion();
+  const completionInFlight = React.useRef(false);
+  const saveCompletion = async () => {
+    if (completionInFlight.current || state.status !== "over" || !state.endReason) return false;
+    completionInFlight.current = true;
+    try {
+      await completion.mutateAsync({ id: groupId, endReason: state.endReason });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      completionInFlight.current = false;
+    }
+  };
+  const [hintOpen, setHintOpen] = React.useState(false);
+  React.useEffect(() => { setHintOpen(false); }, [state.status, state.queue[0]]);
   // Async callbacks read the round through this, never through a stale closure.
   const stateRef = React.useRef<LastCallState>(state);
   stateRef.current = state;
@@ -776,7 +795,7 @@ function LastCallRound({
   }, [previewPhrase?.id, state.previewIndex, beforeRound]);
 
   // ── The clock. Runs only while asking or speaking, and never during the count. ─
-  const clockRunning = (state.status === 'asking' || state.status === 'speaking') && countdown === null;
+  const clockRunning = (state.status === 'asking' || state.status === 'speaking') && countdown === null && !hintOpen;
   React.useEffect(() => {
     if (!clockRunning) return;
     let last = Date.now();
@@ -930,7 +949,8 @@ function LastCallRound({
     { query: { enabled: !!activeLang, queryKey: getListReviewPhrasesQueryKey({ lang: activeLang, limit: 3 }) } },
   );
   const [flashbackOpen, setFlashbackOpen] = React.useState(false);
-  const leaveFinished = () => {
+  const leaveFinished = async () => {
+    if (!(await saveCompletion())) return;
     const due = flashbackDue.data;
     if (Array.isArray(due) && due.length > 0) setFlashbackOpen(true);
     else if (Array.isArray(due)) onLeave();
@@ -940,7 +960,7 @@ function LastCallRound({
   const handleExit = () => {
     hapticLight();
     if (state.status === 'over') {
-      onLeave();
+      void leaveFinished();
       return;
     }
     // Attempts already scored stay saved on the server; what a learner loses
@@ -1212,8 +1232,9 @@ function LastCallRound({
                   <Text style={[styles.body, { color: colors.mutedForeground }]}>{`Longest combo: ${state.bestCombo}`}</Text>
                 ) : null}
                 {banner ? <Text style={[styles.hint, { color: colors.destructive }]}>{banner}</Text> : null}
-                <ChunkyButton title="On to the next stop" icon="arrow-right" onPress={leaveFinished} style={{ alignSelf: 'stretch', marginTop: 24 }} />
-                <ChunkyButton title="Play again" variant="secondary" icon="refresh-cw" onPress={playAgain} style={{ alignSelf: 'stretch', marginTop: 12 }} />
+                {completion.isError ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.destructive }]}>Progress could not be saved. Check your connection and tap Continue Journey to retry.</Text> : null}
+                <ChunkyButton title="Continue Journey" icon="arrow-right" loading={completion.isPending} onPress={() => { void leaveFinished(); }} style={{ alignSelf: 'stretch', marginTop: 24 }} />
+                <ChunkyButton title="Play again" variant="secondary" icon="refresh-cw" disabled={completion.isPending} onPress={playAgain} style={{ alignSelf: 'stretch', marginTop: 12 }} />
               </View>
               <FlashbackLightbox
                 visible={flashbackOpen}
@@ -1257,8 +1278,19 @@ function LastCallRound({
                   }}
                 />
               </View>
+              {state.status === 'asking' && currentPhrase && countdown === null ? (
+                <View style={{ alignSelf: 'stretch' }}>
+                  <ChunkyButton title={hintOpen ? "Hide hint" : "Show hint"} variant="secondary" icon="help-circle"
+                    onPress={() => setHintOpen(!hintOpen)} testID="last-call-hint" />
+                  {hintOpen ? <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]} accessibilityLiveRegion="polite">
+                    <Text style={[styles.native, nativeProps, { color: colors.foreground }]}>{currentPhrase.nativeScript}</Text>
+                    <Text style={[styles.roman, { color: colors.mutedForeground }]}>{currentPhrase.romanized}</Text>
+                    <Text style={[styles.body, { color: colors.mutedForeground }]}>Clock paused. Hide the hint when you are ready to speak.</Text>
+                  </View> : null}
+                </View>
+              ) : null}
               <Text style={[styles.timerText, TEXT_SHADOW, { color: urgent ? ON_FILM_URGENT : ON_FILM_MUTED }]}>
-                {state.status === 'scoring' || state.status === 'feedback'
+                {hintOpen || state.status === 'scoring' || state.status === 'feedback'
                   ? 'Clock paused'
                   : urgent
                     ? `Hurry! ${Math.ceil(state.timerLeftMs / 1000)}s`

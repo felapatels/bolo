@@ -42,6 +42,7 @@ const FRESH_USER = "test_lg_unlock_fresh";
 const FREE_USER = "test_lg_unlock_free";
 // Dedicated to the throttle tests: their submission log rows must not be
 // polluted by (or pollute) the other users' test-out submissions.
+const LAST_CALL_USER = "test_lg_last_call";
 const THROTTLE_USER = "test_lg_unlock_throttle";
 const LANG = "__test_lang_lg_unlock";
 const CATEGORY_SLUG = "__test_cat_lg_unlock";
@@ -171,6 +172,7 @@ before(async () => {
     [FRESH_USER, "plus"],
     [FREE_USER, "free"],
     [THROTTLE_USER, "plus"],
+    [LAST_CALL_USER, "plus"],
   ] as const) {
     await db
       .insert(usersTable)
@@ -288,7 +290,7 @@ after(async () => {
       server.close((err) => (err ? reject(err) : resolve())),
     );
   }
-  const userIds = [PLUS_USER, FRESH_USER, FREE_USER, THROTTLE_USER];
+  const userIds = [PLUS_USER, FRESH_USER, FREE_USER, THROTTLE_USER, LAST_CALL_USER];
   await db
     .delete(attemptsTable)
     .where(inArray(attemptsTable.userId, userIds));
@@ -806,4 +808,32 @@ test("test-out throttle 429 shape: Retry-After header + retryAfterSeconds body",
   const json = (await res.json()) as { error?: unknown; retryAfterSeconds?: unknown };
   assert.equal(typeof json.error, "string");
   assert.equal(json.retryAfterSeconds, retryAfter);
+});
+
+
+test("Last Call failed-run completion unlocks the next group without inventing mastery", async () => {
+  const post = (id: number, body: unknown, user = LAST_CALL_USER) => api(
+    `/lesson-groups/${id}/last-call-completion`, user,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+  assert.equal((await post(g1Id, { endReason: "asking" })).status, 400);
+  assert.equal((await post(g2Id, { endReason: "out_of_strikes" })).status, 403);
+  assert.equal((await post(g2Id, { endReason: "out_of_strikes" }, FREE_USER)).status, 402);
+  await seedAttempt(LAST_CALL_USER, g1Phrases[0], 20);
+  const result = await post(g1Id, { endReason: "out_of_strikes" });
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.json, { groupId: g1Id, status: "completed" });
+  assert.equal((await post(g1Id, { endReason: "out_of_strikes" })).status, 200);
+  const statuses = await groupStatuses(LAST_CALL_USER);
+  assert.equal(statuses.get(g1Id), "completed");
+  assert.equal(statuses.get(g2Id), "unlocked");
+  const attempts = await db.select().from(attemptsTable).where(eq(attemptsTable.userId, LAST_CALL_USER));
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].score, 20);
+  assert.equal(attempts[0].passed, false);
+  const latches = await db.select().from(lessonGroupProgressTable).where(eq(lessonGroupProgressTable.userId, LAST_CALL_USER));
+  assert.equal(latches.length, 1);
+  // Successful endings use the same completion path and remain replayable.
+  assert.equal((await post(g2Id, { endReason: "all_aboard" })).status, 200);
+  assert.equal((await groupStatuses(LAST_CALL_USER)).get(g2Id), "completed");
 });

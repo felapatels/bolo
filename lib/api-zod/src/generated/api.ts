@@ -9,6 +9,29 @@ import * as zod from 'zod';
 
 
 /**
+ * An all-aboard or three-miss ending advances the accessible lesson group.
+ * Idempotent. Does not change pronunciation scores, mastery, or award game XP.
+ * Applies the same access checks as the lesson-group phrases endpoint.
+ * @summary Save a finished Last Call round as journey completion
+ */
+
+
+
+export const CompleteLastCallParams = zod.object({
+  "id": zod.coerce.number().min(1)
+})
+
+export const CompleteLastCallBody = zod.object({
+  "endReason": zod.enum(['all_aboard', 'out_of_strikes'])
+})
+
+export const CompleteLastCallResponse = zod.object({
+  "groupId": zod.number(),
+  "status": zod.enum(['completed'])
+})
+
+
+/**
  * Returns server health status
  * @summary Health check
  */

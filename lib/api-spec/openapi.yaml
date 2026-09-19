@@ -19,6 +19,56 @@ tags:
   - name: account
     description: Profile, notification and learning preferences, and account deletion
 paths:
+  /lesson-groups/{id}/last-call-completion:
+    post:
+      operationId: completeLastCall
+      tags: [learning]
+      summary: Save a finished Last Call round as journey completion
+      description: |
+        An all-aboard or three-miss ending advances the accessible lesson group.
+        Idempotent. Does not change pronunciation scores, mastery, or award game XP.
+        Applies the same access checks as the lesson-group phrases endpoint.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endReason]
+              properties:
+                endReason:
+                  type: string
+                  enum: [all_aboard, out_of_strikes]
+      responses:
+        "200":
+          description: Journey completion saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groupId, status]
+                properties:
+                  groupId:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [completed]
+        "400":
+          description: Invalid group or unfinished round
+        "402":
+          description: Language or premium content is unavailable on the caller's plan
+        "403":
+          description: Journey group is locked
+        "404":
+          description: Lesson group not found
+
   /healthz:
     get:
       operationId: healthCheck

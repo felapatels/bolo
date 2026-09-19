@@ -2305,6 +2305,30 @@ export interface LeaderboardEntry {
   firstClassActive: boolean;
 }
 
+export type CompleteLastCallBodyEndReason = typeof CompleteLastCallBodyEndReason[keyof typeof CompleteLastCallBodyEndReason];
+
+
+export const CompleteLastCallBodyEndReason = {
+  all_aboard: 'all_aboard',
+  out_of_strikes: 'out_of_strikes',
+} as const;
+
+export type CompleteLastCallBody = {
+  endReason: CompleteLastCallBodyEndReason;
+};
+
+export type CompleteLastCall200Status = typeof CompleteLastCall200Status[keyof typeof CompleteLastCall200Status];
+
+
+export const CompleteLastCall200Status = {
+  completed: 'completed',
+} as const;
+
+export type CompleteLastCall200 = {
+  groupId: number;
+  status: CompleteLastCall200Status;
+};
+
 export type ListCategoriesParams = {
 lang: string;
 };

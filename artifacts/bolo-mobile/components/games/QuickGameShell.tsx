@@ -999,18 +999,18 @@ function EndScreen({
       )}
 
       <ChunkyButton
-        title="Play Again"
-        icon="refresh-cw"
-        onPress={onPlayAgain}
+        title={fromJourney ? "Continue Journey" : "Play Again"}
+        icon={fromJourney ? "arrow-right" : "refresh-cw"}
+        onPress={fromJourney ? onBackToJourney : onPlayAgain}
         style={{ width: '100%' }}
       />
       <MissReviewCta count={misses.length} onPress={() => setReviewOpen(true)} />
       {fromJourney ? (
         <ChunkyButton
-          title="Back to the Journey"
-          icon="map"
+          title="Play Again"
+          icon="refresh-cw"
           variant="secondary"
-          onPress={onBackToJourney}
+          onPress={onPlayAgain}
           style={{ width: '100%' }}
         />
       ) : pinned ? null : (

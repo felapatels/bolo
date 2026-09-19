@@ -218,6 +218,7 @@ function QuickEndScreen({
   onPlayAgain: () => void;
   onChooseTopic: (() => void) | null;
 }) {
+  const [, navigate] = useLocation();
   const isPerfect = score === total;
   const pose = isPerfect ? "cheer" : score >= total / 2 ? "thumbsup" : "tryagain";
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -280,11 +281,11 @@ function QuickEndScreen({
 
       <div className="grid w-full max-w-sm gap-3">
         <button
-          onClick={onPlayAgain}
+          onClick={fromJourney ? () => navigate("/journey") : onPlayAgain}
           className="flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3.5 font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
         >
-          <RefreshCw className="h-4 w-4" />
-          Play Again
+          {fromJourney ? <MapIcon className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+          {fromJourney ? "Continue Journey" : "Play Again"}
         </button>
         <MissReviewCta count={misses.length} onClick={() => setReviewOpen(true)} />
         {onChooseTopic && (
@@ -297,13 +298,13 @@ function QuickEndScreen({
           </button>
         )}
         {fromJourney ? (
-          <Link
-            href="/journey"
+          <button
+            onClick={onPlayAgain}
             className="flex items-center justify-center gap-2 text-sm text-muted-foreground underline-offset-2 hover:underline"
           >
-            <MapIcon className="h-4 w-4" />
-            Back to the journey
-          </Link>
+            <RefreshCw className="h-4 w-4" />
+            Play Again
+          </button>
         ) : (
           <Link
             href="/games"

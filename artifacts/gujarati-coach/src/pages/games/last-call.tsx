@@ -1,3 +1,5 @@
+// 2026-09-19: finished Last Call games advance the journey independently
+// of pronunciation mastery; hints are available during recall.
 // LAST CALL, slice 2: the web twin. A voice stop, played as a boarding game.
 //
 // MOBILE TWIN: bolo-mobile app/(app)/(tabs)/games/last-call.tsx (slice 1). The
@@ -43,6 +45,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Lock, Mic, Play, RefreshCcw, SkipForward, Square, Volume2 } from "lucide-react";
 import {
   ApiError,
+  useLastCallCompletion,
   getListLessonGroupPhrasesQueryKey,
   getListReviewPhrasesQueryKey,
   useListLessonGroupPhrases,
@@ -527,6 +530,22 @@ function LastCallRound({
   const [state, dispatch] = useReducer(lastCallReducer, ids, (initial: number[]) =>
     initLastCall(initial, shuffle(initial)),
   );
+  const completion = useLastCallCompletion();
+  const completionInFlight = useRef(false);
+  const saveCompletion = async () => {
+    if (completionInFlight.current || state.status !== "over" || !state.endReason) return false;
+    completionInFlight.current = true;
+    try {
+      await completion.mutateAsync({ id: groupId, endReason: state.endReason });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      completionInFlight.current = false;
+    }
+  };
+  const [hintOpen, setHintOpen] = useState(false);
+  useEffect(() => { setHintOpen(false); }, [state.status, state.queue[0]]);
   // Async callbacks read the round through this, never through a stale closure.
   const stateRef = useRef<LastCallState>(state);
   stateRef.current = state;
@@ -698,7 +717,7 @@ function LastCallRound({
   }, [previewPhrase?.id, state.previewIndex, beforeRound]);
 
   // ── The clock. Runs only while asking or speaking, never under the count; the reducer ignores it otherwise. ─
-  const clockRunning = (state.status === "asking" || state.status === "speaking") && countdown === null;
+  const clockRunning = (state.status === "asking" || state.status === "speaking") && countdown === null && !hintOpen;
   useEffect(() => {
     if (!clockRunning) return;
     let last = Date.now();
@@ -884,8 +903,9 @@ function LastCallRound({
   const dueKnown = Array.isArray(flashbackDue.data);
   const dueCount = Array.isArray(flashbackDue.data) ? flashbackDue.data.length : 0;
 
-  const handleExit = () => {
+  const handleExit = async () => {
     webHaptic("light");
+    if (state.status === "over" && !(await saveCompletion())) return;
     if (state.status !== "over" && !window.confirm("Leave the game? Your current run will be lost.")) return;
     // Attempts already scored stay saved on the server; what a learner loses
     // by leaving is this round's boarding count, which is what the prompt says.
@@ -1195,32 +1215,22 @@ function LastCallRound({
                 <p className="mt-1 text-sm text-muted-foreground">{`Longest combo: ${state.bestCombo}`}</p>
               ) : null}
               {banner ? <p className="mt-3 text-sm text-destructive">{banner}</p> : null}
-              {dueKnown ? (
-                <button
-                  type="button"
-                  data-testid="last-call-next-stop"
-                  onClick={() => {
-                    if (dueCount > 0) setFlashbackOpen(true);
-                    else onLeave();
-                  }}
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-black text-primary-foreground"
-                >
-                  On to the next stop
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </button>
-              ) : (
-                <Link
-                  href={flashbackHref}
-                  data-testid="last-call-next-stop"
-                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-black text-primary-foreground"
-                >
-                  On to the next stop
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-              )}
+              {completion.isError ? <p role="alert" className="mt-3 text-sm text-destructive">Progress could not be saved. Check your connection and tap Continue Journey to retry.</p> : null}
+              <button type="button" data-testid="last-call-next-stop" disabled={completion.isPending}
+                onClick={async () => {
+                  if (!(await saveCompletion())) return;
+                  if (!dueKnown) navigate(flashbackHref);
+                  else if (dueCount > 0) setFlashbackOpen(true);
+                  else onLeave();
+                }}
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-black text-primary-foreground disabled:opacity-50">
+                {completion.isPending ? "Saving progress…" : "Continue Journey"}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </button>
               <button
                 type="button"
                 onClick={playAgain}
+                disabled={completion.isPending}
                 data-testid="last-call-play-again"
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-base font-bold text-foreground hover:bg-muted"
               >
@@ -1272,12 +1282,26 @@ function LastCallRound({
               className={cn("mt-1.5 text-xs font-bold", urgent ? "text-red-200" : onFilmMuted)}
               style={TEXT_SHADOW}
             >
-              {state.status === "scoring" || state.status === "feedback"
+              {hintOpen || state.status === "scoring" || state.status === "feedback"
                 ? "Clock paused"
                 : urgent
                   ? `Hurry! ${seconds}s`
                   : `${seconds}s`}
             </p>
+
+            {state.status === "asking" && currentPhrase && countdown === null ? (
+              <div className="pointer-events-auto mt-3 w-full text-center">
+                <button type="button" onClick={() => setHintOpen(!hintOpen)} aria-expanded={hintOpen}
+                  data-testid="last-call-hint" className="rounded-xl border border-border bg-card px-4 py-2 font-bold text-foreground">
+                  {hintOpen ? "Hide hint" : "Show hint"}
+                </button>
+                {hintOpen ? <div className="mt-2 rounded-2xl bg-card p-3 text-foreground" role="status">
+                  <p style={native.style} dir={native.dir} className="text-xl font-bold">{currentPhrase.nativeScript}</p>
+                  <p>{currentPhrase.romanized}</p>
+                  <p className="text-sm text-muted-foreground">Clock paused. Hide the hint when you are ready to speak.</p>
+                </div> : null}
+              </div>
+            ) : null}
 
             {state.status === "feedback" && state.last && lastPhrase ? (
               <motion.div

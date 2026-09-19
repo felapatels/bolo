@@ -2875,7 +2875,7 @@ router.get(
           status: planLocked
             ? "locked"
             : chaiUnlocked
-              ? (derived?.get(g.id) === "completed" || derived?.get(g.id) === "tested_out" ? derived.get(g.id)! : attempted > 0 ? "in_progress" : "unlocked")
+              ? (ctx.persistedCompletedGroupIds.has(g.id) ? "completed" : derived?.get(g.id) === "completed" || derived?.get(g.id) === "tested_out" ? derived.get(g.id)! : attempted > 0 ? "in_progress" : "unlocked")
               : derived
               ? derived.get(g.id) ?? "locked"
               : g.id === teaserGroupId || chaiUnlocked
@@ -2927,9 +2927,10 @@ router.get(
 // the SAME per-phrase shape as the category-phrases endpoint so a future
 // client can swap scope without a new contract. Premium rows are filtered for
 // callers without extended-library access, exactly like the category endpoint.
-router.get(
-  "/lesson-groups/:id/phrases",
-  async (req: Request, res: Response): Promise<void> => {
+async function withLessonGroupPhrases(
+  req: Request, res: Response,
+  respond: (phrases: ReturnType<typeof serializePhrase>[]) => void | Promise<void>,
+): Promise<void> {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       res.status(400).json({ error: "Invalid lesson group id" });
@@ -2964,7 +2965,7 @@ router.get(
         fetchUserAttempts(userId, group.languageCode),
       ]);
       const stats = buildPhraseStats(attempts);
-      res.json(rows.map((p) => serializePhrase(p, stats)));
+      await respond(rows.map((p) => serializePhrase(p, stats)));
       return;
     }
     const access = await getLanguageAccess(req, group.languageCode);
@@ -3004,7 +3005,7 @@ router.get(
         group.languageCode,
       );
       const firstStopStats = buildPhraseStats(firstStopAttempts);
-      res.json(served.map((p) => serializePhrase(p, firstStopStats)));
+      await respond(served.map((p) => serializePhrase(p, firstStopStats)));
       return;
     }
 
@@ -3074,9 +3075,46 @@ router.get(
           ? hasSentences
           : canAccessPremium,
     );
-    res.json(accessible.map((p) => serializePhrase(p, stats)));
-  },
-);
+    await respond(accessible.map((p) => serializePhrase(p, stats)));
+}
+
+router.get("/lesson-groups/:id/phrases", async (req: Request, res: Response): Promise<void> => {
+  await withLessonGroupPhrases(req, res, (phrases) => { res.json(phrases); });
+});
+
+// A finished Last Call round advances the journey even after three misses.
+// Use the SAME language, purchase, premium and sequential gates as playing
+// the group. This writes completion only: no fabricated attempts or mastery,
+// no test-out claims, and no game XP/tokens. Repeated requests are harmless.
+router.post("/lesson-groups/:id/last-call-completion", async (req: Request, res: Response): Promise<void> => {
+  const body = z.object({ endReason: z.enum(["all_aboard", "out_of_strikes"]) }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "A finished Last Call round is required" });
+    return;
+  }
+  await withLessonGroupPhrases(req, res, async (phrases) => {
+    if (phrases.length === 0) {
+      res.status(400).json({ error: "Lesson group has no playable phrases" });
+      return;
+    }
+    const groupId = Number(req.params.id);
+    const userId = getUserId(req);
+    const group = await db.query.lessonGroupsTable.findFirst({ where: (t, { eq }) => eq(t.id, groupId) });
+    if (!group) { res.status(404).json({ error: "Lesson group not found" }); return; }
+    // Playing a teaser alone must not create a latch for a language the caller
+    // does not own. A purchased stop is the existing explicit exception.
+    if (!(await hasStopUnlock(userId, group.languageCode, groupId)) &&
+        await denyLockedLanguage(req, res, group.languageCode)) return;
+    await db.insert(lessonGroupProgressTable)
+      .values({ userId, lessonGroupId: groupId, status: "completed" })
+      .onConflictDoUpdate({
+        target: [lessonGroupProgressTable.userId, lessonGroupProgressTable.lessonGroupId],
+        set: { status: "completed", updatedAt: new Date() },
+      });
+    res.json({ groupId, status: "completed" });
+  });
+});
+
 
 // ── D1a Slice 2: test-out assessment ──────────────────────────────────────
 // A learner may skip ahead past a locked group by demonstrating

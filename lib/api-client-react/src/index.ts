@@ -6,3 +6,5 @@ export * from './generated/api';
 export * from './generated/api.schemas';
 
 export { setAiConsentRequiredListener, notifyAiConsentRequired, isAiConsentRequiredError } from "./ai-consent-notice";
+
+export { useLastCallCompletion } from "./last-call-completion";

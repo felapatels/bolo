@@ -1033,7 +1033,7 @@ describe('exit paths', () => {
     answerRounds(5, 5);
 
     expect(screen.queryByText('Choose Topic')).toBeNull();
-    fireEvent.press(screen.getByText('Back to the Journey'));
+    fireEvent.press(screen.getByText('Continue Journey'));
     // INVERTED 2026-09-14 with the decline above: pop to the open map.
     expect(mockState.dismissTo).toHaveBeenCalledWith('/(app)/journey');
     expect(mockState.replace).not.toHaveBeenCalledWith('/(app)/journey');
