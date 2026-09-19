@@ -48,19 +48,50 @@ const WRITE = process.argv.includes("--write");
 
 interface SubscriberPayload {
   subscriber?: {
-    entitlements?: Record<string, { product_identifier?: string }>;
+    entitlements?: Record<
+      string,
+      { product_identifier?: string; expires_date?: string | null }
+    >;
     subscriptions?: Record<string, { is_sandbox?: boolean }>;
   };
 }
 
 /**
- * The environment for one app user id, or null when it cannot be established.
+ * A granted entitlement's product id, which RevenueCat prefixes.
+ *
+ * THE FIRST DRY RUN AGAINST PRODUCTION RETURNED FIVE PRODUCTIONS AND IT WAS
+ * USELESS. RevenueCat filtered to production shows India with TWO active
+ * subscriptions and $180; our database showed five active plus accounts, and
+ * asking "was this sandbox" truthfully answered no for all five.
+ *
+ * Three of them were never purchases. They are rc_promo_plus_three_month
+ * GRANTS, worth $0.00, two of them expiring twenty-three seconds apart because
+ * they were handed out in the same sitting. A grant made in the production
+ * environment IS production, so the question was wrong rather than the answer.
+ *
+ * "Is it sandbox" was only ever half the filter. The other half is "did anybody
+ * pay", and it is the same rule the ledger applies to new events in
+ * lib/subscriptionEventFacts.ts: production, not a trial, not promotional.
+ */
+const GRANT_PREFIX = "rc_promo";
+
+/**
+ * How this account came by its entitlement:
+ *
+ *   PRODUCTION  somebody bought it with money
+ *   SANDBOX     a TestFlight or App Review purchase
+ *   GRANTED     we gave it away, so it is not revenue however real it is
+ *   null        cannot be established, and is never guessed
  *
  * ANY SANDBOX SUBSCRIPTION MAKES THE ACCOUNT SANDBOX. A learner with one real
  * purchase and one TestFlight purchase is not somebody we want counted as
  * revenue, and the direction of that error matters: calling a real customer
  * sandbox loses a number we can recover by looking, while calling a tester real
  * puts a lie back on the dashboard this whole change exists to fix.
+ *
+ * A GRANT LOSES TO A PURCHASE, not the other way round. Somebody who was given
+ * three months and later bought a year is a real customer, so the purchase is
+ * what the row should say.
  */
 async function environmentFor(userId: string): Promise<string | null> {
   const res = await fetch(
@@ -85,8 +116,20 @@ async function environmentFor(userId: string): Promise<string | null> {
   const flags = Object.values(subs)
     .map((s) => s?.is_sandbox)
     .filter((v): v is boolean => typeof v === "boolean");
-  if (flags.length === 0) return null;
-  return flags.some((isSandbox) => isSandbox) ? "SANDBOX" : "PRODUCTION";
+
+  // A REAL SUBSCRIPTION WINS, whatever else the account also holds.
+  if (flags.length > 0) {
+    return flags.some((isSandbox) => isSandbox) ? "SANDBOX" : "PRODUCTION";
+  }
+
+  // No subscription object at all. If an entitlement is present and its product
+  // is a grant, that is the answer rather than a gap: we know exactly how this
+  // account got its access, and it was not by paying.
+  const entitlements = Object.values(body.subscriber?.entitlements ?? {});
+  const granted = entitlements.some((e) =>
+    (e?.product_identifier ?? "").startsWith(GRANT_PREFIX),
+  );
+  return granted ? "GRANTED" : null;
 }
 
 async function main(): Promise<number> {
@@ -123,12 +166,14 @@ async function main(): Promise<number> {
 
   let production = 0;
   let sandbox = 0;
+  let granted = 0;
   let unknown = 0;
 
   for (const row of rows) {
     const env = await environmentFor(row.id);
     if (env === "PRODUCTION") production++;
     else if (env === "SANDBOX") sandbox++;
+    else if (env === "GRANTED") granted++;
     else unknown++;
 
     console.log(
@@ -144,7 +189,10 @@ async function main(): Promise<number> {
   }
 
   console.log(
-    `\nproduction ${production}, sandbox ${sandbox}, unknown ${unknown}.`,
+    `\nproduction ${production}, sandbox ${sandbox}, granted ${granted}, unknown ${unknown}.`,
+  );
+  console.log(
+    "Only production is revenue. A grant is real access that nobody paid for.",
   );
   if (!WRITE) console.log("Re-run with --write to apply.");
   return 0;
