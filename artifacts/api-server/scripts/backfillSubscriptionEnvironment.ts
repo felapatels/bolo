@@ -13,11 +13,21 @@
  * v1 subscriber payload carries `is_sandbox` on each subscription, so the
  * answer can be asked for rather than guessed.
  *
- * RUN IT IN THE REPL SHELL, where REVENUECAT_SECRET_API_KEY and DATABASE_URL
- * both exist:
+ * RUN IT THROUGH tsx, NOT BARE node. @workspace/db's index does a directory
+ * import that only a TypeScript loader resolves, which is the same trap
+ * sync-schema was rewritten to avoid:
  *
- *   node artifacts/api-server/scripts/backfillSubscriptionEnvironment.ts
- *   node artifacts/api-server/scripts/backfillSubscriptionEnvironment.ts --write
+ *   pnpm --filter @workspace/api-server exec tsx scripts/backfillSubscriptionEnvironment.ts
+ *   pnpm --filter @workspace/api-server exec tsx scripts/backfillSubscriptionEnvironment.ts --write
+ *
+ * AND MIND WHICH DATABASE. The Repl Shell is DEVELOPMENT. The first run of this
+ * script dutifully reported on eight dev accounts, three of them fixtures named
+ * test_letter_match_plus, none of which has ever existed in RevenueCat. The
+ * accounts the owner is asking about live in PRODUCTION, so this has to run
+ * with a production DATABASE_URL in front of it, and that is the one moment it
+ * writes to production data:
+ *
+ *   DATABASE_URL="$PROD_DATABASE_URL" pnpm --filter @workspace/api-server exec tsx scripts/backfillSubscriptionEnvironment.ts
  *
  * WITHOUT --write IT CHANGES NOTHING and prints what it would do. That is the
  * default on purpose: this touches the column the paid number is about to be
@@ -57,7 +67,19 @@ async function environmentFor(userId: string): Promise<string | null> {
     `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,
     { headers: { Authorization: `Bearer ${KEY}` } },
   );
-  if (!res.ok) return null;
+  // A FAILED CALL IS NOT AN ANSWER, AND THE FIRST RUN PROVED WHY. Eight
+  // accounts came back UNKNOWN and the output could not tell a learner
+  // RevenueCat has never heard of from a 401 on the key, because both took the
+  // same silent path. A 404 is a real "no such subscriber"; anything else is
+  // this script failing and must say so out loud.
+  if (!res.ok) {
+    if (res.status !== 404) {
+      console.error(
+        `  RevenueCat answered ${res.status} for ${userId}. That is a failure of this script, not a verdict about the account.`,
+      );
+    }
+    return null;
+  }
   const body = (await res.json()) as SubscriberPayload;
   const subs = body.subscriber?.subscriptions ?? {};
   const flags = Object.values(subs)
@@ -87,6 +109,13 @@ async function main(): Promise<number> {
       and(ne(usersTable.tier, "free"), isNull(usersTable.subscriptionEnvironment)),
     );
 
+  // WHICH DATABASE, PRINTED EVERY TIME. The Repl Shell is the DEVELOPMENT
+  // database, and the first run of this script listed eight dev accounts
+  // (test_letter_match_plus and friends) that have never existed in
+  // RevenueCat. A backfill that reports on the wrong database looks exactly
+  // like a backfill that found nothing.
+  const host = (process.env.DATABASE_URL ?? "").replace(/^.*@/, "").replace(/\?.*$/, "");
+  console.log(`database: ${host || "unknown"}`);
   console.log(
     `${rows.length} non-free account(s) with no environment recorded.` +
       (WRITE ? " Writing." : " DRY RUN, nothing will change."),
