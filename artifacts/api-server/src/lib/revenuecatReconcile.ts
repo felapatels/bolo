@@ -42,9 +42,19 @@ export async function applyRevenueCatState(
     return false;
   }
 
+  // UNDEFINED KEEPS, NULL CLEARS. The reconcile path builds an apply from a
+  // subscriber payload that does not carry the environment, so it leaves the
+  // field absent; writing what it does not know would erase what a webhook
+  // already established. A webhook always sets it, to a value or to null.
+  const nextEnvironment =
+    apply.environment === undefined
+      ? (current?.subscriptionEnvironment ?? null)
+      : apply.environment;
+
   const unchanged =
     current != null &&
     current.tier === apply.tier &&
+    current.subscriptionEnvironment === nextEnvironment &&
     current.subscriptionStatus === apply.subscriptionStatus &&
     sameInstant(current.trialEndsAt, apply.trialEndsAt) &&
     sameInstant(current.currentPeriodEnd, apply.currentPeriodEnd) &&
@@ -60,6 +70,7 @@ export async function applyRevenueCatState(
       currentPeriodEnd: apply.currentPeriodEnd,
       subscriptionProvider: PROVIDER,
       subscriptionProviderId: apply.subscriptionProviderId,
+      subscriptionEnvironment: nextEnvironment,
     })
     .where(eq(usersTable.id, apply.userId));
   return true;

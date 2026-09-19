@@ -2628,7 +2628,18 @@ adb shell am start -a android.intent.action.VIEW -d "market://details?id=com.bol
 
     snap.innerHTML =
       tile(fmt(r.usersTotal), "Accounts", r.exclOwner ? "Your own accounts and the App Review tester already removed." : "Including your own accounts and the tester.", false, "accounts") +
-      tile(fmt(r.paidTotal), "Paid", "Who has access right now, which is not the same as who paid: a sandbox or TestFlight purchase reaches this number too. For money, read Revenue and Conversions.", r.paidTotal > 0, "paid") +
+      /* TWO NUMBERS, BECAUSE THEY ARE TWO QUESTIONS. "Paid" is access, which
+         is what the app gates on. "Real" is how many of those RevenueCat says
+         were bought with money. The gap is sandbox purchases and rows nobody
+         has established yet, and showing the gap is the point: a single number
+         that silently mixed them is what the owner stopped believing. */
+      tile(fmt(r.paidTotal), "Paid",
+           "Who has ACCESS right now. A sandbox or TestFlight purchase reaches this number too, so it is not a revenue figure." +
+           (r.paidUnknown ? " " + fmt(r.paidUnknown) + " of these have no environment recorded: run the backfill script." : ""),
+           r.paidTotal > 0, "paid") +
+      tile(fmt(r.paidProduction), "Real subscribers",
+           "Of the above, the ones RevenueCat confirms were real purchases. Unknown is never counted here.",
+           r.paidTotal > 0, "paid") +
       tile(fmt(r.freeTotal), "Free", "Everybody else. Paid plus free is always the account total.", false, "free") +
       tile(fmt(r.trialingTotal), "Trialing", "subscription_status is trialing.", false, "trialing") +
       /* THE DAILY GIFT. Both of these are snapshots and sit with the other

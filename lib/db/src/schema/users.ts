@@ -36,6 +36,25 @@ export const usersTable = pgTable("users", {
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   // Payment provider bookkeeping (e.g. "stripe", "revenuecat"). Not consulted
   // by gating.
+  /**
+   * SANDBOX or PRODUCTION for the subscription this row describes, or null
+   * where nobody has told us yet.
+   *
+   * WHY IT IS ON THE USER ROW and not only in subscription_events: the paid
+   * tile asks "how many people are subscribed RIGHT NOW", which is a question
+   * about state. Answering it from an event ledger means finding each learner's
+   * latest event on every read, and the tile is rendered on every glance.
+   *
+   * NULL IS NOT PRODUCTION. Every row that existed before 2026-09-18 has null
+   * here, because the webhooks that created them were read for entitlement and
+   * discarded. Those are UNKNOWN, and a count that quietly treats unknown as
+   * real money is the exact fault this column was added to end: the owner's
+   * words on seeing the old number were "none of these are actually paid".
+   *
+   * Backfilled for existing subscribers by scripts/backfillSubscriptionEnvironment.ts,
+   * which asks RevenueCat directly, because the original events are long gone.
+   */
+  subscriptionEnvironment: text("subscription_environment"),
   subscriptionProvider: text("subscription_provider"),
   subscriptionProviderId: text("subscription_provider_id"),
   // Subscription-management state (set by the account/subscription endpoints).

@@ -33,6 +33,15 @@ export interface RevenueCatApply {
   trialEndsAt: Date | null;
   currentPeriodEnd: Date | null;
   subscriptionProviderId: string | null;
+  /**
+   * SANDBOX or PRODUCTION, straight from the event, or null when the event did
+   * not carry it. Added 2026-09-18 with the subscription ledger.
+   *
+   * IT TRAVELS WITH THE STATE because the paid tile asks a question about
+   * state: how many people are subscribed right now, and how many of those are
+   * real. Null means UNKNOWN and must never be read as production.
+   */
+  environment?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +164,7 @@ export function applyFromEvent(
       trialEndsAt: null,
       currentPeriodEnd: expiresAt,
       subscriptionProviderId: providerId,
+      environment: event.environment ?? null,
     };
   }
 
@@ -177,6 +187,7 @@ export function applyFromEvent(
     trialEndsAt: isTrial ? expiresAt : null,
     currentPeriodEnd: expiresAt,
     subscriptionProviderId: providerId,
+    environment: event.environment ?? null,
   };
 }
 
@@ -201,6 +212,7 @@ export function downgradesFromTransfer(
       trialEndsAt: null,
       currentPeriodEnd: null,
       subscriptionProviderId: id,
+      environment: event.environment ?? null,
     }));
 }
 
@@ -311,6 +323,12 @@ export function applyFromSubscriber(
     now,
   );
 
+  // NO `environment` ON THIS PATH, deliberately, and undefined is not null.
+  // This builds an apply from a SUBSCRIBER fetched from RevenueCat's API
+  // rather than from a webhook event, and that payload carries the flag on
+  // each subscription rather than on the entitlement we read here. Writing
+  // null would ERASE an environment an earlier webhook already established;
+  // leaving the field absent tells applyRevenueCatState to keep what it has.
   // Prefer all-access when it's active, then the middle tier.
   if (plus?.active) {
     return {

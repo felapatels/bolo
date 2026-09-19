@@ -1474,6 +1474,10 @@ type NestRange = {
   // ── SNAPSHOT: the users table as it stands right now ──
   usersTotal: number;
   paidTotal: number;
+  /** Of paidTotal, the ones RevenueCat says are real purchases. */
+  paidProduction: number;
+  /** Of paidTotal, the ones nobody has established either way. */
+  paidUnknown: number;
   freeTotal: number;
   trialingTotal: number;
   /**
@@ -1661,6 +1665,19 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
         (select count(*) from users
           where tier <> 'free' and subscription_status = 'active'
           ${notOwner("id")})::int                                    as paid_total,
+        -- OF THOSE, THE ONES WE KNOW ARE REAL. subscription_environment is
+        -- written by the webhook from 2026-09-18 and backfilled for older rows
+        -- by scripts/backfillSubscriptionEnvironment.ts, which asks RevenueCat.
+        -- NULL IS NOT PRODUCTION: a row nobody has established reads as unknown,
+        -- because counting unknown as revenue is the fault this column ends.
+        (select count(*) from users
+          where tier <> 'free' and subscription_status = 'active'
+            and subscription_environment = 'PRODUCTION'
+          ${notOwner("id")})::int                                    as paid_production,
+        (select count(*) from users
+          where tier <> 'free' and subscription_status = 'active'
+            and subscription_environment is null
+          ${notOwner("id")})::int                                    as paid_unknown,
         (select count(*) from users
           -- IS NOT TRUE, never a bare NOT, and the test "paid plus free always
           -- equals the account total" exists for exactly this. subscription_status
@@ -1753,6 +1770,8 @@ router.get("/nest/range", async (req: Request, res: Response): Promise<void> => 
       stopUnlocks: n("stop_unlocks"),
       usersTotal: n("users_total"),
       paidTotal: n("paid_total"),
+      paidProduction: n("paid_production"),
+      paidUnknown: n("paid_unknown"),
       freeTotal: n("free_total"),
       trialingTotal: n("trialing_total"),
       revenueUsdCents: n("revenue_usd_cents"),
