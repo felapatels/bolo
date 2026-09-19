@@ -150,7 +150,12 @@ export function homeTicketScale(contentW: number): number {
 // row is still 60, but the stops row now seats the 46px engine (its 14 up and
 // 4 back, plus the row's 10 margin: 66), and the CTA row is a 38px pill under
 // a 14px margin with 2px of padding (54).
-export const HOME_STACK_BASE_H = 180;
+// 196 SINCE 2026-09-19 (owner, with a screenshot: "indias card is messed up.
+// ticket is too high"). Measured in the live app: the content box was 272px
+// and its content needed 289, so at a scale of 272/180 the real stack at scale
+// 1 is 191px, not 180. The overflow is centred, so it spilled UPWARD and put
+// the ticket on the nameplate. 196 fits it with about 2% to spare.
+export const HOME_STACK_BASE_H = 196;
 export function homeBoardScale(contentW: number, contentH: number): number {
   const byWidth = homeTicketScale(contentW);
   if (!(contentH > 0)) return byWidth;
@@ -1318,6 +1323,9 @@ export default function Home() {
                     ref={passContent.ref}
                     data-testid="home-pass-content"
                     className="flex h-full min-w-0 flex-col justify-center"
+                    // SAFE centring: if the face ever outgrows its box again it
+                    // runs off the BOTTOM, never up over the nameplate.
+                    style={{ justifyContent: "safe center" }}
                   >
                     {/* THE TOP LINE, with the ticket lying in the corner beside
                         it. The ticket used to be a full-height column down the

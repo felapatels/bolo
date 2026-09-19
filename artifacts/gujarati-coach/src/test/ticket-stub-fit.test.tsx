@@ -33,10 +33,11 @@ describe("the home board's face scales with the smaller of two budgets", () => {
     expect(homeBoardScale(5000, 0)).toBe(HOME_TICKET_MAX_SCALE);
   });
   it("height caps the factor where the two-column grid pinches the panel", () => {
-    // A 1024 viewport: 526px of content box, 183 tall. Width would allow
-    // 1.79; the stack only fits 183 / HOME_STACK_BASE_H.
-    expect(homeBoardScale(526, 183)).toBeCloseTo(183 / HOME_STACK_BASE_H, 6);
-    expect(homeBoardScale(526, 183)).toBeLessThan(homeTicketScale(526));
+    // 526px of content box, 290 tall. Width would allow 1.79; the stack only
+    // fits 290 / HOME_STACK_BASE_H. (Was 183 tall, which the 2026-09-19 raise
+    // of the base to 196 put under the floor of 1, where height no longer bites.)
+    expect(homeBoardScale(526, 290)).toBeCloseTo(290 / HOME_STACK_BASE_H, 6);
+    expect(homeBoardScale(526, 290)).toBeLessThan(homeTicketScale(526));
   });
   it("never shrinks below 1: a phone stays mobile's pass to the pixel", () => {
     expect(homeBoardScale(294, 100)).toBe(1);
