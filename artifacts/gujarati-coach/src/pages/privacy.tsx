@@ -1,7 +1,7 @@
 import { Link } from 'wouter';
 import { ArrowLeft } from 'lucide-react';
 
-const LAST_UPDATED = 'September 7, 2026';
+const LAST_UPDATED = 'September 19, 2026';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -89,6 +89,11 @@ export default function Privacy() {
             </li>
             <li>
               To operate, maintain, and improve the app's core learning features.
+            </li>
+            <li>
+              Only if you choose to, to email you Bolo news, new languages and offers.
+              This is off unless you tick the box when you sign up or turn it on in
+              Account, and you can turn it off at any time.
             </li>
           </ul>
         </Section>
@@ -188,6 +193,12 @@ export default function Privacy() {
               See <span className="font-bold text-foreground">Deleting your
               account</span> below for exactly where the button is and what it removes.
               For a copy of your data, use the contact form linked below.
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Marketing emails.</span>{' '}
+              Optional and off by default. If you opted in, you can stop them at any
+              time with the switch in Account or the unsubscribe link in any of those
+              emails. Account and security emails are not marketing and are not affected.
             </li>
           </ul>
         </Section>

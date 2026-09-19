@@ -1,10 +1,19 @@
 import { AiConsentBoundary } from '@/components/ai-consent-gate';
 import { ClerkProvider, SignIn, SignUp, Show, useUser } from '@clerk/react';
-import { lazy, Suspense, useEffect, type ComponentType } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ComponentType } from 'react';
 // Type only, so the bazaar's page stays a lazy chunk.
 import type { ShopDoor } from '@/pages/bazaar';
 import { identifyUser, trackOnce, currentAcquisition, ANALYTICS_EVENTS } from './lib/analytics';
 import { setSentryUser } from './lib/sentry';
+import {
+  MARKETING_CONSENT_TEXT,
+  marketingEmailsRecord,
+  parkMarketingChoice,
+  readMarketingEmails,
+  shouldApplyParkedChoice,
+  takeParkedMarketingChoice,
+} from './lib/marketingConsent';
+import { Checkbox } from '@/components/ui/checkbox';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import {
@@ -331,14 +340,40 @@ function SignInPage() {
 
 function SignUpPage() {
   const redirectUrl = useAuthRedirectUrl();
+  // Optional marketing email consent, unticked by default, under the form
+  // (owner, 2026-09-19). A tick made before Continue rides on Clerk's form as
+  // unsafeMetadata; a tick made after it (while typing the email code, or on
+  // the way back from Google or Apple) is parked in this tab and written to
+  // the new account by MarketingConsentSync once sign-up finishes.
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const record = useMemo(() => marketingEmailsRecord(marketingOptIn, 'web-signup'), [marketingOptIn]);
+  const unsafeMetadata = useMemo(() => ({ marketingEmails: record }), [record]);
+  const handleChange = (next: boolean) => {
+    setMarketingOptIn(next);
+    parkMarketingChoice(marketingEmailsRecord(next, 'web-signup'));
+  };
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+    <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-background px-4 py-6">
       <SignUp
         routing="path"
         path={`${basePath}/sign-up`}
         signInUrl={`${basePath}/sign-in`}
         forceRedirectUrl={redirectUrl}
+        unsafeMetadata={unsafeMetadata}
       />
+      <label
+        htmlFor="marketing-consent"
+        className="flex w-full max-w-[400px] cursor-pointer items-start gap-3 rounded-2xl border border-card-border bg-card p-4 text-sm font-medium text-foreground shadow-sm"
+      >
+        <Checkbox
+          id="marketing-consent"
+          data-testid="marketing-consent"
+          checked={marketingOptIn}
+          onCheckedChange={(v) => handleChange(v === true)}
+          className="mt-0.5"
+        />
+        <span>{MARKETING_CONSENT_TEXT}</span>
+      </label>
     </div>
   );
 }
@@ -736,6 +771,24 @@ function AnalyticsIdentitySync() {
   return null;
 }
 
+// Writes a marketing choice parked on the sign-up page onto the brand-new
+// account, when the form itself could not carry it (see SignUpPage).
+function MarketingConsentSync() {
+  const { user, isLoaded } = useUser();
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    const parked = takeParkedMarketingChoice();
+    if (!shouldApplyParkedChoice(parked, readMarketingEmails(user.unsafeMetadata), user.createdAt)) return;
+    void user
+      .update({ unsafeMetadata: { ...(user.unsafeMetadata ?? {}), marketingEmails: parked } })
+      .catch(() => {
+        // Put it back so the next load retries rather than losing the tick.
+        if (parked) parkMarketingChoice(parked);
+      });
+  }, [isLoaded, user?.id]);
+  return null;
+}
+
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
 
@@ -767,6 +820,7 @@ function ClerkProviderWithRoutes() {
           and its children render, closing the startup race. Must be first. */}
       <ClerkAuthSync />
       <AnalyticsIdentitySync />
+      <MarketingConsentSync />
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <LanguageProvider>

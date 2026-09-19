@@ -32,6 +32,7 @@ import {
   Star,
 } from "lucide-react";
 import { useUser, useClerk } from "@clerk/react";
+import { hasMarketingConsent, marketingEmailsRecord } from "@/lib/marketingConsent";
 import { track, ANALYTICS_EVENTS } from "@/lib/analytics";
 import { detectShortcutPlatform } from "@/lib/platform";
 import { rateLinkFor } from "@/lib/rate-link";
@@ -623,6 +624,10 @@ export default function Account() {
           subtitle="The notes he keeps about you, and how to clear them"
         >
           <BoloMemories />
+        </Section>
+
+        <Section icon={Mail} title="Email" subtitle="Bolo news and offers">
+          <MarketingEmailsSetting />
         </Section>
 
         <AiConsentSettings />
@@ -1278,5 +1283,53 @@ function Section({
       </div>
       <div className="space-y-4">{children}</div>
     </section>
+  );
+}
+
+
+// Marketing emails: the same choice as the sign-up checkbox, changeable any
+// time, because withdrawing consent has to be as easy as giving it.
+function MarketingEmailsSetting() {
+  const { user } = useUser();
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const optedIn = hasMarketingConsent(user?.unsafeMetadata);
+  const handleChange = async (next: boolean) => {
+    if (!user) return;
+    setSaving(true);
+    setFailed(false);
+    try {
+      await user.update({
+        unsafeMetadata: { ...(user.unsafeMetadata ?? {}), marketingEmails: marketingEmailsRecord(next, "web-account") },
+      });
+    } catch {
+      setFailed(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start gap-3 py-1">
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <Mail className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-foreground">Bolo news by email</p>
+          <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+            New languages and offers. Off unless you turn it on.
+          </p>
+          {failed && (
+            <p className="mt-1 text-xs font-semibold text-destructive">Couldn't save that. Try again.</p>
+          )}
+        </div>
+        <Switch
+          data-testid="marketing-emails-switch"
+          checked={optedIn}
+          disabled={saving || !user}
+          onCheckedChange={handleChange}
+        />
+      </div>
+    </div>
   );
 }
